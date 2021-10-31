@@ -1,0 +1,9 @@
+{
+    "require": {
+        "monolog/monolog": "^2.3",
+        "symfony/http-client": "^5.3",
+        "nyholm/psr7": "^1.4",
+        "jolicode/slack-php-api": "^4.3",
+        "sabre/vobject": "^4.3"
+    }
+}
