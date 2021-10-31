@@ -47,7 +47,7 @@ class Agenda {
                 continue;
             }
             
-            $vcal = \Sabre\VObject\Reader::read(file_get_contents($file));
+            $vcal = \Sabre\VObject\Reader::read(file_get_contents_safe($file));
             $startDate = $vcal->VEVENT->DTSTART->getDateTime();
                 
             if($startDate < new DateTime('NOW')) {
@@ -65,7 +65,7 @@ class Agenda {
         
         // check if we need to update events from the server
         if(is_file('./data/ctag')) {
-            $local_ctag = file_get_contents('./data/ctag');
+            $local_ctag = file_get_contents_safe('./data/ctag');
             $this->log->debug("ctags", ["remote" => $remote_ctag, "local" => $local_ctag]);
             // remote and local ctag are equal, there is no need to update the agenda
             if($remote_ctag == $local_ctag) {
@@ -81,7 +81,7 @@ class Agenda {
         if(is_file("./data/ctag")) {
             unlink("./data/ctag");
         }
-        file_put_contents("./data/ctag", $remote_ctag);
+        file_put_contents_safe("./data/ctag", $remote_ctag);
     }
 
     // 
@@ -90,7 +90,7 @@ class Agenda {
         foreach($etags as $url => $remote_etag) {
             $tmp = explode("/", $url);
             if(is_file("./data/".end($tmp)) and is_file("./data/".end($tmp) . ".etag")) {
-                $local_etag = file_get_contents("./data/" . end($tmp) . ".etag");
+                $local_etag = file_get_contents_safe("./data/" . end($tmp) . ".etag");
                 $this->log->debug(end($tmp), ["remote_etag"=>$remote_etag, "local_etag" => $local_etag]);
                 
                 if($local_etag != $remote_etag) {
@@ -208,8 +208,8 @@ class Agenda {
                     continue;
                 }
                 
-                file_put_contents("./data/" . $filename, $event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data']);
-                file_put_contents("./data/" . $filename . ".etag", trim($event['value']['propstat']['prop']['getetag'], '"'));
+                file_put_contents_safe("./data/" . $filename, $event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data']);
+                file_put_contents_safe("./data/" . $filename . ".etag", trim($event['value']['propstat']['prop']['getetag'], '"'));
             }
         }
     }

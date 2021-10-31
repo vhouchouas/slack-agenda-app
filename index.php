@@ -10,6 +10,7 @@ use JoliCode\Slack\ClientFactory;
 use JoliCode\Slack\Exception\SlackErrorResponse;
 require "agenda.php";
 require "security.php";
+require "utils.php";
 
 $log = new Logger('SlackApp');
 $log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
@@ -22,7 +23,7 @@ if(!file_exists('credentials.json')) {
     exit();
 }
 
-$credentials_file_content = file_get_contents('./credentials.json');
+$credentials_file_content = file_get_contents_safe('./credentials.json');
 $credentials = json_decode($credentials_file_content);
 
 if(is_null($credentials)) {
