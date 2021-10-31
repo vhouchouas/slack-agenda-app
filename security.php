@@ -1,7 +1,7 @@
 <?php
 
 // check that the request is legit (comming from Slack), see: https://api.slack.com/authentication/verifying-requests-from-slack
-function security_check(&$header, &$request_body, &$credentials, &$log) {
+function security_check($header, $request_body, $credentials, $log) {
     if(!isset($header["HTTP_X_SLACK_REQUEST_TIMESTAMP"]) || !isset($header["HTTP_X_SLACK_SIGNATURE"])) {
         $log->error("Not Slack a request");
         return false;
