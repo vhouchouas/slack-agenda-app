@@ -18,7 +18,8 @@ $log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
 // Checking credentials
 // 
 if(!file_exists('credentials.json')) {
-    $log->error('credentials.json not found');    
+    $log->error('credentials.json not found');
+    exit();
 }
 
 $credentials_file_content = file_get_contents('./credentials.json');
