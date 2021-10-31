@@ -2,13 +2,13 @@
 
 // check that the request is legit (comming from Slack), see: https://api.slack.com/authentication/verifying-requests-from-slack
 function security_check(&$header, &$request_body, &$credentials, &$log) {
-    if(!isset($header["X-Slack-Request-Timestamp"]) || !isset($header["X-Slack-Signature"])) {
+    if(!isset($header["HTTP_X_SLACK_REQUEST_TIMESTAMP"]) || !isset($header["HTTP_X_SLACK_SIGNATURE"])) {
         $log->error("Not Slack a request");
         return false;
     }
     
-    $timestamp = $header["X-Slack-Request-Timestamp"];
-    list($version, $HMAC_request) = explode("=", $header["X-Slack-Signature"]);
+    $timestamp = $header["HTTP_X_SLACK_REQUEST_TIMESTAMP"];
+    list($version, $HMAC_request) = explode("=", $header["HTTP_X_SLACK_SIGNATURE"]);
     
     if(abs(time() - $timestamp) > 60 * 5){ // request is more than 5 minutes old
         $log->error("Security issue, request seems to be too old or is not legit.");

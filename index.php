@@ -46,11 +46,9 @@ if(
 //
 // Extract request parts + HMAC check
 //
-
-$header = apache_request_headers();
 $request_body = file_get_contents('php://input');
 
-if(!security_check($header, $request_body, $credentials, $log)) {
+if(!security_check($_SERVER, $request_body, $credentials, $log)) {
     exit();
 }
 
