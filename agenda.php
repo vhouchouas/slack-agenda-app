@@ -12,11 +12,10 @@ class Agenda {
     protected $url;
     protected $username;
     protected $password;
-    //protected $timezone = new DateTime('NOW');
     
     public function __construct($url, $username, $password) {
         $this->log = new Logger('Agenda');
-        //$this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
+        $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
         $this->log->pushHandler(new StreamHandler('php://stdout', Logger::DEBUG));
 
         $this->url = $url;
@@ -26,9 +25,15 @@ class Agenda {
     }
 
     // init cURL request
-    protected function init_curl_request() {
-        $ch = curl_init();   
-        curl_setopt($ch, CURLOPT_URL, $this->url);
+    protected function init_curl_request($url = NULL) {
+        $ch = curl_init();
+        
+        if(is_null($url)) {
+            curl_setopt($ch, CURLOPT_URL, $this->url);
+        } else {
+            curl_setopt($ch, CURLOPT_URL, $url);
+        }
+        
         curl_setopt($ch, CURLOPT_USERPWD, $this->username . ":" . $this->password);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         return $ch;
@@ -37,6 +42,7 @@ class Agenda {
     function getEvents() {
         $events = [];
         $it = new RecursiveDirectoryIterator("./data/");
+        
         foreach(new RecursiveIteratorIterator($it) as $file) {
             if(
                 strpos($file, '.etag') > 0 ||
@@ -45,16 +51,15 @@ class Agenda {
                 strcmp($file, "./data/..") == 0 ||
                 strcmp($file, "..") == 0 ) {
                 continue;
-            }
-            
+            }            
             $vcal = \Sabre\VObject\Reader::read(file_get_contents_safe($file));
             $startDate = $vcal->VEVENT->DTSTART->getDateTime();
-                
+            
             if($startDate < new DateTime('NOW')) {
                 $this->log->debug("Event is in the past, skiping");
                 continue;
             }
-            $events[] = $vcal;
+            $events[basename($file)] = $vcal;
         }
         return $events;
     }
@@ -95,7 +100,7 @@ class Agenda {
                 
                 if($local_etag != $remote_etag) {
                     // local and remote etag differs, need update
-                    $url_to_update[$url] = $etag;
+                    $url_to_update[] = $url;
                 }
             } else {
                 $url_to_update[] = $url;
@@ -259,6 +264,8 @@ class Agenda {
         $data = [];
         foreach($service->parse($output) as $event) {
             $data[$event['value']['href']] = trim($event['value']['propstat']['prop']['getetag'], '"');
+            $this->log->debug("etag",[
+                "etag" => $event['value']['href'], "url" => $data[$event['value']['href']]]);;
         }
         return $data;
     }
@@ -307,6 +314,89 @@ class Agenda {
         }
         
         return NULL;
+    }
+    
+    //if add is true, then add $usermail to the event, otherwise, remove it.
+    function updateAttendee($url, $usermail, $add, $attendee_CN=NULL) {
+        $raw = file_get_contents_safe('./data/' . $url);
+        $etag = file_get_contents_safe('./data/' . $url . '.etag');
+        
+        $vcal = \Sabre\VObject\Reader::read($raw);
+        
+        if($add) {
+            $already_in = false;
+            if(isset($vcal->VEVENT->ATTENDEE)) {
+                foreach($vcal->VEVENT->ATTENDEE as $attendee) {
+                    if(strpos((string)$attendee, $usermail) >= 0) {
+                        $already_in = true;
+                        break;
+                    }
+                }
+            }
+            if($already_in) {
+                $this->log->info("Try to add a already registered attendee");
+                return;
+            }
+            
+            /*$vcal->VEVENT->add(
+              'ATTENDEE',
+              'mailto:' . $usermail,
+              [
+              'RSVP' => 'TRUE',
+              'CN'   => (is_null($attendee_CN)) ? 'Bénévole' : $attendee_CN, //@TODO
+              ]
+              );*/
+            $vcal->VEVENT->add('ATTENDEE', 'mailto:' . $usermail);
+        } else {
+            $already_out = true;
+            throw new NotImplementedException();
+            if($already_out) {
+                $this->log->info("Try to remove an unregistered email");
+                return;
+            }
+        }
+        
+        $new_etag = $this->updateEvent($url, $etag, $vcal->serialize());
+        
+        $this->log->debug($vcal->serialize());
+        if(is_null($new_etag)) {
+            $this->log->info("The server did not answer a new etag after an event update, need to update the local calendar");
+            $this->updateEvents(array($this->url . '/' . $url));
+        } else {
+            file_put_contents_safe("./data/" . $url, $vcal->serialize());
+            file_put_contents_safe("./data/" . $url . ".etag", $new_etag);
+        }
+    }
+
+    protected function updateEvent($url, $etag, $data) {
+        $ch = $this->init_curl_request($this->url . '/' . $url);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+
+        curl_setopt($ch, CURLOPT_HEADER  , true);
+        curl_setopt($ch, CURLOPT_NOBODY  , false);
+        
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'Content-Type: text/calendar; charset=utf-8',
+            'If-Match: "' . $etag . '"'
+        ));
+        
+        curl_setopt($ch, CURLOPT_POSTFIELDS,$data);        
+        $output = curl_exec($ch);
+        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        
+        if($httpcode != 204) {
+            $this->log->error("Bad response http code", ["code"=>$httpcode, "output"=>$output]);
+            return NULL;
+        }
+        $this->log->debug("event $url updated", ["code"=>$httpcode, "output"=>$output]);
+        curl_close($ch);
+        // @TODO need to determine etag from header
+        
+        return NULL;
+    }
+
+    function getEvent($url) {
+        return \Sabre\VObject\Reader::read(file_get_contents_safe('./data/' . $url));
     }
     
     protected function clearEvents() {
