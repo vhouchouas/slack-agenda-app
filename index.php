@@ -14,6 +14,7 @@ require "agenda.php";
 require "security.php";
 require "utils.php";
 require "slackAPI.php";
+require "slackEvents.php";
 
 $log = new Logger('SlackApp');
 $log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
@@ -61,11 +62,28 @@ $log->debug("HMAC check Ok");
 //
 // Analyzing request
 //
+$json = NULL;
+if(isset($_SERVER['CONTENT_TYPE']) &&
+   $_SERVER['CONTENT_TYPE'] == 'application/x-www-form-urlencoded' &&
+   strpos($request_body, "payload") >= 0) {
+    $params = [];
+    foreach (explode('&', $request_body) as $chunk) {
+        $param = explode("=", $chunk);
 
-// decode body as json
-$json = json_decode($request_body);
+        if ($param) {
+            $params[urldecode($param[0])] = json_decode(urldecode($param[1]));
+        }
+    }
+    
+    if(isset($params['payload']) && !is_null($params['payload'])) {
+        $json = $params['payload'];
+    }
+} elseif (
+    isset($_SERVER['CONTENT_TYPE']) &&
+    $_SERVER['CONTENT_TYPE'] == 'application/json') {
+    $json = json_decode($request_body);
+}
 
-// requests are always json formated
 if(is_null($json)) {
     $log->error('Request is not json formated');
     exit();
@@ -83,68 +101,29 @@ if(property_exists($json, 'type') and
     exit();
 }
 
-// properties that must exists
-if(!property_exists($json, 'event') || !property_exists($json->event, 'type')) {
-    fwrite($h, "Not exiting");
-    exit();    
-}
-
-$event_type = $json->event->type;
-
-// Retrieving events
+$api = new SlackAPI($credentials->slack_bot_token, $log);
 $agenda = new Agenda($credentials->caldav_url, $credentials->caldav_username, $credentials->caldav_password);
-$events = $agenda->getEvents();
+$slack_events = new SlackEvents($agenda, $api, $log);
 
-// @see: https://api.slack.com/events/app_home_opened
-if($event_type == "app_home_opened") {
-    $log->info('event: app_home_opened received');
-    $log->debug('event: app_home_opened received', ["body" => $json]);
-    $user_id = $json->event->user;
-
-    $blocks = [];
-    foreach($events as $event) {
-        
-        $attendees = [];
-        if(isset($event->VEVENT->ATTENDEE)) {
-            foreach($event->VEVENT->ATTENDEE as $attendee) {
-                $attendees[] = ["cn"=>$attendee['CN']->getValue(), "mail"=>str_replace("mailto:", "", (string)$attendee)];
-            }
-        }
-        
-        $categories = [];
-        if(isset($event->VEVENT->CATEGORIES)) {
-            foreach($event->VEVENT->CATEGORIES as $category) {
-                $categories[] = (string)$category;
-            }
-        }
-        
-        $log->debug("event", [
-            "SUMMARY" => (string)$event->VEVENT->SUMMARY,
-            "DTSTART" => $event->VEVENT->DTSTART->getDateTime(),
-            "DTEND" => $event->VEVENT->DTEND->getDateTime(),
-            "ATTENDEE" => $attendees,
-            "CATEGORIES" => $categories,
-            "LOCATION" => (string)$event->VEVENT->LOCATION
-        ]);
-        
-        $blocks[] = [
-            'type' => 'section', 
-            'text' => [ 
-                'type' => 'mrkdwn', 
-                'text' => (string)$event->VEVENT->SUMMARY, 
-            ],
-            
-        ];
+if(property_exists($json, 'event') && property_exists($json->event, 'type')) {
+    $event_type = $json->event->type;
+    $log->info('event: ' . $event_type);
+    
+    // @see: https://api.slack.com/events/app_home_opened    
+    if($event_type == "app_home_opened") {
+        $slack_events->app_home_page($json->event->user, $json);
     }
+} else if(property_exists($json, 'actions')) {
+    //$log->debug("actions", [$json]);
     
-    $data = [
-        'user_id' => $user_id,
-        'view' => json_encode([
-            'type' => 'home',
-            'blocks' => $blocks
-        ])
-    ];
-    
+    foreach ($json->actions as $action) {
+        $log->debug($action->action_id . ': event ' . $action->block_id . ' for user ' . $json->user->id);
+        if($action->action_id == 'getin') {
+            $slack_events->register($action->block_id, $json->user->id, true, $json);
+        } else if($action->action_id == 'getout') {
+            $slack_events->register($action->block_id, $json->user->id, false, $json);
+        } else if($action->action_id == 'more') {
+            $slack_events->more($action->block_id, $json);
+        }
+    }
 }
-
-// to be continued...
