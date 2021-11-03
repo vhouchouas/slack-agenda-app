@@ -1,4 +1,7 @@
 <?php
+ini_set("log_errors", 1);
+ini_set("error_log", "php-error.log");
+
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 
@@ -6,11 +9,11 @@ require __DIR__ . '/vendor/autoload.php';
 
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
-use JoliCode\Slack\ClientFactory;
-use JoliCode\Slack\Exception\SlackErrorResponse;
+
 require "agenda.php";
 require "security.php";
 require "utils.php";
+require "slackAPI.php";
 
 $log = new Logger('SlackApp');
 $log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
@@ -88,9 +91,6 @@ if(!property_exists($json, 'event') || !property_exists($json->event, 'type')) {
 
 $event_type = $json->event->type;
 
-// Init, Slack API client
-$client = JoliCode\Slack\ClientFactory::create($credentials->slack_bot_token);
-
 // Retrieving events
 $agenda = new Agenda($credentials->caldav_url, $credentials->caldav_username, $credentials->caldav_password);
 $events = $agenda->getEvents();
@@ -145,8 +145,6 @@ if($event_type == "app_home_opened") {
         ])
     ];
     
-    $response = $client->viewsPublish($data);
-    $log->debug("Client info", ["response"=>$response]);
 }
 
 // to be continued...
