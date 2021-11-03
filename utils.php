@@ -16,7 +16,7 @@ function file_get_contents_safe($filename) {
 }
 
 function file_put_contents_safe($filename, $data) {
-    $fp = fopen($filename, "w+");
+    $fp = fopen($filename, "w");
 
     flock($fp, LOCK_EX);
     fwrite($fp, $data);

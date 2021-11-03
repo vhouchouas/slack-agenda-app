@@ -78,9 +78,6 @@ class Agenda {
         $etags = $this->getetags();
         $this->updateInternalState($etags);
 
-        if(is_file("./data/ctag")) {
-            unlink("./data/ctag");
-        }
         file_put_contents_safe("./data/ctag", $remote_ctag);
     }
 
