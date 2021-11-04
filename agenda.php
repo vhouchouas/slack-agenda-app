@@ -38,12 +38,7 @@ class Agenda {
         $events = [];
         $it = new RecursiveDirectoryIterator("./data/");
         foreach(new RecursiveIteratorIterator($it) as $file) {
-            if(
-                strpos($file, '.etag') > 0 ||
-                strcmp($file, "./data/ctag") == 0 ||
-                strcmp($file, "./data/.") == 0 ||
-                strcmp($file, "./data/..") == 0 ||
-                strcmp($file, "..") == 0 ) {
+            if($this->isNonEventFile($file)) {
                 continue;
             }
             
@@ -78,9 +73,6 @@ class Agenda {
         $etags = $this->getetags();
         $this->updateInternalState($etags);
 
-        if(is_file("./data/ctag")) {
-            unlink("./data/ctag");
-        }
         file_put_contents_safe("./data/ctag", $remote_ctag);
     }
 
@@ -118,12 +110,7 @@ class Agenda {
         
         $it = new RecursiveDirectoryIterator("./data/");
         foreach(new RecursiveIteratorIterator($it) as $file) {
-            if(
-                strpos($file, '.etag') > 0 ||
-                strcmp($file, "./data/ctag") == 0 ||
-                strcmp($file, "./data/.") == 0 ||
-                strcmp($file, "./data/..") == 0 ||
-                strcmp($file, "..") == 0 ) {
+            if($this->isNonEventFile($file)) {
                 continue;
             }
             
@@ -141,6 +128,14 @@ class Agenda {
                 }
             }
         }
+    }
+
+    private function isNonEventFile($filename){
+      return strpos($file, '.etag') > 0 ||
+        strcmp($file, "./data/ctag") == 0 ||
+        strcmp($file, "./data/.") == 0 ||
+        strcmp($file, "./data/..") == 0 ||
+        strcmp($file, "..") == 0 ;
     }
     
     // url that need to be updated

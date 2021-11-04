@@ -7,7 +7,7 @@ function file_get_contents_safe($filename) {
     }
     $fp = fopen($filename, "r");
 
-    flock($fp, LOCK_EX);
+    flock($fp, LOCK_SH);
 
     $contents = fread($fp, filesize($filename));
     flock($fp, LOCK_UN);
@@ -16,7 +16,7 @@ function file_get_contents_safe($filename) {
 }
 
 function file_put_contents_safe($filename, $data) {
-    $fp = fopen($filename, "w+");
+    $fp = fopen($filename, "w");
 
     flock($fp, LOCK_EX);
     fwrite($fp, $data);
