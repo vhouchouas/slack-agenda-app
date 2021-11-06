@@ -385,18 +385,32 @@ class Agenda {
             'If-Match: "' . $etag . '"'
         ));
         
-        curl_setopt($ch, CURLOPT_POSTFIELDS,$data);        
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         $output = curl_exec($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
         
         if($httpcode != 204) {
             $this->log->error("Bad response http code", ["code"=>$httpcode, "output"=>$output]);
             return NULL;
         }
-        $this->log->debug("event $url updated", ["code"=>$httpcode, "output"=>$output]);
-        curl_close($ch);
-        // @TODO need to determine etag from header
         
+        $output = rtrim($output);
+        $data = explode("\n",$output);
+        array_shift($data); //for ... HTTP/1.1 204 No Content
+        
+        foreach($data as $part) {
+            if(strpos($part, "ETag") == false) {
+                continue;
+            }
+            
+            $ETag_header = explode(":",$part,2);
+            if (isset($ETag_header[1])) {
+                return trim($ETag_header[1], ' "');
+            } else {
+                return NULL;
+            }
+        }
         return NULL;
     }
 
