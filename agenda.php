@@ -324,18 +324,13 @@ class Agenda {
         $vcal = \Sabre\VObject\Reader::read($raw);
         
         if($add) {
-            $already_in = false;
             if(isset($vcal->VEVENT->ATTENDEE)) {
                 foreach($vcal->VEVENT->ATTENDEE as $attendee) {
                     if(strpos((string)$attendee, $usermail) >= 0) {
-                        $already_in = true;
-                        break;
+                        $this->log->info("Try to add a already registered attendee");
+                        return;
                     }
                 }
-            }
-            if($already_in) {
-                $this->log->info("Try to add a already registered attendee");
-                return;
             }
             
             /*$vcal->VEVENT->add(
