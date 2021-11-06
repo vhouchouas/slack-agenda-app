@@ -344,7 +344,17 @@ class Agenda {
             $vcal->VEVENT->add('ATTENDEE', 'mailto:' . $usermail);
         } else {
             $already_out = true;
-            throw new NotImplementedException();
+            
+            if(isset($vcal->VEVENT->ATTENDEE)) {
+                foreach($vcal->VEVENT->ATTENDEE as $attendee) {
+                    if(strpos((string)$attendee, $usermail) >= 0) {
+                        $vcal->VEVENT->remove($attendee);
+                        $already_out = false;
+                        break;
+                    }
+                }
+            }
+            
             if($already_out) {
                 $this->log->info("Try to remove an unregistered email");
                 return;
