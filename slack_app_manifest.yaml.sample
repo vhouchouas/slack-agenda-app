@@ -17,6 +17,7 @@ oauth_config:
       - users:read
       - identify
       - reminders:write
+      - reminders:read
     bot:
       - chat:write
       - users.profile:read
