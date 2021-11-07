@@ -56,6 +56,11 @@ class Agenda {
             }
             $events[basename($file)] = $vcal;
         }
+
+        uasort($events, function ($v1, $v2) {
+            return $v1->VEVENT->DTSTART->getDateTime() > $v2->VEVENT->DTSTART->getDateTime();
+        });
+        
         return $events;
     }
     
