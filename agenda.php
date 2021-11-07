@@ -38,8 +38,93 @@ class Agenda {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         return $ch;
     }
-
-    function getEvents() {
+    
+    function getUserEventsFiltered($userid, $api, $filters_to_apply = array()) {
+        $parsed_events = array();
+        
+        foreach($this->getAllEvents() as $filename => $event) {
+            
+            $parsed_event = array();
+            $parsed_event["vcal"] = $event;
+            $parsed_event["is_registered"] = false;
+            $parsed_event["attendees"] = array();
+            $parsed_event["categories"] = array();
+            
+            if(isset($event->VEVENT->ATTENDEE)) {
+                foreach($event->VEVENT->ATTENDEE as $attendee) {
+                    $a = [
+                        //"cn" => $attendee['CN']->getValue(),
+                        "mail" => str_replace("mailto:", "", (string)$attendee)
+                    ];
+                    
+                    $a["userid"] = $api->users_lookupByEmail($a["mail"])->id;
+                    
+                    $parsed_event["attendees"][] = $a;
+                    if($a["userid"] == $userid) {
+                        $parsed_event["is_registered"] = true;
+                    }
+                }
+            }
+            
+            $parsed_event["categories"] = array(
+                "level"=>NAN,
+                "participant_number" => NAN
+            );
+            
+            if(isset($event->VEVENT->CATEGORIES)) {
+                foreach($event->VEVENT->CATEGORIES as $category) {
+                    //preg_match_all(slackEvents::$regex_number_attendee, $category, $matches_number_attendee, PREG_SET_ORDER, 0);
+                    //preg_match_all(slackEvents::$regex_level, $category, $matches_level, PREG_SET_ORDER, 0);
+                    
+                    if(is_nan($parsed_event["categories"]["level"]) and
+                       !is_nan($parsed_event["categories"]["level"] = is_level_category((string)$category))) {
+                        continue;
+                    }
+                    
+                    if(is_nan($parsed_event["categories"]["participant_number"]) and
+                       !is_nan($parsed_event["categories"]["participant_number"] = is_number_of_attendee_category((string)$category))) {
+                        continue;
+                    }
+                    //$filters[] = (string)$category;
+                    $parsed_event["categories"][] = (string)$category;
+                }
+            }
+            
+            $parsed_event["keep"] = true;
+            
+            if(count($filters_to_apply) >= 0) {
+                foreach($filters_to_apply as $filter) {
+                    if($filter === "my_events") {
+                        if(!$parsed_event["is_registered"]) {
+                            $parsed_event["keep"] = false;
+                            break;
+                        }
+                    } else if(!is_nan(is_level_category($filter))) {
+                        if($filter !== "E{$parsed_event["categories"]["level"]}") {
+                            $parsed_event["keep"] = false;
+                            break;
+                        }
+                    } else if($filter === "need_volunteers") {
+                        if(is_nan($parsed_event["categories"]["participant_number"]) or
+                           count($parsed_event["attendees"]) >= $parsed_event["categories"]["participant_number"]) {
+                            $parsed_event["keep"] = false;
+                            break;
+                        }
+                    } else if(!in_array($filter, $parsed_event["categories"])) {
+                        $parsed_event["keep"] = false;
+                        break;
+                    }
+                }            
+                //if($parsed_event["keep"] == false) {
+                //return $parsed_event; // no need to process render
+                //}
+            }
+            $parsed_events[$filename] = $parsed_event;
+        }
+        return $parsed_events;
+    }
+    
+    function getAllEvents() {
         $events = [];
         $it = new RecursiveDirectoryIterator("./data/");
         

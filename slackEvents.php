@@ -23,103 +23,30 @@ class SlackEvents {
         $this->api = $api;
     }
 
-    protected function parse_and_render($event, $userid, $description=false, $filters_to_apply = array(), &$filters = array()) {
-        
-        $return = array();
-        $return["is_registered"] = false;
-        $return["attendees"] = array();
-        
-        if(isset($event->VEVENT->ATTENDEE)) {
-            foreach($event->VEVENT->ATTENDEE as $attendee) {
-                $a = [
-                    //"cn" => $attendee['CN']->getValue(),
-                    "mail" => str_replace("mailto:", "", (string)$attendee)
-                ];
-                
-                $a["userid"] = $this->api->users_lookupByEmail($a["mail"])->id;
-                
-                $return["attendees"][] = $a;
-                if($a["userid"] == $userid) {
-                    $return["is_registered"] = true;
-                }
-            }
-        }
-
-        $return["categories"] = array(
-            "level"=>NAN,
-            "participant_number" => NAN
-        );
-        if(isset($event->VEVENT->CATEGORIES)) {
-            foreach($event->VEVENT->CATEGORIES as $category) {
-                //preg_match_all(slackEvents::$regex_number_attendee, $category, $matches_number_attendee, PREG_SET_ORDER, 0);
-                //preg_match_all(slackEvents::$regex_level, $category, $matches_level, PREG_SET_ORDER, 0);
-
-                if(is_nan($return["categories"]["level"]) and
-                   !is_nan($return["categories"]["level"] = is_level_category((string)$category))) {
-                    continue;
-                }
-                
-                if(is_nan($return["categories"]["participant_number"]) and
-                   !is_nan($return["categories"]["participant_number"] = is_number_of_attendee_category((string)$category))) {
-                    continue;
-                }
-                $filters[] = (string)$category;
-                $return["categories"][] = (string)$category;
-            }
-        }
-        
-        $return["keep"] = true;
-        
-        if(count($filters_to_apply) >= 0) {
-            foreach($filters_to_apply as $filter) {
-                if($filter === "my_events") {
-                    if(!$return["is_registered"]) {
-                        $return["keep"] = false;
-                        break;
-                    }
-                } else if(!is_nan(is_level_category($filter))) {
-                    if($filter !== "E{$return["categories"]["level"]}") {
-                        $return["keep"] = false;
-                        break;
-                    }
-                } else if($filter === "need_volunteers") {
-                    if(is_nan($return["categories"]["participant_number"]) or
-                       count($return["attendees"]) >= $return["categories"]["participant_number"]) {
-                        $return["keep"] = false;
-                        break;
-                    }
-                } else if(!in_array($filter, $return["categories"])) {
-                    $return["keep"] = false;
-                    break;
-                }
-            }            
-            if($return["keep"] == false) {
-                return $return; // no need to process render
-            }
-        }
-        
-        $return["block"] = [
+    protected function render_event($parsed_event, $description=false) {
+        $block = [
             'type' => 'section', 
             'text' => [ 
                 'type' => 'mrkdwn', 
-                'text' => '*' . (string)$event->VEVENT->SUMMARY . '* ' . format_emoji($return["categories"]) . PHP_EOL . 
-                '*Quand:* ' . format_date($event->VEVENT->DTSTART->getDateTime(), $event->VEVENT->DTEND->getDateTime()) . PHP_EOL . 
-                '*Ou:* ' . (string)$event->VEVENT->LOCATION . PHP_EOL . 
-                "*Liste des participants " . format_number_of_attendees($return["attendees"], $return["categories"]["participant_number"])."*: " . format_userids($return["attendees"])
+                'text' => '*' . (string)$parsed_event["vcal"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event["categories"]) . PHP_EOL . 
+                '*Quand:* ' . format_date($parsed_event["vcal"]->VEVENT->DTSTART->getDateTime(), $parsed_event["vcal"]->VEVENT->DTEND->getDateTime()) . PHP_EOL . 
+                '*Ou:* ' . (string)$parsed_event["vcal"]->VEVENT->LOCATION . PHP_EOL . 
+                "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["categories"]["participant_number"])."*: " . format_userids($parsed_event["attendees"])
             ]            
         ];
         
         if($description) {
-            $return['block']['text']['text'] .= PHP_EOL . PHP_EOL . '*Description*' . (string)$event->VEVENT->DESCRIPTION;
+            $block['text']['text'] .= PHP_EOL . PHP_EOL . '*Description*' . (string)$parsed_event["vcal"]->VEVENT->DESCRIPTION;
         }
         
-        return $return;
+        return $block;
     }
     
     function app_home_page($userid, $filters_to_apply = array()) {
         $this->log->info('event: app_home_opened received');
         
-        $events = $this->agenda->getEvents();
+        $events = $this->agenda->getUserEventsFiltered($userid, $this->api, $filters_to_apply);
+        
         $blocks = [];
         $default_filters = [
             [
@@ -149,23 +76,24 @@ class SlackEvents {
         }
                 
         $all_filters = array();
-        foreach($events as $file=>$event) {
-            $data = $this->parse_and_render($event, $userid, false, $filters_to_apply, $all_filters);
-            if($data["keep"] === false) {
+        foreach($events as $file=>$parsed_event) {
+            array_merge($all_filters, $parsed_event["categories"]);
+            
+            if($parsed_event["keep"] === false) {
                 continue;
             }
-            
-            $blocks[] = $data["block"];
+
+            $blocks[] = $this->render_event($parsed_event, false);
             $blocks[] = [
                 'type'=> 'actions',
                 'block_id'=> $file,
                 'elements'=> array(
                     array(
                         'type'=> 'button',
-                        'action_id'=> (!$data["is_registered"]) ? 'getin' : 'getout',
+                        'action_id'=> (!$parsed_event["is_registered"]) ? 'getin' : 'getout',
                         'text'=> array(
                             'type'=> 'plain_text',
-                            'text'=> (!$data["is_registered"]) ? 'Je  viens !' : 'Me déinscrire',
+                            'text'=> (!$parsed_event["is_registered"]) ? 'Je  viens !' : 'Me déinscrire',
                             'emoji'=> true
                         ),
                         'style'=> 'primary',
