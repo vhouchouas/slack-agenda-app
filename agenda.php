@@ -12,8 +12,9 @@ class Agenda {
     protected $url;
     protected $username;
     protected $password;
+    protected $localcache;
     
-    public function __construct($url, $username, $password) {
+    public function __construct($url, $username, $password, Localcache $localcache) {
         $this->log = new Logger('Agenda');
         $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
         $this->log->pushHandler(new StreamHandler('php://stdout', Logger::DEBUG));
@@ -21,6 +22,7 @@ class Agenda {
         $this->url = $url;
         $this->username = $username;
         $this->password = $password;
+        $this->localcache = $localcache;
         $this->update();
     }
 
@@ -40,21 +42,16 @@ class Agenda {
     }
 
     function getEvents() {
-        $events = [];
-        $it = new RecursiveDirectoryIterator("./data/");
-        
-        foreach(new RecursiveIteratorIterator($it) as $file) {
-            if($this->isNonEventFile($file)) {
-                continue;
-            }            
-            $vcal = \Sabre\VObject\Reader::read(file_get_contents_safe($file));
-            $startDate = $vcal->VEVENT->DTSTART->getDateTime();
-            
-            if($startDate < new DateTime('NOW')) {
-                $this->log->debug("Event is in the past, skiping");
-                continue;
-            }
-            $events[basename($file)] = $vcal;
+        $events = array();
+        foreach($this->localCache->getEvents() as $eventName => $serializedEvent){
+              $vcal = \Sabre\VObject\Reader::read($serializedEvent);
+              $startDate = $vcal->VEVENT->DTSTART->getDateTime();
+
+              if($startDate < new DateTime('NOW')) {
+                  $this->log->debug("Event is in the past, skiping");
+                  continue;
+              }
+              $events[$eventName] = $vcal;
         }
         return $events;
     }
@@ -64,21 +61,14 @@ class Agenda {
         $remote_ctag = $this->getctag();
         
         // check if we need to update events from the server
-        if(is_file('./data/ctag')) {
-            $local_ctag = file_get_contents_safe('./data/ctag');
-            $this->log->debug("ctags", ["remote" => $remote_ctag, "local" => $local_ctag]);
-            // remote and local ctag are equal, there is no need to update the agenda
-            if($remote_ctag == $local_ctag) {
-                return;
-            }
+        $local_ctag = $this->localcache->getctag();
+        $this->log->debug("ctags", ["remote" => $remote_ctag, "local" => $local_ctag]);
+        if (is_null($local_ctag) || $local_ctag != $remote_ctag){
+            $this->log->debug("Agenda update needed");
+            $etags = $this->getetags();
+            $this->updateInternalState($etags);
+            $this->localcache->setctag($remote_ctag);
         }
-        
-        $this->log->debug("Agenda update needed");
-        
-        $etags = $this->getetags();
-        $this->updateInternalState($etags);
-
-        file_put_contents_safe("./data/ctag", $remote_ctag);
     }
 
     // 
@@ -86,8 +76,9 @@ class Agenda {
         $url_to_update = [];
         foreach($etags as $url => $remote_etag) {
             $tmp = explode("/", $url);
-            if(is_file("./data/".end($tmp)) and is_file("./data/".end($tmp) . ".etag")) {
-                $local_etag = file_get_contents_safe("./data/" . end($tmp) . ".etag");
+            $eventName = end($tmp);
+            if($this->localcache->eventExists($eventName)) {
+                $local_etag = $this->localcache->getEventEtag($eventName);
                 $this->log->debug(end($tmp), ["remote_etag"=>$remote_etag, "local_etag" => $local_etag]);
                 
                 if($local_etag != $remote_etag) {
@@ -112,37 +103,17 @@ class Agenda {
         foreach($etags as $url => $etag) {
             $urls[] = basename($url);
         }
-        
-        $it = new RecursiveDirectoryIterator("./data/");
-        foreach(new RecursiveIteratorIterator($it) as $file) {
-            if($this->isNonEventFile($file)) {
-                continue;
-            }
-            
-            if(in_array(basename($file), $urls)) {
-                $this->log->debug("No need to remove ". basename($file));
+
+        foreach($this->localcache->getAllEventsNames() as $eventName){
+            if(in_array($eventName, $urls)) {
+                $this->log->debug("No need to remove ". $eventName);
             } else {
-                $this->log->info("Need to remove ". basename($file));
-                
-                if(!unlink($file)) {
-                    $this->log->error("Failed to delete:" . $file . ".etag");
-                }
-                
-                if(!unlink($file . ".etag")) {
-                    $this->log->error("Failed to delete:" . $file . ".etag");
-                }
+                $this->log->info("Need to remove ". $eventName);
+                $this->localcache->deleteEvent($eventName);
             }
         }
     }
 
-    private function isNonEventFile($filename){
-      return strpos($file, '.etag') > 0 ||
-        strcmp($file, "./data/ctag") == 0 ||
-        strcmp($file, "./data/.") == 0 ||
-        strcmp($file, "./data/..") == 0 ||
-        strcmp($file, "..") == 0 ;
-    }
-    
     // url that need to be updated
     protected function updateEvents($urls) {
         $ch = $this->init_curl_request();
@@ -186,18 +157,11 @@ class Agenda {
 
         foreach($xml as $event) {
             if(isset($event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data'])) {
-                $filename = basename($event['value']['href']);
-                $this->log->info("Adding event " . $filename);
+                $eventName = basename($event['value']['href']);
+                $this->log->info("Adding event " . $eventName);
+
+                $this->localcache->deleteEvent($eventName);
                 
-                if(is_file("./data/" . $filename)) {
-                    $this->log->debug("Deleting " . $filename . " as it has changed.");
-                    unlink("./data/" . $filename);
-                }
-                
-                if(is_file("./data/" . $filename . ".etag")) {
-                    $this->log->debug("Deleting " . $filename . ".etag as it has changed.");
-                    unlink("./data/" . $filename . ".etag");
-                }
                 
                 // parse event to get its DTSTART
                 $vcal = \Sabre\VObject\Reader::read($event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data']);
@@ -207,9 +171,8 @@ class Agenda {
                     $this->log->debug("Event is in the past, skiping");
                     continue;
                 }
-                
-                file_put_contents_safe("./data/" . $filename, $event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data']);
-                file_put_contents_safe("./data/" . $filename . ".etag", trim($event['value']['propstat']['prop']['getetag'], '"'));
+
+                $this->localcache->addEvent($eventName, $event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data'], trim($event['value']['propstat']['prop']['getetag'], '"'));
             }
         }
     }

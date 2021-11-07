@@ -102,7 +102,7 @@ if(property_exists($json, 'type') and
 }
 
 $api = new SlackAPI($credentials->slack_bot_token, $log);
-$agenda = new Agenda($credentials->caldav_url, $credentials->caldav_username, $credentials->caldav_password);
+$agenda = new Agenda($credentials->caldav_url, $credentials->caldav_username, $credentials->caldav_password, new FilesystemCache("./data"));
 $slack_events = new SlackEvents($agenda, $api, $log);
 
 if(property_exists($json, 'event') && property_exists($json->event, 'type')) {
