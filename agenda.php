@@ -136,11 +136,11 @@ class Agenda {
     }
 
     private function isNonEventFile($filename){
-      return strpos($file, '.etag') > 0 ||
-        strcmp($file, "./data/ctag") == 0 ||
-        strcmp($file, "./data/.") == 0 ||
-        strcmp($file, "./data/..") == 0 ||
-        strcmp($file, "..") == 0 ;
+      return strpos($filename, '.etag') > 0 ||
+        strcmp($filename, "./data/ctag") == 0 ||
+        strcmp($filename, "./data/.") == 0 ||
+        strcmp($filename, "./data/..") == 0 ||
+        strcmp($filename, "..") == 0 ;
     }
     
     // url that need to be updated
@@ -321,7 +321,7 @@ class Agenda {
         if($add) {
             if(isset($vcal->VEVENT->ATTENDEE)) {
                 foreach($vcal->VEVENT->ATTENDEE as $attendee) {
-                    if(strpos((string)$attendee, $usermail) >= 0) {
+                    if(str_replace("mailto:","", (string)$attendee) === $usermail) {
                         $this->log->info("Try to add a already registered attendee");
                         return;
                     }
@@ -342,7 +342,7 @@ class Agenda {
             
             if(isset($vcal->VEVENT->ATTENDEE)) {
                 foreach($vcal->VEVENT->ATTENDEE as $attendee) {
-                    if(strpos((string)$attendee, $usermail) >= 0) {
+                    if(str_replace("mailto:","", (string)$attendee) === $usermail) {
                         $vcal->VEVENT->remove($attendee);
                         $already_out = false;
                         break;
