@@ -215,5 +215,21 @@ class SlackEvents {
         $this->log->debug("register mail $profile->email $profile->first_name $profile->last_name");
         $r = $this->agenda->updateAttendee($url, $profile->email, $in, $profile->first_name . ' ' . $profile->last_name);
         $this->app_home_page($userid, $request);
-    }    
+
+        $vevent = $this->agenda->getEvent($url)->VEVENT;
+        $datetime = $vevent->DTSTART->getDateTime();
+        $datetime->setTime(19, 0, 0, 0);
+        $datetime->modify("-1 day");
+        
+        if($in) {
+            $summary = (string)$vevent->SUMMARY;
+            $response = $this->api->reminders_add($userid, "Rappel pour l'événement: $summary", $datetime);
+            $this->log->debug("reminder created ({$response->reminder->id})");
+        } else {
+            $reminders = $this->api->reminders_list();
+            $reminder_id = getReminderID($reminders["reminders"], $userid, $datetime);
+            $this->api->reminders_delete($reminder_id);
+            $this->log->debug("reminder deleted ($reminder_id)");
+        }
+    }
 }

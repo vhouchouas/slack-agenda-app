@@ -35,3 +35,14 @@ function format_date($start, $end) {
         return "du " . strftime("%A %d %B %Y", $start->getTimestamp()) . ", " . strftime("%H:%M", $start->getTimestamp()) . " heures au " . strftime("%A %d %B %Y", $end->getTimestamp()) . ", " . strftime("%H:%M", $end->getTimestamp()) . " heures";
     }
 }
+
+function getReminderID($reminders, $userid, $datetime) {
+    foreach($reminders as $reminder) {
+        if($reminder["user"] == $userid and
+           $reminder["time"] == $datetime->getTimestamp()) {
+            return $reminder["id"];
+        }
+           
+    }
+    return NULL;
+}
