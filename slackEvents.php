@@ -42,10 +42,6 @@ class SlackEvents {
                 if($a["userid"] == $userid) {
                     $return["is_registered"] = true;
                 }
-                $this->log->debug("$a[mail] is at $a[userid]");
-                if($return["is_registered"]) {
-                    $this->log->debug("and is registered");
-                }
             }
         }
 
@@ -72,7 +68,6 @@ class SlackEvents {
             }
         }
         
-        $this->log->debug("categories", ["to filter" => gettype($filters_to_apply), "event categories" => $return["categories"]]);
         $return["keep"] = true;
         
         if(count($filters_to_apply) >= 0) {
@@ -88,7 +83,6 @@ class SlackEvents {
                         break;
                     }
                 } else if($filter === "need_volunteers") {
-                    $this->log->debug("need_volunteers");
                     if(is_nan($return["categories"]["participant_number"]) or
                        count($return["attendees"]) >= $return["categories"]["participant_number"]) {
                         $return["keep"] = false;
@@ -158,10 +152,8 @@ class SlackEvents {
         foreach($events as $file=>$event) {
             $data = $this->parse_and_render($event, $userid, false, $filters_to_apply, $all_filters);
             if($data["keep"] === false) {
-                $this->log->debug("do not show $file");
                 continue;
             }
-            $this->log->debug("$file is good for rendering");
             
             $blocks[] = $data["block"];
             $blocks[] = [
