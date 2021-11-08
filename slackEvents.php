@@ -77,7 +77,7 @@ class SlackEvents {
                 
         $all_filters = array();
         foreach($events as $file=>$parsed_event) {
-            array_merge($all_filters, $parsed_event["categories"]);
+            $all_filters = array_merge($all_filters, $parsed_event["categories"]);
             
             if($parsed_event["keep"] === false) {
                 continue;
@@ -124,7 +124,7 @@ class SlackEvents {
                 "text"=> "Évènements à venir"
             ]
         ];
-
+        
         foreach(array_unique($all_filters) as $filter) {
             array_push($default_filters, [
                 "text" => [
