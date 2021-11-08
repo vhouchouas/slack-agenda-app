@@ -4,39 +4,19 @@ use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 use Sabre\VObject;
 
+require "CalDAVClient.php";
+
 class NotImplementedException extends BadMethodCallException {}
 
 require __DIR__ . '/vendor/autoload.php';
 
 class Agenda {
-    protected $url;
-    protected $username;
-    protected $password;
-    
+    private $caldav_client;
     public function __construct($url, $username, $password) {
         $this->log = new Logger('Agenda');
         $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
-        $this->log->pushHandler(new StreamHandler('php://stdout', Logger::DEBUG));
-
-        $this->url = $url;
-        $this->username = $username;
-        $this->password = $password;
+        $this->caldav_client = new CalDAVClient($url, $username, $password);
         $this->update();
-    }
-
-    // init cURL request
-    protected function init_curl_request($url = NULL) {
-        $ch = curl_init();
-        
-        if(is_null($url)) {
-            curl_setopt($ch, CURLOPT_URL, $this->url);
-        } else {
-            curl_setopt($ch, CURLOPT_URL, $url);
-        }
-        
-        curl_setopt($ch, CURLOPT_USERPWD, $this->username . ":" . $this->password);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        return $ch;
     }
 
     function getEvents() {
@@ -61,7 +41,7 @@ class Agenda {
     
     // update agenda
     protected function update() {
-        $remote_ctag = $this->getctag();
+        $remote_ctag = $this->caldav_client->getctag();
         
         // check if we need to update events from the server
         if(is_file('./data/ctag')) {
@@ -75,7 +55,7 @@ class Agenda {
         
         $this->log->debug("Agenda update needed");
         
-        $etags = $this->getetags();
+        $etags = $this->caldav_client->getetags();
         $this->updateInternalState($etags);
 
         file_put_contents_safe("./data/ctag", $remote_ctag);
@@ -136,53 +116,15 @@ class Agenda {
     }
 
     private function isNonEventFile($filename){
-      return strpos($file, '.etag') > 0 ||
-        strcmp($file, "./data/ctag") == 0 ||
-        strcmp($file, "./data/.") == 0 ||
-        strcmp($file, "./data/..") == 0 ||
-        strcmp($file, "..") == 0 ;
+      return strpos($filename, '.etag') > 0 ||
+        strcmp($filename, "./data/ctag") == 0 ||
+        strcmp($filename, "./data/.") == 0 ||
+        strcmp($filename, "./data/..") == 0 ||
+        strcmp($filename, "..") == 0 ;
     }
     
-    // url that need to be updated
-    protected function updateEvents($urls) {
-        $ch = $this->init_curl_request();
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "REPORT");
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            "Depth:1",
-            "Prefer: return-minimal",
-            "Content-Type: application/xml; charset=utf-8")
-        );
-        
-        $str = "";
-        foreach($urls as $url) {
-            $str .= "<d:href>".$url."</d:href>\n";
-        }
-        
-        curl_setopt($ch, CURLOPT_POSTFIELDS,'        
-<c:calendar-multiget xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
-    <d:prop>
-        <d:getetag />
-        <c:calendar-data />
-    </d:prop>'.$str.'
-</c:calendar-multiget>');
-
-        $output = curl_exec($ch);
-
-        $service = new Sabre\Xml\Service();
-        
-        $service->elementMap = [
-            '{DAV:}response' => function(Sabre\Xml\Reader $reader) {
-                return Sabre\Xml\Deserializer\keyValue($reader, 'DAV:');
-            },
-            '{DAV:}propstat' => function(Sabre\Xml\Reader $reader) {
-                return Sabre\Xml\Deserializer\keyValue($reader, 'DAV:');
-            },
-            '{DAV:}prop' => function(Sabre\Xml\Reader $reader) {
-                return Sabre\Xml\Deserializer\keyValue($reader, 'DAV:');
-            },
-        ];
-        
-        $xml = $service->parse($output);
+    private function updateEvents($urls) {
+        $xml = $this->caldav_client->updateEvents($urls);
 
         foreach($xml as $event) {
             if(isset($event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data'])) {
@@ -213,103 +155,7 @@ class Agenda {
             }
         }
     }
-    
-    // get event etags from the server
-    protected function getetags() {
-        $ch = $this->init_curl_request();
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "REPORT");
         
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            "Depth:1",
-            "Prefer: return-minimal",
-            "Content-Type: application/xml; charset=utf-8",
-            
-        ));
-        
-        curl_setopt($ch, CURLOPT_POSTFIELDS,'
-<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
-    <d:prop>
-        <d:getetag />
-    </d:prop>
-    <c:filter>
-        <c:comp-filter name="VCALENDAR" />
-    </c:filter>
-</c:calendar-query>');
-
-        $output = curl_exec($ch);
-
-        $service = new Sabre\Xml\Service();
-        
-        $service->elementMap = [
-            '{DAV:}response' => function(Sabre\Xml\Reader $reader) {
-                return Sabre\Xml\Deserializer\keyValue($reader, 'DAV:');
-            },
-            '{DAV:}propstat' => function(Sabre\Xml\Reader $reader) {
-                return Sabre\Xml\Deserializer\keyValue($reader, 'DAV:');
-            },
-            '{DAV:}prop' => function(Sabre\Xml\Reader $reader) {
-                return Sabre\Xml\Deserializer\keyValue($reader, 'DAV:');
-            },
-        ];
-        
-        // Array as:
-        // [url1] => etag1
-        // [url2] => etag2
-        // ...
-        $data = [];
-        foreach($service->parse($output) as $event) {
-            $data[$event['value']['href']] = trim($event['value']['propstat']['prop']['getetag'], '"');
-            $this->log->debug("etag",[
-                "etag" => $event['value']['href'], "url" => $data[$event['value']['href']]]);;
-        }
-        return $data;
-    }
-    
-    // get the ctag of the calendar on the server
-    // @see https://sabre.io/dav/building-a-caldav-client/
-    protected function getctag() {
-        $ch = $this->init_curl_request();
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PROPFIND");
-        
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            "Depth:0",
-            "Prefer: return-minimal",
-            "Content-Type: application/xml; charset=utf-8",
-        ));
-        
-        curl_setopt($ch, CURLOPT_POSTFIELDS,'
-<d:propfind xmlns:d="DAV:"  xmlns:cs="http://calendarserver.org/ns/">
-  <d:prop>
-    <cs:getctag/>
-  </d:prop>
-</d:propfind>');
-    
-        $output = curl_exec($ch);
-
-        curl_close($ch);
-
-        $service = new Sabre\Xml\Service();
-        
-        $service->elementMap = [
-            '{DAV:}response' => function(Sabre\Xml\Reader $reader) {
-                return Sabre\Xml\Deserializer\keyValue($reader, 'DAV:');
-            },
-            '{DAV:}propstat' => function(Sabre\Xml\Reader $reader) {
-                return Sabre\Xml\Deserializer\keyValue($reader, 'DAV:');
-            },
-            '{DAV:}prop' => function(Sabre\Xml\Reader $reader) {
-                return Sabre\Xml\Deserializer\keyValue($reader, 'DAV:');
-            },
-        ];
-
-        $parsed_data = $service->parse($output);
-        
-        if(isset($parsed_data[0]['value']['propstat']['prop']['{http://calendarserver.org/ns/}getctag'])) {
-            return $parsed_data[0]['value']['propstat']['prop']['{http://calendarserver.org/ns/}getctag'];
-        }
-        
-        return NULL;
-    }
     
     //if add is true, then add $usermail to the event, otherwise, remove it.
     function updateAttendee($url, $usermail, $add, $attendee_CN=NULL) {
@@ -356,7 +202,7 @@ class Agenda {
             }
         }
         
-        $new_etag = $this->updateEvent($url, $etag, $vcal->serialize());
+        $new_etag = $this->caldav_client->updateEvent($url, $etag, $vcal->serialize());
         
         $this->log->debug($vcal->serialize());
         if(is_null($new_etag)) {
@@ -366,47 +212,6 @@ class Agenda {
             file_put_contents_safe("./data/" . $url, $vcal->serialize());
             file_put_contents_safe("./data/" . $url . ".etag", $new_etag);
         }
-    }
-
-    protected function updateEvent($url, $etag, $data) {
-        $ch = $this->init_curl_request($this->url . '/' . $url);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
-
-        curl_setopt($ch, CURLOPT_HEADER  , true);
-        curl_setopt($ch, CURLOPT_NOBODY  , false);
-        
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Content-Type: text/calendar; charset=utf-8',
-            'If-Match: "' . $etag . '"'
-        ));
-        
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-        $output = curl_exec($ch);
-        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        if($httpcode != 204) {
-            $this->log->error("Bad response http code", ["code"=>$httpcode, "output"=>$output]);
-            return NULL;
-        }
-        
-        $output = rtrim($output);
-        $data = explode("\n",$output);
-        array_shift($data); //for ... HTTP/1.1 204 No Content
-        
-        foreach($data as $part) {
-            if(strpos($part, "ETag") == false) {
-                continue;
-            }
-            
-            $ETag_header = explode(":",$part,2);
-            if (isset($ETag_header[1])) {
-                return trim($ETag_header[1], ' "');
-            } else {
-                return NULL;
-            }
-        }
-        return NULL;
     }
 
     function getEvent($url) {
