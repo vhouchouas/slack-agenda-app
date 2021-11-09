@@ -16,7 +16,6 @@ class Agenda {
         $this->log = new Logger('Agenda');
         $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
         $this->caldav_client = new CalDAVClient($url, $username, $password);
-        $this->update();
     }
 
     function getUserEventsFiltered($userid, $api, $filters_to_apply = array()) {
@@ -132,7 +131,7 @@ class Agenda {
     }
     
     // update agenda
-    protected function update() {
+    function update() {
         $remote_ctag = $this->caldav_client->getctag();
         
         // check if we need to update events from the server
@@ -141,7 +140,7 @@ class Agenda {
             $this->log->debug("ctags", ["remote" => $remote_ctag, "local" => $local_ctag]);
             // remote and local ctag are equal, there is no need to update the agenda
             if($remote_ctag == $local_ctag) {
-                return;
+                return false;
             }
         }
         
@@ -151,6 +150,7 @@ class Agenda {
         $this->updateInternalState($etags);
 
         file_put_contents_safe("./data/ctag", $remote_ctag);
+        return true;
     }
 
     // 
