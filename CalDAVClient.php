@@ -47,7 +47,7 @@ class CalDAVClient {
         
         $str = "";
         foreach($urls as $url) {
-            $str .= "<d:href>$url</d:href>\n";
+            $str .= "<d:href>{$this->url}/$url</d:href>\n";
         }
         
         curl_setopt($ch, CURLOPT_POSTFIELDS,'        
@@ -176,7 +176,7 @@ class CalDAVClient {
     }
 
     function updateEvent($url, $etag, $data) {
-        $ch = $this->init_curl_request($this->url . '/' . $url);
+        $ch = $this->init_curl_request("{$this->url}/$url");
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
 
         curl_setopt($ch, CURLOPT_HEADER  , true);
