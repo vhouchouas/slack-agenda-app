@@ -206,4 +206,11 @@ class SlackEvents {
         }
         $this->app_home_page($userid, $filters_to_apply);
     }
+
+    // @SEE https://api.slack.com/interactivity/handling#acknowledgment_response
+    static function ack() {
+        http_response_code(200);
+        fastcgi_finish_request(); //Ok for php-fpm
+        //need to find a solution for mod_php (ob_flush(), flush(), etc. does not work)
+    }
 }
