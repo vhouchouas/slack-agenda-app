@@ -1,4 +1,6 @@
 <?php
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
 
 class SlackAPI{
     protected $slack_bot_token;
@@ -8,7 +10,9 @@ class SlackAPI{
     function __construct($slack_bot_token, $slack_user_token, $log) {
         $this->slack_bot_token = $slack_bot_token;
         $this->slack_user_token = $slack_user_token;
-        $this->log = $log;
+        
+        $this->log = new Logger('SlackAPI');
+        $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
     }
 
     protected function curl_init($url, $additional_headers) {
@@ -19,10 +23,28 @@ class SlackAPI{
         return $ch;
     }
 
-    protected function curl_process($ch) {
+    protected function curl_process($ch, $as_array=false) {
         $response = curl_exec($ch);
         curl_close($ch);
-        return $response;
+        $json = json_decode($response, $as_array);
+        
+        if(!is_null($response)) {
+            if(!$as_array and property_exists($json, 'ok') and $json->ok) { // json response with 'ok' key
+                return $json;
+            } else if($as_array and in_array('ok', $json) and $json['ok']) { // array response with 'ok' key
+                return $json;
+            } else {
+                $trace = debug_backtrace();
+                $this->log->error("API call failed in {$trace[1]["function"]}.");
+                $this->log->error("raw response: $response");
+                return NULL;
+            }
+        } else {
+            $trace = debug_backtrace();
+            $this->log->error("malformed response ({$trace[1]["function"]}).");
+            $this->log->error("raw response: $response");
+            return NULL;
+        }
     }
     
     function views_publish($data) {
@@ -35,12 +57,11 @@ class SlackAPI{
         $ch = $this->curl_init("https://slack.com/api/users.lookupByEmail", array('application/x-www-form-urlencoded'));
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt( $ch, CURLOPT_POSTFIELDS, ["email"=>$mail]);
-        $r = json_decode($this->curl_process($ch));
+        $response = $this->curl_process($ch);
         
-        if(!is_null($r) and $r->ok) {
-            return $r->user;
+        if(!is_null($response)) {
+            return $response->user;
         } else {
-            $this->log->error("users.lookupByEmail for $mail did not answer correctly.");
             return NULL;
         }   
     }
@@ -49,11 +70,10 @@ class SlackAPI{
         $ch = $this->curl_init("https://slack.com/api/users.profile.get", array('application/x-www-form-urlencoded'));
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt( $ch, CURLOPT_POSTFIELDS, ["user"=>$userid]);
-        $r = json_decode($this->curl_process($ch));
-        if(!is_null($r) and $r->ok) {
-            return $r->profile;
+        $response = $this->curl_process($ch);
+        if(!is_null($response)) {
+            return $response->profile;
         } else {
-            $this->log->error("users.profile.get for user $userid did not answer correctly.");
             return NULL;
         }
     }
@@ -76,7 +96,7 @@ class SlackAPI{
             "time" => $datetime->getTimestamp(),
             "token" => $this->slack_user_token
         ));
-        return json_decode($this->curl_process($ch));
+        return $this->curl_process($ch);
     }
 
     function reminders_list() {
@@ -84,7 +104,7 @@ class SlackAPI{
         curl_setopt($ch, CURLOPT_POSTFIELDS, array(
             "token" => $this->slack_user_token
         ));
-        return json_decode($this->curl_process($ch));
+        return $this->curl_process($ch, true);
     }
 
     function reminders_delete($reminder_id) {
@@ -93,6 +113,6 @@ class SlackAPI{
             "token" => $this->slack_user_token,
             "reminder" => $reminder_id
         ));
-        return json_decode($this->curl_process($ch));
+        return $this->curl_process($ch);
     }
 }

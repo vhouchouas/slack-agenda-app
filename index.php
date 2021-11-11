@@ -102,7 +102,7 @@ if(property_exists($json, 'type') and
     exit();
 }
 
-$api = new SlackAPI($credentials->slack_bot_token, $log);
+$api = new SlackAPI($credentials->slack_bot_token, $credentials->slack_user_token, $log);
 $agenda = new Agenda($credentials->caldav_url, $credentials->caldav_username, $credentials->caldav_password, new FilesystemCache("./data"));
 $slack_events = new SlackEvents($agenda, $api, $log);
 
