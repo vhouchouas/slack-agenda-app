@@ -177,8 +177,10 @@ class SlackEvents {
     function more($url, $request) {
         $vcal = $this->agenda->getEvent($url);
         $userid = $request->user->id;
+        $parsed_event = $this->agenda->parseEvent($userid, $vcal, $this->api);
+        $trigger_id = $request->trigger_id;
         
-        $parsed_event = $this->parse_and_render($vcal, $userid, true);
+        $block = $this->render_event($parsed_event, true);
         
         $data = [
             "type" =>  "modal",
@@ -191,16 +193,61 @@ class SlackEvents {
                 "text" =>  "Close"
             ],
             
-            "blocks" =>  [$parsed_event["block"]],
+            "blocks" =>  [$block],
         ];
-        $this->api->view_open($data, $request);
+        $this->api->view_open($data, $trigger_id);
     }
-    
+
+    // update just the modified event
+    protected function register_fast_rendering($url, $userid, $usermail, $in, $request, $event) {
+        $i = 0;
+        foreach($request->view->blocks as $block) { //looking for the block of interest
+            if($block->block_id === $url) {
+                break;
+            }
+            $i++;
+        }
+        
+        
+        if($in) {
+            $a = [
+                "mail" => $usermail,
+                "userid" => $userid
+            ];
+            $event["attendees"][] = $a;
+        } else {
+            $event["attendees"] = array_filter($event["attendees"],
+                                               function($attendee) use ($userid) {
+                                                   return $attendee["userid"] !== $userid;
+                                               }
+            );
+        }
+        
+        $request->view->blocks[$i-1] = $this->render_event($event);
+        $request->view->blocks[$i]->elements[0] = $this->getRegistrationButton($in);
+        
+        $data = [
+            'user_id' => $userid,
+            'view' => [
+                'type' => 'home',
+                'blocks' => $request->view->blocks
+            ]
+        ];
+        $response = json_decode($this->api->views_publish($data));
+    }
+
     function register($url, $userid, $in, $request) {
         $profile = $this->api->users_profile_get($userid);
         $this->log->debug("register mail $profile->email $profile->first_name $profile->last_name");
-        $r = $this->agenda->updateAttendee($url, $profile->email, $in, $profile->first_name . ' ' . $profile->last_name);
-        $this->app_home_page($userid);
+        $parsed_event = $this->agenda->parseEvent($userid, $this->agenda->getEvent($url), $this->api);
+        slackEvents::ack();
+        $this->register_fast_rendering($url, $userid, $profile->email, $in, $request, $parsed_event);
+        
+        $response = $this->agenda->updateAttendee($url, $profile->email, $in, $profile->first_name . ' ' . $profile->last_name);
+        if(!$response) { //an error occured
+            $this->agenda->update();
+            $this->app_home_page($userid);
+        }
 
         $vevent = $this->agenda->getEvent($url)->VEVENT;
         $datetime = $vevent->DTSTART->getDateTime();
