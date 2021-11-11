@@ -20,7 +20,6 @@ class Agenda {
         $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
         $this->caldav_client = new CalDAVClient($url, $username, $password);
         $this->localcache = $localcache;
-        $this->update();
     }
 
     function getUserEventsFiltered($userid, $api, $filters_to_apply = array()) {
