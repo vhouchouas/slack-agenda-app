@@ -28,49 +28,7 @@ class Agenda {
         
         foreach($this->localcache->getAllEventsNames() as $filename) {
             $event = $this->getEvent($filename);
-            $parsed_event = array();
-            $parsed_event["vcal"] = $event;
-            $parsed_event["is_registered"] = false;
-            $parsed_event["attendees"] = array();
-            $parsed_event["categories"] = array();
-            
-            if(isset($event->VEVENT->ATTENDEE)) {
-                foreach($event->VEVENT->ATTENDEE as $attendee) {
-                    $a = [
-                        //"cn" => $attendee['CN']->getValue(),
-                        "mail" => str_replace("mailto:", "", (string)$attendee)
-                    ];
-                    
-                    $a["userid"] = $api->users_lookupByEmail($a["mail"])->id;
-                    
-                    $parsed_event["attendees"][] = $a;
-                    if($a["userid"] == $userid) {
-                        $parsed_event["is_registered"] = true;
-                    }
-                }
-            }
-            
-            $parsed_event["level"] = NAN;
-            $parsed_event["participant_number"] = NAN;
-            
-            if(isset($event->VEVENT->CATEGORIES)) {
-                foreach($event->VEVENT->CATEGORIES as $category) {
-                    //preg_match_all(slackEvents::$regex_number_attendee, $category, $matches_number_attendee, PREG_SET_ORDER, 0);
-                    //preg_match_all(slackEvents::$regex_level, $category, $matches_level, PREG_SET_ORDER, 0);
-                    
-                    if(is_nan($parsed_event["level"]) and
-                       !is_nan($parsed_event["level"] = is_level_category((string)$category))) {
-                        continue;
-                    }
-                    
-                    if(is_nan($parsed_event["participant_number"]) and
-                       !is_nan($parsed_event["participant_number"] = is_number_of_attendee_category((string)$category))) {
-                        continue;
-                    }
-                    //$filters[] = (string)$category;
-                    $parsed_event["categories"][] = (string)$category;
-                }
-            }
+            $parsed_event = $this->parseEvent($userid, $event, $api);
             
             $parsed_event["keep"] = true;
             
@@ -105,6 +63,54 @@ class Agenda {
         }
         return $parsed_events;
     }
+
+    function parseEvent($userid, $event, $api) {
+        $parsed_event = array();
+        $parsed_event["vcal"] = $event;
+        $parsed_event["is_registered"] = false;
+        $parsed_event["attendees"] = array();
+        $parsed_event["categories"] = array();
+        
+        if(isset($event->VEVENT->ATTENDEE)) {
+            foreach($event->VEVENT->ATTENDEE as $attendee) {
+                $a = [
+                    //"cn" => $attendee['CN']->getValue(),
+                    "mail" => str_replace("mailto:", "", (string)$attendee)
+                ];
+                
+                $a["userid"] = $api->users_lookupByEmail($a["mail"])->id;
+                
+                $parsed_event["attendees"][] = $a;
+                if($a["userid"] == $userid) {
+                    $parsed_event["is_registered"] = true;
+                }
+            }
+        }
+        
+        $parsed_event["level"] = NAN;
+        $parsed_event["participant_number"] = NAN;
+        
+        if(isset($event->VEVENT->CATEGORIES)) {
+            foreach($event->VEVENT->CATEGORIES as $category) {
+                //preg_match_all(slackEvents::$regex_number_attendee, $category, $matches_number_attendee, PREG_SET_ORDER, 0);
+                //preg_match_all(slackEvents::$regex_level, $category, $matches_level, PREG_SET_ORDER, 0);
+                
+                if(is_nan($parsed_event["level"]) and
+                   !is_nan($parsed_event["level"] = is_level_category((string)$category))) {
+                    continue;
+                }
+                
+                if(is_nan($parsed_event["participant_number"]) and
+                   !is_nan($parsed_event["participant_number"] = is_number_of_attendee_category((string)$category))) {
+                    continue;
+                }
+                //$filters[] = (string)$category;
+                $parsed_event["categories"][] = (string)$category;
+            }
+        }
+        return $parsed_event;
+    }
+
 
     function getEvents() {
         $events = array();
