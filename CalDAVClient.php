@@ -78,7 +78,7 @@ class CalDAVClient {
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         
-        if($httpcode != 204) {
+        if($httpcode != 207) {
             $this->log->error("Bad response http code", ["code"=>$httpcode, "output"=>$output]);
             return false;
         }

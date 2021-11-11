@@ -144,18 +144,16 @@ class Agenda {
     protected function updateInternalState($etags) {
         $url_to_update = [];
         foreach($etags as $url => $remote_etag) {
-            $tmp = explode("/", $url);
-            $eventName = end($tmp);
+            $eventName = basename($url);
             if($this->localcache->eventExists($eventName)) {
                 $local_etag = $this->localcache->getEventEtag($eventName);
-                $this->log->debug(end($tmp), ["remote_etag"=>$remote_etag, "local_etag" => $local_etag]);
+                $this->log->debug($eventName, ["remote_etag"=>$remote_etag, "local_etag" => $local_etag]);
                 
-                if($local_etag != $remote_etag) {
-                    // local and remote etag differs, need update
-                    $url_to_update[] = $url;
+                if($local_etag != $remote_etag) { // local and remote etag differs, need update
+                    $url_to_update[] = $eventName;
                 }
             } else {
-                $url_to_update[] = $url;
+                $url_to_update[] = $eventName;
             }
         }
         
