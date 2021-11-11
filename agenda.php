@@ -119,7 +119,7 @@ class Agenda {
             $events[$eventName] = $vcal;
         }    
         uasort($events, function ($v1, $v2) {
-            return $v1->VEVENT->DTSTART->getDateTime() > $v2->VEVENT->DTSTART->getDateTime();
+            return $v1->VEVENT->DTSTART->getDateTime()->getTimestamp() - $v2->VEVENT->DTSTART->getDateTime()->getTimestamp();
         });
         
         return $events;
@@ -193,7 +193,6 @@ class Agenda {
                 
                 $this->localcache->deleteEvent($eventName);
                 
-                
                 // parse event to get its DTSTART
                 $vcal = \Sabre\VObject\Reader::read($event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data']);
                 $startDate = $vcal->VEVENT->DTSTART->getDateTime();
@@ -220,7 +219,7 @@ class Agenda {
                 foreach($vcal->VEVENT->ATTENDEE as $attendee) {
                     if(str_replace("mailto:","", (string)$attendee) === $usermail) {
                         $this->log->info("Try to add a already registered attendee");
-                        return;
+                        return true; // not an error
                     }
                 }
             }
@@ -249,7 +248,7 @@ class Agenda {
             
             if($already_out) {
                 $this->log->info("Try to remove an unregistered email");
-                return;
+                return true; // not an error
             }
         }
         
@@ -258,10 +257,13 @@ class Agenda {
         $this->log->debug($vcal->serialize());
         if(is_null($new_etag)) {
             $this->log->info("The server did not answer a new etag after an event update, need to update the local calendar");
-            $this->updateEvents(array($url));
+            if(!$this->updateEvents(array($url))) {
+                return false;
+            }
         } else {
             $this->localcache->addEvent($url, $vcal->serialize(), $new_etag);
         }
+        return true;
     }
 
     function getEvent($url) {

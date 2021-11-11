@@ -47,7 +47,7 @@ class CalDAVClient {
         
         $str = "";
         foreach($urls as $url) {
-            $str .= "<d:href>$url</d:href>\n";
+            $str .= "<d:href>{$this->url}/$url</d:href>\n";
         }
         
         curl_setopt($ch, CURLOPT_POSTFIELDS,'        
@@ -74,6 +74,15 @@ class CalDAVClient {
             },
         ];
         
+        $output = curl_exec($ch);
+        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if($httpcode != 204) {
+            $this->log->error("Bad response http code", ["code"=>$httpcode, "output"=>$output]);
+            return false;
+        }
+        $this->log->debug($output);
         $xml = $service->parse($output);
         return $xml;
     }
@@ -123,8 +132,9 @@ class CalDAVClient {
         $data = [];
         foreach($service->parse($output) as $event) {
             $data[$event['value']['href']] = trim($event['value']['propstat']['prop']['getetag'], '"');
-            $this->log->debug("etag",[
-                "etag" => $event['value']['href'], "url" => $data[$event['value']['href']]]);;
+            $this->log->debug("etag", [
+                "etag" => $data[$event['value']['href']],
+                "url" => $event['value']['href']]);
         }
         return $data;
     }
@@ -176,7 +186,7 @@ class CalDAVClient {
     }
 
     function updateEvent($url, $etag, $data) {
-        $ch = $this->init_curl_request($this->url . '/' . $url);
+        $ch = $this->init_curl_request("{$this->url}/$url");
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
 
         curl_setopt($ch, CURLOPT_HEADER  , true);
@@ -193,8 +203,8 @@ class CalDAVClient {
         curl_close($ch);
         
         if($httpcode != 204) {
-            $this->log->error("Bad response http code", ["code"=>$httpcode, "output"=>$output]);
-            return NULL;
+            $this->log->error("Bad response http code for $url with ETag $etag", ["code"=>$httpcode, "output"=>$output]);
+            return false;
         }
         
         $output = rtrim($output);
