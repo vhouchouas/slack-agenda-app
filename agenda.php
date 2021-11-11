@@ -134,17 +134,16 @@ class Agenda {
         $this->log->debug("ctags", ["remote" => $remote_ctag, "local" => $local_ctag]);
         if (is_null($local_ctag) || $local_ctag != $remote_ctag){
             $this->log->debug("Agenda update needed");
-            $eventNames = $this->localcache->getAllEventsNames();
-            $this->updateInternalState($eventNames);
+            $remote_etags = $this->caldav_client->getetags();
+            $this->updateInternalState($remote_etags);
             $this->localcache->setctag($remote_ctag);
         }
     }
 
     // 
-    protected function updateInternalState($eventNames) {
+    protected function updateInternalState($etags) {
         $url_to_update = [];
-        foreach($eventNames as $url) {
-            $remote_etag =  $this->localcache->getEventEtag($url);
+        foreach($etags as $url => $remote_etag) {
             $tmp = explode("/", $url);
             $eventName = end($tmp);
             if($this->localcache->eventExists($eventName)) {
@@ -169,13 +168,13 @@ class Agenda {
     
     // delete local events that have been deleted on the server
     protected function removeDeletedEvents($etags) {
-        $urls = [];
+        $eventNames = [];
         foreach($etags as $url => $etag) {
-            $urls[] = basename($url);
+            $eventNames[] = basename($url);
         }
-
+        
         foreach($this->localcache->getAllEventsNames() as $eventName){
-            if(in_array($eventName, $urls)) {
+            if(in_array($eventName, $eventNames)) {
                 $this->log->debug("No need to remove ". $eventName);
             } else {
                 $this->log->info("Need to remove ". $eventName);
@@ -259,7 +258,7 @@ class Agenda {
         $this->log->debug($vcal->serialize());
         if(is_null($new_etag)) {
             $this->log->info("The server did not answer a new etag after an event update, need to update the local calendar");
-            $this->updateEvents(array($this->url . '/' . $url));
+            $this->updateEvents(array($url));
         } else {
             $this->localcache->addEvent($url, $vcal->serialize(), $new_etag);
         }

@@ -15,6 +15,7 @@ require "security.php";
 require_once "utils.php";
 require "slackAPI.php";
 require "slackEvents.php";
+require "localcache.php";
 
 $log = new Logger('SlackApp');
 $log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
