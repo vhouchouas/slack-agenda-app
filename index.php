@@ -12,9 +12,10 @@ use Monolog\Handler\StreamHandler;
 
 require "agenda.php";
 require "security.php";
-require "utils.php";
+require_once "utils.php";
 require "slackAPI.php";
 require "slackEvents.php";
+require "localcache.php";
 
 $log = new Logger('SlackApp');
 $log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
@@ -102,7 +103,7 @@ if(property_exists($json, 'type') and
 }
 
 $api = new SlackAPI($credentials->slack_bot_token, $log);
-$agenda = new Agenda($credentials->caldav_url, $credentials->caldav_username, $credentials->caldav_password);
+$agenda = new Agenda($credentials->caldav_url, $credentials->caldav_username, $credentials->caldav_password, new FilesystemCache("./data"));
 $slack_events = new SlackEvents($agenda, $api, $log);
 
 if(property_exists($json, 'event') && property_exists($json->event, 'type')) {
@@ -111,7 +112,7 @@ if(property_exists($json, 'event') && property_exists($json->event, 'type')) {
     
     // @see: https://api.slack.com/events/app_home_opened    
     if($event_type == "app_home_opened") {
-        $slack_events->app_home_page($json->event->user, $json);
+        $slack_events->app_home_page($json->event->user);
     }
 } else if(property_exists($json, 'actions')) {
     //$log->debug("actions", [$json]);
@@ -124,6 +125,8 @@ if(property_exists($json, 'event') && property_exists($json->event, 'type')) {
             $slack_events->register($action->block_id, $json->user->id, false, $json);
         } else if($action->action_id == 'more') {
             $slack_events->more($action->block_id, $json);
+        } else if($action->action_id == 'filters_has_changed') {
+            $slack_events->filters_has_changed($action, $json->user->id);
         }
     }
 }

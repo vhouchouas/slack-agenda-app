@@ -1,6 +1,18 @@
 <?php
 
 class SlackEvents {
+
+    //const REGEX_LEVEL='/^E([\d]*)$/m';
+    //const REGEX_NUMBER_ATTENNDEE='/^([\d]*)P$/m';
+    const LEVEL_LUT = [
+        1 => ["emoji" => ":white_circle:",
+              "category_name" => "Expertise 1/3"],
+        2 => ["emoji" => ":large_blue_circle:",
+              "category_name" => "Expertise 2/3"],
+        3 => ["emoji" => ":large_purple_circle:",
+              "category_name" => "Expertise 3/3"]
+    ];
+    
     protected $agenda;
     protected $log;
     protected $api;
@@ -8,90 +20,35 @@ class SlackEvents {
     function __construct($agenda, $api, $log) {
         $this->agenda = $agenda;
         $this->log = $log;
-        $this->api = $api;        
+        $this->api = $api;
     }
 
-    protected function parse_and_render($event, $userid, $description=false) {
-        $return = [];
-        $return["isin"] = false;
-        $attendees = array();
-        if(isset($event->VEVENT->ATTENDEE)) {
-            foreach($event->VEVENT->ATTENDEE as $attendee) {
-                $a = [
-                    //"cn" => $attendee['CN']->getValue(),
-                    "mail" => str_replace("mailto:", "", (string)$attendee)
-                ];
-                
-                $a["userid"] = $this->api->users_lookupByEmail($a["mail"])->id;
-                $this->log->debug($a['mail'] . ' is at ' . $a["userid"]);
-                $attendees[] = $a;
-                
-                if($a["userid"] == $userid) {
-                    $return["isin"] = true;
-                }
-            }
-        }
-        
-        
-        $categories = [];
-        if(isset($event->VEVENT->CATEGORIES)) {
-            foreach($event->VEVENT->CATEGORIES as $category) {
-                $categories[] = (string)$category;
-            }
-        }
-        $return["categories"] = $categories;
-        
-        $this->log->debug("event", [
-            "SUMMARY" => (string)$event->VEVENT->SUMMARY,
-            "DTSTART" => $event->VEVENT->DTSTART->getDateTime(),
-            "DTEND" => $event->VEVENT->DTEND->getDateTime(),
-            "ATTENDEE" => $attendees,
-            "CATEGORIES" => $categories,
-            "LOCATION" => (string)$event->VEVENT->LOCATION
-        ]);
-        
-        $level = "";
-        $emoji = "";
-        $attendees_str = "";
-        $participant_number = "";
-        
-        $return["block"] = [
+    protected function render_event($parsed_event, $description=false) {
+        $block = [
             'type' => 'section', 
             'text' => [ 
                 'type' => 'mrkdwn', 
-                'text' => '*' . (string)$event->VEVENT->SUMMARY . '*' . $level . $emoji . PHP_EOL . 
-                '*Quand:* ' . format_date($event->VEVENT->DTSTART->getDateTime(), $event->VEVENT->DTEND->getDateTime()) . PHP_EOL .
-                '*Ou:* ' . (string)$event->VEVENT->LOCATION . PHP_EOL .
-                '*Liste des participants (' . count($attendees) . '/' . $participant_number . ')*:' . $attendees_str
+                'text' => '*' . (string)$parsed_event["vcal"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event["categories"]) . PHP_EOL . 
+                '*Quand:* ' . format_date($parsed_event["vcal"]->VEVENT->DTSTART->getDateTime(), $parsed_event["vcal"]->VEVENT->DTEND->getDateTime()) . PHP_EOL . 
+                '*Ou:* ' . (string)$parsed_event["vcal"]->VEVENT->LOCATION . PHP_EOL . 
+                "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["participant_number"])."*: " . format_userids($parsed_event["attendees"])
             ]            
         ];
         
         if($description) {
-            $return['block']['text']['text'] .= PHP_EOL . PHP_EOL . '*Description*' . (string)$event->VEVENT->DESCRIPTION;
+            $block['text']['text'] .= PHP_EOL . PHP_EOL . '*Description*' . (string)$parsed_event["vcal"]->VEVENT->DESCRIPTION;
         }
-        return $return;
+        
+        return $block;
     }
     
-    function app_home_page($userid, $json) {
-        $level = "";
-        $emoji = "";
-        $attendees = "";
-        $participant_number = "";
-        
-        $events = $this->agenda->getEvents();
-        
+    function app_home_page($userid, $filters_to_apply = array()) {
         $this->log->info('event: app_home_opened received');
-        //$this->log->debug('event: app_home_opened received', ["body" => $json]);
         
-        //$userid = $json->event->user;
-        //$response = $api->users_lookupByEmail($userid);
+        $events = $this->agenda->getUserEventsFiltered($userid, $this->api, $filters_to_apply);
         
-        //$this->log->debug('response', ["response" => $response]);
-        
-        $i = 0;
         $blocks = [];
-        
-        $options = [
+        $default_filters = [
             [
                 "text" => [
                     "type" => "plain_text",
@@ -107,22 +64,36 @@ class SlackEvents {
                 "value" => "need_volunteers"
             ]
         ];
-        
-        foreach($events as $file=>$event) {
-            $data = $this->parse_and_render($event, $userid);
+
+        foreach(slackEvents::LEVEL_LUT as $level_i => $level) {
+            array_push($default_filters, [
+                "text" => [
+                    "type" => "plain_text",
+                    "text" => "$level[category_name] $level[emoji]"
+                ],
+                "value" => "E$level_i"
+            ]);
+        }
+                
+        $all_filters = array();
+        foreach($events as $file=>$parsed_event) {
+            $all_filters = array_merge($all_filters, $parsed_event["categories"]);
             
-            
-            $blocks[] = $data["block"];
+            if($parsed_event["keep"] === false) {
+                continue;
+            }
+
+            $blocks[] = $this->render_event($parsed_event, false);
             $blocks[] = [
                 'type'=> 'actions',
                 'block_id'=> $file,
                 'elements'=> array(
                     array(
                         'type'=> 'button',
-                        'action_id'=> (!$data["isin"]) ? 'getin' : 'getout',
+                        'action_id'=> (!$parsed_event["is_registered"]) ? 'getin' : 'getout',
                         'text'=> array(
                             'type'=> 'plain_text',
-                            'text'=> (!$data["isin"]) ? 'Je  viens !' : 'Me déinscrire',
+                            'text'=> (!$parsed_event["is_registered"]) ? 'Je  viens !' : 'Me déinscrire',
                             'emoji'=> true
                         ),
                         'style'=> 'primary',
@@ -144,9 +115,8 @@ class SlackEvents {
             $blocks[] = [
                 'type' => 'divider'            
             ];
-            
         }
-        
+    
         $header_block = [
             "type"=> "header",
             "text"=> [
@@ -154,6 +124,16 @@ class SlackEvents {
                 "text"=> "Évènements à venir"
             ]
         ];
+        
+        foreach(array_unique($all_filters) as $filter) {
+            array_push($default_filters, [
+                "text" => [
+                    "type" => "plain_text",
+                    "text" => $filter
+                ],
+                "value" => $filter
+            ]);
+        }
         
         $filter_block = [
             "type"=> "section",
@@ -170,7 +150,7 @@ class SlackEvents {
                     "type"=> "plain_text",
                     "text"=> "Filtres"
                 ],
-                "options"=> $options
+                "options"=> $default_filters
             ]
         ];
         
@@ -184,8 +164,10 @@ class SlackEvents {
             ]
         ];
         
-        $response = $this->api->views_publish($data);
-        //$this->log->debug("Client info", ["response"=>$response]);
+        $response = json_decode($this->api->views_publish($data));
+        if($response->ok !== true) {
+            $this->log->debug("Client info", ["response"=>$response]);
+        }
     }
 
     function more($url, $request) {
@@ -214,7 +196,7 @@ class SlackEvents {
         $profile = $this->api->users_profile_get($userid);
         $this->log->debug("register mail $profile->email $profile->first_name $profile->last_name");
         $r = $this->agenda->updateAttendee($url, $profile->email, $in, $profile->first_name . ' ' . $profile->last_name);
-        $this->app_home_page($userid, $request);
+        $this->app_home_page($userid);
 
         $vevent = $this->agenda->getEvent($url)->VEVENT;
         $datetime = $vevent->DTSTART->getDateTime();
@@ -234,5 +216,13 @@ class SlackEvents {
                 $this->log->debug("reminder deleted ($reminder_id)");
             }
         }
+    }
+
+    function filters_has_changed($action, $userid) {
+        $filters_to_apply = array();
+        foreach($action->selected_options as $filter) {
+            $filters_to_apply[] = $filter->value;
+        }
+        $this->app_home_page($userid, $filters_to_apply);
     }
 }
