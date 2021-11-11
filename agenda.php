@@ -131,7 +131,7 @@ class Agenda {
     }
     
     // update agenda
-    protected function update() {
+    function update() {
         $remote_ctag = $this->caldav_client->getctag();
         
         // check if we need to update events from the server
