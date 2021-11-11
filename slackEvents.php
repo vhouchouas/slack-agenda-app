@@ -88,17 +88,7 @@ class SlackEvents {
                 'type'=> 'actions',
                 'block_id'=> $file,
                 'elements'=> array(
-                    array(
-                        'type'=> 'button',
-                        'action_id'=> (!$parsed_event["is_registered"]) ? 'getin' : 'getout',
-                        'text'=> array(
-                            'type'=> 'plain_text',
-                            'text'=> (!$parsed_event["is_registered"]) ? 'Je  viens !' : 'Me déinscrire',
-                            'emoji'=> true
-                        ),
-                        'style'=> 'primary',
-                        'value'=> 'approve'
-                    ),
+                    $this->getRegistrationButton($parsed_event["is_registered"]),
                     array(
                         'type'=> 'button',
                         'action_id'=> 'more',
@@ -170,6 +160,20 @@ class SlackEvents {
         }
     }
 
+    protected function getRegistrationButton($in) {
+        return array(
+            'type'=> 'button',
+            'action_id'=> (!$in) ? 'getin' : 'getout',
+            'text'=> array(
+                'type'=> 'plain_text',
+                'text'=> (!$in) ? 'Je  viens !' : 'Me déinscrire',
+                'emoji'=> true
+            ),
+            'style'=> 'primary',
+            'value'=> 'approve'
+        );
+    }
+    
     function more($url, $request) {
         $vcal = $this->agenda->getEvent($url);
         $userid = $request->user->id;
@@ -224,5 +228,12 @@ class SlackEvents {
             $filters_to_apply[] = $filter->value;
         }
         $this->app_home_page($userid, $filters_to_apply);
+    }
+
+    // @SEE https://api.slack.com/interactivity/handling#acknowledgment_response
+    static function ack() {
+        http_response_code(200);
+        fastcgi_finish_request(); //Ok for php-fpm
+        //need to find a solution for mod_php (ob_flush(), flush(), etc. does not work)
     }
 }
