@@ -1,4 +1,5 @@
 <?php
+
 ini_set("log_errors", 1);
 ini_set("error_log", "php-error.log");
 
@@ -10,9 +11,13 @@ require __DIR__ . '/vendor/autoload.php';
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 
+require_once "utils.php";
+
+set_exception_handler("exception_handler");
+set_error_handler("error_handler");
+
 require "agenda.php";
 require "security.php";
-require_once "utils.php";
 require "slackAPI.php";
 require "slackEvents.php";
 require "localcache.php";
@@ -36,8 +41,10 @@ if(is_null($credentials)) {
     exit();
 }
 
-if(!property_exists($credentials, 'signing_secret') || !property_exists($credentials, 'slack_bot_token')) {
-    $log->error('signing_secret and/or slack_bot_token not present in credentials.json');
+if(!property_exists($credentials, 'signing_secret') ||
+   !property_exists($credentials, 'slack_bot_token') ||
+   !property_exists($credentials, 'slack_user_token')) {
+    $log->error('signing_secret and/or Slack tokens not stored in credentials.json');
     exit();
 }
 
@@ -102,11 +109,12 @@ if(property_exists($json, 'type') and
     exit();
 }
 
-$api = new SlackAPI($credentials->slack_bot_token, $log);
+$api = new SlackAPI($credentials->slack_bot_token, $credentials->slack_user_token, $log);
 $agenda = new Agenda($credentials->caldav_url, $credentials->caldav_username, $credentials->caldav_password, new FilesystemCache("./data"));
 $slack_events = new SlackEvents($agenda, $api, $log);
 
 if(property_exists($json, 'event') && property_exists($json->event, 'type')) {
+    $GLOBALS['userid'] = $json->event->user; // in case we need to show an error message to the user
     $event_type = $json->event->type;
     $log->info('event: ' . $event_type);
     
@@ -116,6 +124,8 @@ if(property_exists($json, 'event') && property_exists($json->event, 'type')) {
     }
 } else if(property_exists($json, 'actions')) {
     //$log->debug("actions", [$json]);
+
+    $GLOBALS['userid'] = $json->user->id; // in case we need to show an error message to the user
     
     foreach ($json->actions as $action) {
         $log->debug($action->action_id . ': event ' . $action->block_id . ' for user ' . $json->user->id);

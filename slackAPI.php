@@ -84,7 +84,7 @@ class SlackAPI{
         curl_setopt($ch, CURLOPT_POSTFIELDS, array(
             "token" => $this->slack_user_token
         ));
-        return json_decode($this->curl_process($ch));
+        return json_decode($this->curl_process($ch), true);
     }
 
     function reminders_delete($reminder_id) {

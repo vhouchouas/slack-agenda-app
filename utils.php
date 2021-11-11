@@ -1,5 +1,8 @@
 <?php
 
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+
 // @see https://www.php.net/manual/fr/function.flock.php
 function file_get_contents_safe($filename) {
     if(!is_file($filename)) {
@@ -94,4 +97,54 @@ function is_number_of_attendee_category($category) {
         return intval($category[0]);
     }
     return NAN;
+}
+
+
+// Error to Exception
+//https://www.php.net/manual/en/language.exceptions.php, Example #3
+function error_handler($severity, $message, $filename, $lineno) {
+    throw new ErrorException($message, 0, $severity, $filename, $lineno);
+}
+
+// handle errors (because of throw new ErrorException) and exceptions
+function exception_handler($throwable) {
+    $log = new Logger('ExceptionHandler');
+    $log->pushHandler(new StreamHandler('./access.log', Logger::DEBUG));
+
+    $log->error("Exception: {$throwable->getMessage()} (type={$throwable->getCode()}, at {$throwable->getFile()}:{$throwable->getLine()})");
+    
+    $credentials = json_decode(file_get_contents_safe('./credentials.json'));
+    $config = json_decode(file_get_contents_safe('./config.json'));
+    
+    if(is_null($config) || is_null($credentials)) {
+        $log->error("Can't contact the user about this error (file parsing error).");
+        exit();
+    }
+    
+    if(!array_key_exists('userid', $GLOBALS)) {
+        $log->error("Can't contact the user about this error (no userid).");
+        exit();
+    }
+    
+    $api = new SlackAPI($credentials->slack_bot_token, $log);
+    
+    $data = [
+        'user_id' => $GLOBALS['userid'],
+        'view' => [
+            'type' => 'home',
+            'blocks' => [
+                [
+                    "type" => "section", 
+                    "text" => [ 
+                        'type' => 'mrkdwn', 
+                        'text' => $config->error_message
+                    ]
+                ]
+            ]
+        ]
+    ];
+    
+    $log->debug("Sending error message.");
+    $api->views_publish($data);
+    exit();
 }
