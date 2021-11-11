@@ -227,8 +227,12 @@ class SlackEvents {
         } else {
             $reminders = $this->api->reminders_list();
             $reminder_id = getReminderID($reminders["reminders"], $userid, $datetime);
-            $this->api->reminders_delete($reminder_id);
-            $this->log->debug("reminder deleted ($reminder_id)");
+            if(is_null($reminder_id)) {
+                $this->log->error("can't find the reminder to delete.");
+            } else {
+                $this->api->reminders_delete($reminder_id);
+                $this->log->debug("reminder deleted ($reminder_id)");
+            }
         }
     }
 }
