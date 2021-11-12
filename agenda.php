@@ -128,13 +128,23 @@ class Agenda {
     // update agenda
     protected function update() {
         $remote_ctag = $this->caldav_client->getctag();
+        if(is_null($remote_ctag)) {
+            $this->log->error("Fail to update the CTag");
+            return;
+        }
         
         // check if we need to update events from the server
         $local_ctag = $this->localcache->getctag();
         $this->log->debug("ctags", ["remote" => $remote_ctag, "local" => $local_ctag]);
         if (is_null($local_ctag) || $local_ctag != $remote_ctag){
             $this->log->debug("Agenda update needed");
+            
             $remote_etags = $this->caldav_client->getetags();
+            if(is_null($remote_ctag)) {
+                $this->log->error("Fail to get calendar ETags");
+                return;
+            }
+            
             $this->updateInternalState($remote_etags);
             $this->localcache->setctag($remote_ctag);
         }
@@ -186,6 +196,11 @@ class Agenda {
     private function updateEvents($urls) {
         $xml = $this->caldav_client->updateEvents($urls);
         
+        if(is_null($xml)) {
+            $this->log->error("Fail to update events ");
+            return;
+        }
+
         foreach($xml as $event) {
             if(isset($event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data'])) {
                 $eventName = basename($event['value']['href']);
@@ -254,9 +269,9 @@ class Agenda {
         }
         
         $new_etag = $this->caldav_client->updateEvent($url, $etag, $vcal->serialize());
-        
-        $this->log->debug($vcal->serialize());
-        if(is_null($new_etag)) {
+        if($new_etag === false) {
+            $this->log->error("Fails to update the event");
+        } else if(is_null($new_etag)) {
             $this->log->info("The server did not answer a new etag after an event update, need to update the local calendar");
             $this->updateEvents(array($url));
         } else {
