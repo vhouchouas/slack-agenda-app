@@ -14,7 +14,6 @@ class CalDAVClient {
     public function __construct($url, $username, $password) {
         $this->log = new Logger('CalDAVClient');
         $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
-        $this->log->pushHandler(new StreamHandler('php://stdout', Logger::DEBUG));
 
         $this->url = $url;
         $this->username = $username;
