@@ -135,7 +135,7 @@ class Agenda {
         
         // check if we need to update events from the server
         $local_ctag = $this->localcache->getctag();
-        $this->log->debug("ctags", ["remote" => $remote_ctag, "local" => $local_ctag]);
+        $this->log->debug("local CTag is $local_ctag, remote CTag is $remote_ctag");
         if (is_null($local_ctag) || $local_ctag != $remote_ctag){
             $this->log->debug("Agenda update needed");
             
@@ -154,15 +154,16 @@ class Agenda {
     protected function updateInternalState($etags) {
         $url_to_update = [];
         foreach($etags as $url => $remote_etag) {
-            $tmp = explode("/", $url);
-            $eventName = end($tmp);
+            $eventName = basename($url);
             if($this->localcache->eventExists($eventName)) {
                 $local_etag = $this->localcache->getEventEtag($eventName);
-                $this->log->debug(end($tmp), ["remote_etag"=>$remote_etag, "local_etag" => $local_etag]);
                 
                 if($local_etag != $remote_etag) {
+                    $this->log->info("updating $eventName: remote ETag is $remote_etag, local ETag is $local_etag");
                     // local and remote etag differs, need update
                     $url_to_update[] = $url;
+                } else {
+                    $this->log->debug("no need to update $eventName");
                 }
             } else {
                 $url_to_update[] = $url;
@@ -227,6 +228,11 @@ class Agenda {
     function updateAttendee($url, $usermail, $add, $attendee_CN=NULL) {
         $raw = $this->localcache->getSerializedEvent($url);
         $etag = $this->localcache->getEventEtag($url);
+
+        // test
+        $data = $this->caldav_client->updateEvents(array($url));
+        $remote_etag = trim($data[0]['value']['propstat']['prop']['getetag'], '"');
+        $this->log->debug("$etag, $remote_etag");
         
         $vcal = \Sabre\VObject\Reader::read($raw);
         
@@ -267,7 +273,7 @@ class Agenda {
                 return;
             }
         }
-        
+        $this->log->debug($vcal->serialize());
         $new_etag = $this->caldav_client->updateEvent($url, $etag, $vcal->serialize());
         if($new_etag === false) {
             $this->log->error("Fails to update the event");

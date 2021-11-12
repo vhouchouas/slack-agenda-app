@@ -22,7 +22,7 @@ class CalDAVClient {
     }
 
     // init cURL request
-    private function init_curl_request($url = NULL) {
+    private function init_curl_request($url = null) {
         $ch = curl_init();
         
         if(is_null($url)) {
@@ -48,7 +48,9 @@ class CalDAVClient {
         curl_close($ch);
         
         if($httpcode !== 200 && $httpcode !== 204 && $httpcode !== 207) {
-            $this->log->error("Bad HTTP response code: $httpcode");
+            $url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+            $this->log->error("Bad HTTP response code: $httpcode for $url");
+            $this->log->error($output);
             return false;
         }
         
@@ -78,8 +80,10 @@ class CalDAVClient {
     </d:prop>$str
 </c:calendar-multiget>");
 
-        if(is_null($response = $this->process_curl_request($ch))) {
-            return false;
+
+        $response = $this->process_curl_request($ch);
+        if(is_null($response) || $response === false) {
+            return $response;
         }
         
         $service = new Sabre\Xml\Service();
@@ -121,9 +125,10 @@ class CalDAVClient {
         <c:comp-filter name="VCALENDAR" />
     </c:filter>
 </c:calendar-query>');
-        
-        if(is_null($response = $this->process_curl_request($ch))) {
-            return false;
+
+        $response = $this->process_curl_request($ch);
+        if(is_null($response) || $response === false) {
+            return $response;
         }
         
         $service = new Sabre\Xml\Service();
@@ -169,8 +174,9 @@ class CalDAVClient {
   </d:prop>
 </d:propfind>");
         
-        if(is_null($response = $this->process_curl_request($ch))) {
-            return false;
+        $response = $this->process_curl_request($ch);
+        if(is_null($response) || $response === false) {
+            return $response;
         }
         
         $service = new Sabre\Xml\Service();
@@ -196,26 +202,29 @@ class CalDAVClient {
         return false;
     }
 
-    // return: false if an error occured, NULL if no etag returned, or the etag
+    // return: false if an error occured, null if no etag returned, or the etag
     function updateEvent($url, $etag, $data) {
+        $this->log->debug("will update $url with ETag $etag");
         $url = basename($url); //in case $url is a full URL
         $ch = $this->init_curl_request("$this->url/$url");
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
 
         curl_setopt($ch, CURLOPT_HEADER  , true);
         curl_setopt($ch, CURLOPT_NOBODY  , false);
-        
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        $header = array(
             "Content-Type: text/calendar; charset=utf-8",
-            "If-Match: \"$etag\" "
-        ));
+            'If-Match: "'. $etag . '"'
+        );
+        $this->log->debug($header[1]);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
         
         curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         
         $output = $this->process_curl_request($ch);
         
-        if(is_null($response = $this->process_curl_request($ch))) {
-            return false;
+        $response = $this->process_curl_request($ch);
+        if(is_null($response) || $response === false) {
+            return $response;
         }
                 
         $output = rtrim($output);
@@ -231,9 +240,9 @@ class CalDAVClient {
             if (isset($ETag_header[1])) {
                 return trim($ETag_header[1], ' "');
             } else {
-                return NULL;
+                return null;
             }
         }
-        return NULL;
+        return null;
     }
 }
