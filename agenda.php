@@ -17,7 +17,7 @@ class Agenda {
     
     public function __construct($url, $username, $password, Localcache $localcache) {
         $this->log = new Logger('Agenda');
-        $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
+        $this->log->pushHandler(new StreamHandler('access.log', $GLOBALS['LOGGER_LEVEL']));
         $this->caldav_client = new CalDAVClient($url, $username, $password);
         $this->localcache = $localcache;
         $this->update();

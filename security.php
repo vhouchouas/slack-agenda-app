@@ -18,13 +18,13 @@ function security_check($header, $request_body, $credentials, $log) {
     $sig_basestring = $version . ":" . $timestamp . ":" . $request_body;
     $computed_hmac_sha256 = hash_hmac("sha256",
                                       $sig_basestring,
-                                      $credentials->signing_secret
+                                      $credentials['signing_secret']
     );
     
     $log->debug("HMAC check", [
         "timestamp"=>$timestamp,
         "version" => $version,
-        "signing_secret" => $credentials->signing_secret,
+        "signing_secret" => $credentials['signing_secret'],
         "HMAC from request" => $HMAC_request,
         "HMAC computed" => $computed_hmac_sha256
     ]);
@@ -33,5 +33,20 @@ function security_check($header, $request_body, $credentials, $log) {
         $log->error("Security issue, HMAC differs");
         return false;
     }
+    $log->debug("HMAC check OK.");
     return true;
+}
+
+// challenge/response see: https://api.slack.com/events/url_verification
+function challenge_response($json, $log) {
+    if(property_exists($json, 'type') and
+       $json->type == 'url_verification' and
+       property_exists($json, 'token') and
+       property_exists($json, 'challenge')) {
+        $log->info('Url verification request');
+        http_response_code(200);
+        header("Content-type: text/plain");
+        print($json->challenge);
+        exit();
+    }
 }
