@@ -37,7 +37,7 @@ class CalDAVClient {
     }
 
     private function process_curl_request($ch) {
-        $output = curl_exec($ch);
+        $response = curl_exec($ch);
         
         if (curl_errno($ch)) {
             $this->log->error(curl_error($ch) . " (error code " . curl_errno($ch) . ")");
@@ -50,11 +50,13 @@ class CalDAVClient {
         if($httpcode !== 200 && $httpcode !== 204 && $httpcode !== 207) {
             $url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
             $this->log->error("Bad HTTP response code: $httpcode for $url");
-            $this->log->error($output);
+            $trace = debug_backtrace();
+            $this->log->error("in ({$trace[1]["function"]}).");
+            $this->log->error($response);
             return false;
         }
         
-        return $output;
+        return $response;
     }
     
     // url that need to be updated
@@ -69,17 +71,17 @@ class CalDAVClient {
         
         $str = "";
         foreach($urls as $url) {
-            $str .= "<d:href>$url</d:href>\n";
+            $str .= "<d:href>$this->url/$url</d:href>\n";
         }
-        
-        curl_setopt($ch, CURLOPT_POSTFIELDS,"
-<c:calendar-multiget xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">
+
+        $data = "<c:calendar-multiget xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">
     <d:prop>
         <d:getetag />
         <c:calendar-data />
     </d:prop>$str
-</c:calendar-multiget>");
-
+</c:calendar-multiget>";
+        
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
 
         $response = $this->process_curl_request($ch);
         if(is_null($response) || $response === false) {
@@ -205,7 +207,6 @@ class CalDAVClient {
     // return: false if an error occured, null if no etag returned, or the etag
     function updateEvent($url, $etag, $data) {
         $this->log->debug("will update $url with ETag $etag");
-        $url = basename($url); //in case $url is a full URL
         $ch = $this->init_curl_request("$this->url/$url");
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
 
@@ -215,20 +216,17 @@ class CalDAVClient {
             "Content-Type: text/calendar; charset=utf-8",
             'If-Match: "'. $etag . '"'
         );
-        $this->log->debug($header[1]);
+        
         curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-        
         curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-        
-        $output = $this->process_curl_request($ch);
         
         $response = $this->process_curl_request($ch);
         if(is_null($response) || $response === false) {
             return $response;
         }
-                
-        $output = rtrim($output);
-        $data = explode("\n",$output);
+        
+        $response = rtrim($response);
+        $data = explode("\n",$response);
         array_shift($data); //for ... HTTP/1.1 204 No Content
         
         foreach($data as $part) {

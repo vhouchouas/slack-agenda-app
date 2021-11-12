@@ -161,12 +161,12 @@ class Agenda {
                 if($local_etag != $remote_etag) {
                     $this->log->info("updating $eventName: remote ETag is $remote_etag, local ETag is $local_etag");
                     // local and remote etag differs, need update
-                    $url_to_update[] = $url;
+                    $url_to_update[] = $eventName;
                 } else {
                     $this->log->debug("no need to update $eventName");
                 }
             } else {
-                $url_to_update[] = $url;
+                $url_to_update[] = $eventName;
             }
         }
         
@@ -226,13 +226,9 @@ class Agenda {
     
     //if add is true, then add $usermail to the event, otherwise, remove it.
     function updateAttendee($url, $usermail, $add, $attendee_CN=NULL) {
+        $this->log->info("updating $url");
         $raw = $this->localcache->getSerializedEvent($url);
         $etag = $this->localcache->getEventEtag($url);
-
-        // test
-        $data = $this->caldav_client->updateEvents(array($url));
-        $remote_etag = trim($data[0]['value']['propstat']['prop']['getetag'], '"');
-        $this->log->debug("$etag, $remote_etag");
         
         $vcal = \Sabre\VObject\Reader::read($raw);
         
@@ -273,7 +269,7 @@ class Agenda {
                 return;
             }
         }
-        $this->log->debug($vcal->serialize());
+        
         $new_etag = $this->caldav_client->updateEvent($url, $etag, $vcal->serialize());
         if($new_etag === false) {
             $this->log->error("Fails to update the event");
