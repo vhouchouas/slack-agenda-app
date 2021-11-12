@@ -215,7 +215,7 @@ class Agenda {
         $etag = $this->localcache->getEventEtag($url);
         
         $vcal = \Sabre\VObject\Reader::read($raw);
-        $this->log->debug("attendee", [$vcal->VEVENT->ATTENDEE]);
+        
         if($add) {
             if(isset($vcal->VEVENT->ATTENDEE)) {
                 foreach($vcal->VEVENT->ATTENDEE as $attendee) {
