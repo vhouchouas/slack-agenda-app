@@ -72,14 +72,16 @@ function format_number_of_attendees($attendees, $participant_number) {
     }
 }    
 
-function format_emoji($categories) {
+function format_emoji($parsed_event) {
     $r = "";
-    foreach($categories as $key => $categorie) {
+    foreach($parsed_event["categories"] as $key => $categorie) {
         if($categorie === "Visioconférence") {
             $r .= ":desktop_computer:";
-        } else if($key == "level" and !is_nan($categorie)) {
-            $r .= slackEvents::LEVEL_LUT[$categorie]["emoji"];
-        }        
+        }
+    }
+    
+    if(!is_nan($parsed_event["level"]) and array_key_exists($parsed_event["level"], slackEvents::LEVEL_LUT)) {
+        $r .= slackEvents::LEVEL_LUT[$parsed_event["level"]]["emoji"];
     }
     return $r;
 }    

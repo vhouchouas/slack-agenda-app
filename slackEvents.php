@@ -28,7 +28,7 @@ class SlackEvents {
             'type' => 'section', 
             'text' => [ 
                 'type' => 'mrkdwn', 
-                'text' => '*' . (string)$parsed_event["vcal"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event["categories"]) . PHP_EOL . 
+                'text' => '*' . (string)$parsed_event["vcal"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event) . PHP_EOL . 
                 '*Quand:* ' . format_date($parsed_event["vcal"]->VEVENT->DTSTART->getDateTime(), $parsed_event["vcal"]->VEVENT->DTEND->getDateTime()) . PHP_EOL . 
                 '*Ou:* ' . (string)$parsed_event["vcal"]->VEVENT->LOCATION . PHP_EOL . 
                 "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["participant_number"])."*: " . format_userids($parsed_event["attendees"])
