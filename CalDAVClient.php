@@ -103,7 +103,23 @@ class CalDAVClient {
         ];
         
         $xml = $service->parse($response);
-        return $xml;
+
+        $events = [];
+        foreach($xml as $event) {
+            if(
+                isset($event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data']) and
+                isset($event['value']['propstat']['prop']['getetag']) and
+                isset($event['value']['href'])
+            ) {
+                $events[] = array(
+                    "filename" => basename($event['value']['href']),
+                    "data" => $event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data'],
+                    "etag" => trim($event['value']['propstat']['prop']['getetag'], '"')
+                );
+            }
+        }
+        
+        return $events;
     }
 
     // get event etags from the server

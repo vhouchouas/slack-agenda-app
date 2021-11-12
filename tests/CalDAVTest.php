@@ -24,17 +24,18 @@ final class CalDAVTest extends TestCase {
         $etags = $client->getetags();
         $this->assertNotNull($etags);
         
-        $urls = [];
+        $filenames = [];
         foreach($etags as $url => $etag) {
-            $urls[] = $url;
+            $filenames[] = basename($url);
         }
         
-        $events = $client->updateEvents($urls);
+        $events = $client->updateEvents($filenames);
         
         $this->assertNotNull($events);
-        foreach($events as $url => $event) {
-            $this->assertArrayHasKey('{urn:ietf:params:xml:ns:caldav}calendar-data', $event['value']['propstat']['prop']);
-            $this->assertArrayHasKey('href', $event['value']);
+        foreach($events as $event) {
+            $this->assertArrayHasKey('filename', $event);
+            $this->assertArrayHasKey('data', $event);
+            $this->assertArrayHasKey('etag', $event);
         }
     }
     
@@ -47,14 +48,13 @@ final class CalDAVTest extends TestCase {
         
         $this->assertNotNull($etags);
         foreach($etags as $url => $etag) {
-            $events = $client->updateEvents(array($url));
+            $events = $client->updateEvents(array(basename($url)));
             $this->assertCount(1, $events);
             $event = $events[0];
             
-            $this->assertArrayHasKey('{urn:ietf:params:xml:ns:caldav}calendar-data', $event['value']['propstat']['prop']);
-            $this->assertTrue($event['value']['href'] === $url);
+            $this->assertTrue($event['filename'] === basename($url));
 
-            $new_etag = $client->updateEvent($url, $etag, $event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data']);
+            $new_etag = $client->updateEvent(basename($url), $etag, $event['data']);
             $this->assertTrue($new_etag !== false);
         }
     }

@@ -195,32 +195,32 @@ class Agenda {
     }
 
     private function updateEvents($urls) {
-        $xml = $this->caldav_client->updateEvents($urls);
+        $events = $this->caldav_client->updateEvents($urls);
         
-        if(is_null($xml)) {
+        if(is_null($event) || $event === false) {
             $this->log->error("Fail to update events ");
             return;
         }
 
-        foreach($xml as $event) {
-            if(isset($event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data'])) {
-                $eventName = basename($event['value']['href']);
-                $this->log->info("Adding event " . $eventName);
-                
-                $this->localcache->deleteEvent($eventName);
-                
-                
-                // parse event to get its DTSTART
-                $vcal = \Sabre\VObject\Reader::read($event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data']);
-                $startDate = $vcal->VEVENT->DTSTART->getDateTime();
-                
-                if($startDate < new DateTime('NOW')) {
-                    $this->log->debug("Event is in the past, skiping");
-                    continue;
-                }
-                
-                $this->localcache->addEvent($eventName, $event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data'], trim($event['value']['propstat']['prop']['getetag'], '"'));
+        foreach($events as $event) {
+            $this->log->info("Adding event $event[filename]");
+            
+            $this->localcache->deleteEvent($event['filename']);
+            
+            // parse event to get its DTSTART
+            $vcal = \Sabre\VObject\Reader::read($event['data']);
+            $startDate = $vcal->VEVENT->DTSTART->getDateTime();
+            
+            if($startDate < new DateTime('NOW')) {
+                $this->log->debug("Event is in the past, skiping");
+                continue;
             }
+            
+            $this->localcache->addEvent(
+                $event['filename'],
+                $event['data'],
+                $event['etag']
+            );
         }
     }
     
