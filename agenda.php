@@ -36,6 +36,10 @@ class Agenda {
             
             if(isset($event->VEVENT->ATTENDEE)) {
                 foreach($event->VEVENT->ATTENDEE as $attendee) {
+                    if(isset($attendee['PARTSTAT']) and (string)$attendee['PARTSTAT'] === "DECLINED") {
+                        $this->log->debug("user $attendee has declined event outside the app.");
+                        continue;
+                    }
                     $a = [
                         //"cn" => $attendee['CN']->getValue(),
                         "mail" => str_replace("mailto:", "", (string)$attendee)
@@ -216,21 +220,28 @@ class Agenda {
             if(isset($vcal->VEVENT->ATTENDEE)) {
                 foreach($vcal->VEVENT->ATTENDEE as $attendee) {
                     if(str_replace("mailto:","", (string)$attendee) === $usermail) {
-                        $this->log->info("Try to add a already registered attendee");
-                        return true; // not an error
+                        if(isset($attendee['PARTSTAT']) && (string)$attendee['PARTSTAT'] === "DECLINED") {
+                            $this->log->info("Try to add a user that have already declined invitation (from outside).");
+                            // clean up
+                            $vcal->VEVENT->remove($attendee);
+                            // will add again the user
+                            break;
+                        } else {
+                            $this->log->info("Try to add a already registered attendee");
+                            return true; // not an error
+                        }
                     }
                 }
             }
             
-            /*$vcal->VEVENT->add(
-              'ATTENDEE',
-              'mailto:' . $usermail,
-              [
-              'RSVP' => 'TRUE',
-              'CN'   => (is_null($attendee_CN)) ? 'Bénévole' : $attendee_CN, //@TODO
-              ]
-              );*/
-            $vcal->VEVENT->add('ATTENDEE', 'mailto:' . $usermail);
+            $vcal->VEVENT->add(
+                'ATTENDEE',
+                'mailto:' . $usermail,
+                [
+                    'CN'   => (is_null($attendee_CN)) ? 'Bénévole' : $attendee_CN,
+                ]
+            );
+            //$vcal->VEVENT->add('ATTENDEE', 'mailto:' . $usermail);
         } else {
             $already_out = true;
             
