@@ -176,13 +176,12 @@ function error_handler($severity, $message, $filename, $lineno) {
 function exception_handler($throwable) {
     $log = new Logger('ExceptionHandler');
     $log->pushHandler(new StreamHandler('./app.log', Logger::DEBUG));
-
+    
     $log->error("Exception: {$throwable->getMessage()} (type={$throwable->getCode()}, at {$throwable->getFile()}:{$throwable->getLine()})");
     
-    $credentials = json_decode(file_get_contents_safe('./credentials.json'));
     $config = json_decode(file_get_contents_safe('./config.json'));
     
-    if(is_null($config) || is_null($credentials)) {
+    if(is_null($config)) {
         $log->error("Can't contact the user about this error (file parsing error).");
         exit();
     }
@@ -192,7 +191,7 @@ function exception_handler($throwable) {
         exit();
     }
     
-    $api = new SlackAPI($credentials->slack_bot_token, $log);
+    $api = new SlackAPI($config->slack_bot_token, $config->slack_user_token, $log);
     
     $data = [
         'user_id' => $GLOBALS['userid'],
