@@ -51,15 +51,15 @@ function getReminderID($reminders, $userid, $datetime) {
 }
 function format_userids($names) {
     if(count($names) == 0) {
-        return "";
+        return "aucun.";
     } else {
         foreach($names as $i => $name) {
             $names[$i] = "<@$name[userid]>";
         }
         if(count($names) == 1) {
-            return $names[0];
+            return "$names[0].";
         } else {
-            return implode(", ", array_slice($names, 0, count($names) - 1)) . " et " . end($names);
+            return implode(", ", array_slice($names, 0, count($names) - 1)) . " et " . end($names) . ".";
         }
     }
 }
@@ -74,14 +74,16 @@ function format_number_of_attendees($attendees, $participant_number) {
 
 function format_emoji($parsed_event) {
     $r = "";
-    foreach($parsed_event["categories"] as $key => $categorie) {
-        if($categorie === "Visioconférence") {
-            $r .= ":desktop_computer:";
+    foreach($parsed_event["categories"] as $key => $category) {
+        if($category === "Visioconférence") {
+            $r = ":desktop_computer:" . $r;
+        } else {
+            $r .= "`$category` ";
         }
     }
     
     if(!is_nan($parsed_event["level"]) and array_key_exists($parsed_event["level"], slackEvents::LEVEL_LUT)) {
-        $r .= slackEvents::LEVEL_LUT[$parsed_event["level"]]["emoji"];
+        $r = slackEvents::LEVEL_LUT[$parsed_event["level"]]["emoji"] . $r;
     }
     return $r;
 }    

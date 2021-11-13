@@ -24,21 +24,26 @@ class SlackEvents {
     }
 
     protected function render_event($parsed_event, $description=false) {
+
+        $infos  = '*' . (string)$parsed_event["vcal"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event) . PHP_EOL;
+        $infos .= '*Quand:* ' . format_date($parsed_event["vcal"]->VEVENT->DTSTART->getDateTime(), $parsed_event["vcal"]->VEVENT->DTEND->getDateTime()) . PHP_EOL;
+        if(isset($parsed_event["vcal"]->VEVENT->LOCATION) and strlen((string)$parsed_event["vcal"]->VEVENT->LOCATION) > 0) {
+            $infos .= '*Ou:* ' . (string)$parsed_event["vcal"]->VEVENT->LOCATION . " (<https://www.openstreetmap.org/search?query=".(string)$parsed_event["vcal"]->VEVENT->LOCATION."|voir>)" . PHP_EOL;
+        }
+        $infos .= "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["participant_number"])."*: " . format_userids($parsed_event["attendees"]);
+
+        if($description) {
+            $infos .= PHP_EOL . PHP_EOL . '*Description:*' . PHP_EOL . PHP_EOL . (string)$parsed_event["vcal"]->VEVENT->DESCRIPTION;
+        }
+
         $block = [
             'type' => 'section', 
             'text' => [ 
                 'type' => 'mrkdwn', 
-                'text' => '*' . (string)$parsed_event["vcal"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event) . PHP_EOL . 
-                '*Quand:* ' . format_date($parsed_event["vcal"]->VEVENT->DTSTART->getDateTime(), $parsed_event["vcal"]->VEVENT->DTEND->getDateTime()) . PHP_EOL . 
-                '*Ou:* ' . (string)$parsed_event["vcal"]->VEVENT->LOCATION . PHP_EOL . 
-                "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["participant_number"])."*: " . format_userids($parsed_event["attendees"])
+                'text' => $infos
             ]            
         ];
-        
-        if($description) {
-            $block['text']['text'] .= PHP_EOL . PHP_EOL . '*Description*' . (string)$parsed_event["vcal"]->VEVENT->DESCRIPTION;
-        }
-        
+
         return $block;
     }
     
