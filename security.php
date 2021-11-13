@@ -24,7 +24,6 @@ function security_check($header, $request_body, $credentials, $log) {
     $log->debug("HMAC check", [
         "timestamp"=>$timestamp,
         "version" => $version,
-        "signing_secret" => $credentials['signing_secret'],
         "HMAC from request" => $HMAC_request,
         "HMAC computed" => $computed_hmac_sha256
     ]);

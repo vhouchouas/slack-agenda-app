@@ -14,7 +14,7 @@ function read_config_file() {
     }
     
     $config_file_content = file_get_contents_safe('config.json');
-    $config = json_decode($config_file_content);
+    $config = json_decode($config_file_content, true);
     
     if(is_null($config)) {
         $log->error('config.json is not json formated');
@@ -22,43 +22,49 @@ function read_config_file() {
     }
 
     $levels = Logger::getLevels();
-    if(property_exists($config, 'logger_level') and array_key_exists($config->logger_level, $levels)) {
-        $level = $levels[$config->logger_level];
+    if(isset($config['logger_level']) and array_key_exists($config['logger_level'], $levels)) {
+        $level = $levels[$config['logger_level']];
         $handler->setLevel($level);
-        $log->debug("Log handler switch to level {$config->logger_level}");
+        $log->debug("Log handler switch to level $config[logger_level]");
         $GLOBALS['LOGGER_LEVEL'] = $level;
     } else {
         $log->debug("Log handler INFO");
         $GLOBALS['LOGGER_LEVEL'] = Logger::INFO;
     }
         
-    if(!property_exists($config, 'slack_signing_secret') ||
-       !property_exists($config, 'slack_bot_token') ||
-       !property_exists($config, 'slack_user_token')) {
+    if(!isset($config['slack_signing_secret']) ||
+       !isset($config['slack_bot_token']) ||
+       !isset($config['slack_user_token'])) {
         $log->error("Slack signing secret and/or tokens not stored in config.json (exit).");
         exit();
     }
 
     $slack_credentials = array(
-        "signing_secret" => $config->slack_signing_secret,
-        "bot_token" => $config->slack_bot_token,
-        "user_token" => $config->slack_user_token,
+        "signing_secret" => $config['slack_signing_secret'],
+        "bot_token" => $config['slack_bot_token'],
+        "user_token" => $config['slack_user_token'],
     );
-    $log->debug("", $slack_credentials);
     
     if(
-        !property_exists($config, 'caldav_url') ||
-        !property_exists($config, 'caldav_username') ||
-        !property_exists($config, 'caldav_password')) {
+        !isset($config['caldav_url']) ||
+        !isset($config['caldav_username']) ||
+        !isset($config['caldav_password'])) {
         $log->error('Caldav credentials not present in config.json (exit).');
         exit();
     }
 
     $caldav_credentials = array(
-        "url" => $config->caldav_url,
-        "username" => $config->caldav_username,
-        "password" => $config->caldav_password,
+        "url" => $config['caldav_url'],
+        "username" => $config['caldav_username'],
+        "password" => $config['caldav_password'],
     );
+
+    if(isset($config['prepend_block'])) {
+        $GLOBALS['PREPEND_BLOCK'] = $config['prepend_block'];
+    }
+    if(isset($config['append_block'])) {
+        $GLOBALS['APPEND_BLOCK'] = $config['append_block'];
+    }
     
     return [$slack_credentials, $caldav_credentials];
 }
