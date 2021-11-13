@@ -25,7 +25,7 @@ require "localcache.php";
 list($slack_credentials, $caldav_credentials) = read_config_file();
 
 $log = new Logger('SlackApp');
-$log->pushHandler(new StreamHandler('access.log', $GLOBALS['LOGGER_LEVEL']));
+$log->pushHandler(new StreamHandler('app.log', $GLOBALS['LOGGER_LEVEL']));
 
 // Extract request parts + HMAC check
 $request_body = file_get_contents('php://input');

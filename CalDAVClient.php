@@ -13,7 +13,7 @@ class CalDAVClient {
     
     public function __construct($url, $username, $password) {
         $this->log = new Logger('CalDAVClient');
-        $this->log->pushHandler(new StreamHandler('access.log', $GLOBALS['LOGGER_LEVEL']));
+        $this->log->pushHandler(new StreamHandler('app.log', $GLOBALS['LOGGER_LEVEL']));
 
         $this->url = $url;
         $this->username = $username;

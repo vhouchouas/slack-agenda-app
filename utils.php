@@ -5,7 +5,7 @@ use Monolog\Handler\StreamHandler;
 
 function read_config_file() {
     $log = new Logger('ConfigReader');
-    $handler = new StreamHandler('access.log', Logger::ERROR);
+    $handler = new StreamHandler('app.log', Logger::ERROR);
     $log->pushHandler($handler);
 
     if(!file_exists('config.json')) {
@@ -169,7 +169,7 @@ function error_handler($severity, $message, $filename, $lineno) {
 // handle errors (because of throw new ErrorException) and exceptions
 function exception_handler($throwable) {
     $log = new Logger('ExceptionHandler');
-    $log->pushHandler(new StreamHandler('./access.log', Logger::DEBUG));
+    $log->pushHandler(new StreamHandler('./app.log', Logger::DEBUG));
 
     $log->error("Exception: {$throwable->getMessage()} (type={$throwable->getCode()}, at {$throwable->getFile()}:{$throwable->getLine()})");
     
