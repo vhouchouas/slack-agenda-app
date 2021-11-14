@@ -9,7 +9,6 @@ ini_set('display_startup_errors', 1);
 require __DIR__ . '/vendor/autoload.php';
 
 use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
 
 require_once "utils.php";
 
@@ -25,7 +24,7 @@ require "localcache.php";
 list($slack_credentials, $caldav_credentials) = read_config_file();
 
 $log = new Logger('SlackApp');
-$log->pushHandler(new StreamHandler('app.log', $GLOBALS['LOGGER_LEVEL']));
+setLogHandlers($log);
 
 // Extract request parts + HMAC check
 $request_body = file_get_contents('php://input');

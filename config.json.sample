@@ -7,6 +7,8 @@
     "caldav_url" : "https://www.server.com/...", 
     "error_message" : "Error, please contact your administrator.",
     "logger_level" : "DEBUG",
+    "error_mail_from" : "error@server.com",
+    "error_mail_to" : "dev@server.com",
     "prepend_block" : {
 	"type": "section",
 	"text": {

@@ -2,6 +2,7 @@
 
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
+use Monolog\Handler\NativeMailerHandler;
 
 function read_config_file() {
     $log = new Logger('ConfigReader');
@@ -31,7 +32,9 @@ function read_config_file() {
         $log->debug("Log handler INFO");
         $GLOBALS['LOGGER_LEVEL'] = Logger::INFO;
     }
-        
+    
+    $GLOBALS['LOG_HANDLERS'][] = $handler;
+    
     if(!isset($config['slack_signing_secret']) ||
        !isset($config['slack_bot_token']) ||
        !isset($config['slack_user_token'])) {
@@ -59,6 +62,10 @@ function read_config_file() {
         "password" => $config['caldav_password'],
     );
 
+    if(isset($config['error_mail_from']) and isset($config['error_mail_to'])) {
+        $GLOBALS['LOG_HANDLERS'][] = new NativeMailerHandler($config['error_mail_to'], 'Slack App Error', $config['error_mail_from'], Logger::ERROR);
+    }
+    
     if(isset($config['prepend_block'])) {
         $GLOBALS['PREPEND_BLOCK'] = $config['prepend_block'];
     }
@@ -67,6 +74,12 @@ function read_config_file() {
     }
     
     return [$slack_credentials, $caldav_credentials];
+}
+
+function setLogHandlers($log) {
+    foreach($GLOBALS['LOG_HANDLERS'] as $handler) {
+        $log->pushHandler($handler);
+    }
 }
 
 // @see https://www.php.net/manual/fr/function.flock.php

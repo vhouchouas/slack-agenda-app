@@ -1,7 +1,6 @@
 <?php
 
 use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
 use Sabre\VObject;
 
 require __DIR__ . '/vendor/autoload.php';
@@ -13,7 +12,7 @@ class CalDAVClient {
     
     public function __construct($url, $username, $password) {
         $this->log = new Logger('CalDAVClient');
-        $this->log->pushHandler(new StreamHandler('app.log', $GLOBALS['LOGGER_LEVEL']));
+        setLogHandlers($this->log);
 
         $this->url = $url;
         $this->username = $username;
