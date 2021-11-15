@@ -75,6 +75,9 @@ if(property_exists($json, 'event') && property_exists($json->event, 'type')) {
     // @see: https://api.slack.com/events/app_home_opened    
     if($event_type == "app_home_opened") {
         $slack_events->app_home_page($json->event->user);
+        if($agenda->update()) {
+            $slack_events->app_home_page($json->event->user);
+        }
     }
 } else if(property_exists($json, 'actions')) {
     $GLOBALS['userid'] = $json->user->id; // in case we need to show an error message to the user
