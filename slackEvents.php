@@ -24,21 +24,26 @@ class SlackEvents {
     }
 
     protected function render_event($parsed_event, $description=false) {
+
+        $infos  = '*' . (string)$parsed_event["vcal"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event) . PHP_EOL;
+        $infos .= '*Quand:* ' . format_date($parsed_event["vcal"]->VEVENT->DTSTART->getDateTime(), $parsed_event["vcal"]->VEVENT->DTEND->getDateTime()) . PHP_EOL;
+        if(isset($parsed_event["vcal"]->VEVENT->LOCATION) and strlen((string)$parsed_event["vcal"]->VEVENT->LOCATION) > 0) {
+            $infos .= '*Ou:* ' . (string)$parsed_event["vcal"]->VEVENT->LOCATION . " (<https://www.openstreetmap.org/search?query=".(string)$parsed_event["vcal"]->VEVENT->LOCATION."|voir>)" . PHP_EOL;
+        }
+        $infos .= "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["participant_number"])."*: " . format_userids($parsed_event["attendees"]);
+
+        if($description) {
+            $infos .= PHP_EOL . PHP_EOL . '*Description:*' . PHP_EOL . PHP_EOL . (string)$parsed_event["vcal"]->VEVENT->DESCRIPTION;
+        }
+
         $block = [
             'type' => 'section', 
             'text' => [ 
                 'type' => 'mrkdwn', 
-                'text' => '*' . (string)$parsed_event["vcal"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event["categories"]) . PHP_EOL . 
-                '*Quand:* ' . format_date($parsed_event["vcal"]->VEVENT->DTSTART->getDateTime(), $parsed_event["vcal"]->VEVENT->DTEND->getDateTime()) . PHP_EOL . 
-                '*Ou:* ' . (string)$parsed_event["vcal"]->VEVENT->LOCATION . PHP_EOL . 
-                "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["participant_number"])."*: " . format_userids($parsed_event["attendees"])
+                'text' => $infos
             ]            
         ];
-        
-        if($description) {
-            $block['text']['text'] .= PHP_EOL . PHP_EOL . '*Description*' . (string)$parsed_event["vcal"]->VEVENT->DESCRIPTION;
-        }
-        
+
         return $block;
     }
     
@@ -88,17 +93,7 @@ class SlackEvents {
                 'type'=> 'actions',
                 'block_id'=> $file,
                 'elements'=> array(
-                    array(
-                        'type'=> 'button',
-                        'action_id'=> (!$parsed_event["is_registered"]) ? 'getin' : 'getout',
-                        'text'=> array(
-                            'type'=> 'plain_text',
-                            'text'=> (!$parsed_event["is_registered"]) ? 'Je  viens !' : 'Me déinscrire',
-                            'emoji'=> true
-                        ),
-                        'style'=> 'primary',
-                        'value'=> 'approve'
-                    ),
+                    $this->getRegistrationButton($parsed_event["is_registered"]),
                     array(
                         'type'=> 'button',
                         'action_id'=> 'more',
@@ -153,8 +148,16 @@ class SlackEvents {
                 "options"=> $default_filters
             ]
         ];
+
+        if(isset($GLOBALS['PREPEND_BLOCK'])) {
+            array_unshift($blocks, $GLOBALS['PREPEND_BLOCK'], $header_block, $filter_block, ["type"=> "divider"]);
+        } else {
+            array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
+        }
         
-        array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
+        if(isset($GLOBALS['APPEND_BLOCK'])) {
+            array_push($blocks, $GLOBALS['APPEND_BLOCK']);
+        }
         
         $data = [
             'user_id' => $userid,
@@ -167,11 +170,27 @@ class SlackEvents {
         $this->api->views_publish($data);
     }
 
+    protected function getRegistrationButton($in) {
+        return array(
+            'type'=> 'button',
+            'action_id'=> (!$in) ? 'getin' : 'getout',
+            'text'=> array(
+                'type'=> 'plain_text',
+                'text'=> (!$in) ? 'Je  viens !' : 'Me déinscrire',
+                'emoji'=> true
+            ),
+            'style'=> 'primary',
+            'value'=> 'approve'
+        );
+    }
+    
     function more($url, $request) {
         $vcal = $this->agenda->getEvent($url);
         $userid = $request->user->id;
+        $parsed_event = $this->agenda->parseEvent($userid, $vcal, $this->api);
+        $trigger_id = $request->trigger_id;
         
-        $parsed_event = $this->parse_and_render($vcal, $userid, true);
+        $block = $this->render_event($parsed_event, true);
         
         $data = [
             "type" =>  "modal",
@@ -184,11 +203,49 @@ class SlackEvents {
                 "text" =>  "Close"
             ],
             
-            "blocks" =>  [$parsed_event["block"]],
+            "blocks" =>  [$block],
         ];
-        $this->api->view_open($data, $request);
+        $this->api->view_open($data, $trigger_id);
     }
-    
+
+    // update just the modified event
+    protected function register_fast_rendering($url, $userid, $usermail, $in, $request, $event) {
+        $i = 0;
+        foreach($request->view->blocks as $block) { //looking for the block of interest
+            if($block->block_id === $url) {
+                break;
+            }
+            $i++;
+        }
+        
+        
+        if($in) {
+            $a = [
+                "mail" => $usermail,
+                "userid" => $userid
+            ];
+            $event["attendees"][] = $a;
+        } else {
+            $event["attendees"] = array_filter($event["attendees"],
+                                               function($attendee) use ($userid) {
+                                                   return $attendee["userid"] !== $userid;
+                                               }
+            );
+        }
+        
+        $request->view->blocks[$i-1] = $this->render_event($event);
+        $request->view->blocks[$i]->elements[0] = $this->getRegistrationButton($in);
+        
+        $data = [
+            'user_id' => $userid,
+            'view' => [
+                'type' => 'home',
+                'blocks' => $request->view->blocks
+            ]
+        ];
+        $response = json_decode($this->api->views_publish($data));
+    }
+
     function register($url, $userid, $in, $request) {
         $profile = $this->api->users_profile_get($userid);
         if(is_null($profile)) {
@@ -196,8 +253,15 @@ class SlackEvents {
             exit(); // @TODO maybe throw something here
         }
         $this->log->debug("register mail $profile->email $profile->first_name $profile->last_name");
-        $r = $this->agenda->updateAttendee($url, $profile->email, $in, $profile->first_name . ' ' . $profile->last_name);
-        $this->app_home_page($userid);
+        $parsed_event = $this->agenda->parseEvent($userid, $this->agenda->getEvent($url), $this->api);
+        slackEvents::ack();
+        $this->register_fast_rendering($url, $userid, $profile->email, $in, $request, $parsed_event);
+        
+        $response = $this->agenda->updateAttendee($url, $profile->email, $in, $profile->first_name . ' ' . $profile->last_name);
+        if(!$response) { //an error occured
+            $this->agenda->update();
+            $this->app_home_page($userid);
+        }
 
         $vevent = $this->agenda->getEvent($url)->VEVENT;
         $datetime = $vevent->DTSTART->getDateTime();
@@ -231,5 +295,12 @@ class SlackEvents {
             $filters_to_apply[] = $filter->value;
         }
         $this->app_home_page($userid, $filters_to_apply);
+    }
+
+    // @SEE https://api.slack.com/interactivity/handling#acknowledgment_response
+    static function ack() {
+        http_response_code(200);
+        fastcgi_finish_request(); //Ok for php-fpm
+        //need to find a solution for mod_php (ob_flush(), flush(), etc. does not work)
     }
 }

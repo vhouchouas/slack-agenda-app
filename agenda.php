@@ -1,7 +1,6 @@
 <?php
 
 use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
 use Sabre\VObject;
 
 require "CalDAVClient.php";
@@ -17,10 +16,9 @@ class Agenda {
     
     public function __construct($url, $username, $password, Localcache $localcache) {
         $this->log = new Logger('Agenda');
-        $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
+        setLogHandlers($this->log);
         $this->caldav_client = new CalDAVClient($url, $username, $password);
         $this->localcache = $localcache;
-        $this->update();
     }
 
     function getUserEventsFiltered($userid, $api, $filters_to_apply = array()) {
@@ -28,50 +26,8 @@ class Agenda {
         
         foreach($this->localcache->getAllEventsNames() as $filename) {
             $event = $this->getEvent($filename);
-            $parsed_event = array();
-            $parsed_event["vcal"] = $event;
-            $parsed_event["is_registered"] = false;
-            $parsed_event["attendees"] = array();
-            $parsed_event["categories"] = array();
-            
-            if(isset($event->VEVENT->ATTENDEE)) {
-                foreach($event->VEVENT->ATTENDEE as $attendee) {
-                    $a = [
-                        //"cn" => $attendee['CN']->getValue(),
-                        "mail" => str_replace("mailto:", "", (string)$attendee)
-                    ];
-                    
-                    $a["userid"] = $api->users_lookupByEmail($a["mail"])->id;
-                    
-                    $parsed_event["attendees"][] = $a;
-                    if($a["userid"] == $userid) {
-                        $parsed_event["is_registered"] = true;
-                    }
-                }
-            }
-            
-            $parsed_event["level"] = NAN;
-            $parsed_event["participant_number"] = NAN;
-            
-            if(isset($event->VEVENT->CATEGORIES)) {
-                foreach($event->VEVENT->CATEGORIES as $category) {
-                    //preg_match_all(slackEvents::$regex_number_attendee, $category, $matches_number_attendee, PREG_SET_ORDER, 0);
-                    //preg_match_all(slackEvents::$regex_level, $category, $matches_level, PREG_SET_ORDER, 0);
-                    
-                    if(is_nan($parsed_event["level"]) and
-                       !is_nan($parsed_event["level"] = is_level_category((string)$category))) {
-                        continue;
-                    }
-                    
-                    if(is_nan($parsed_event["participant_number"]) and
-                       !is_nan($parsed_event["participant_number"] = is_number_of_attendee_category((string)$category))) {
-                        continue;
-                    }
-                    //$filters[] = (string)$category;
-                    $parsed_event["categories"][] = (string)$category;
-                }
-            }
-            
+            $parsed_event = $this->parseEvent($userid, $event, $api);
+
             $parsed_event["keep"] = true;
             
             if(count($filters_to_apply) >= 0) {
@@ -106,6 +62,54 @@ class Agenda {
         return $parsed_events;
     }
 
+    function parseEvent($userid, $event, $api) {
+        $parsed_event = array();
+        $parsed_event["vcal"] = $event;
+        $parsed_event["is_registered"] = false;
+        $parsed_event["attendees"] = array();
+        $parsed_event["categories"] = array();
+        
+        if(isset($event->VEVENT->ATTENDEE)) {
+            foreach($event->VEVENT->ATTENDEE as $attendee) {
+                $a = [
+                    //"cn" => $attendee['CN']->getValue(),
+                    "mail" => str_replace("mailto:", "", (string)$attendee)
+                ];
+                
+                $a["userid"] = $api->users_lookupByEmail($a["mail"])->id;
+                
+                $parsed_event["attendees"][] = $a;
+                if($a["userid"] == $userid) {
+                    $parsed_event["is_registered"] = true;
+                }
+            }
+        }
+        
+        $parsed_event["level"] = NAN;
+        $parsed_event["participant_number"] = NAN;
+        
+        if(isset($event->VEVENT->CATEGORIES)) {
+            foreach($event->VEVENT->CATEGORIES as $category) {
+                //preg_match_all(slackEvents::$regex_number_attendee, $category, $matches_number_attendee, PREG_SET_ORDER, 0);
+                //preg_match_all(slackEvents::$regex_level, $category, $matches_level, PREG_SET_ORDER, 0);
+                
+                if(is_nan($parsed_event["level"]) and
+                   !is_nan($parsed_event["level"] = is_level_category((string)$category))) {
+                    continue;
+                }
+                
+                if(is_nan($parsed_event["participant_number"]) and
+                   !is_nan($parsed_event["participant_number"] = is_number_of_attendee_category((string)$category))) {
+                    continue;
+                }
+                //$filters[] = (string)$category;
+                $parsed_event["categories"][] = (string)$category;
+            }
+        }
+        return $parsed_event;
+    }
+
+
     function getEvents() {
         $events = array();
         foreach($this->localCache->getEvents() as $eventName => $serializedEvent){
@@ -119,14 +123,14 @@ class Agenda {
             $events[$eventName] = $vcal;
         }    
         uasort($events, function ($v1, $v2) {
-            return $v1->VEVENT->DTSTART->getDateTime() > $v2->VEVENT->DTSTART->getDateTime();
+            return $v1->VEVENT->DTSTART->getDateTime()->getTimestamp() - $v2->VEVENT->DTSTART->getDateTime()->getTimestamp();
         });
         
         return $events;
     }
     
     // update agenda
-    protected function update() {
+    function update() {
         $remote_ctag = $this->caldav_client->getctag();
         if(is_null($remote_ctag)) {
             $this->log->error("Fail to update the CTag");
@@ -157,7 +161,7 @@ class Agenda {
             $eventName = basename($url);
             if($this->localcache->eventExists($eventName)) {
                 $local_etag = $this->localcache->getEventEtag($eventName);
-                
+
                 if($local_etag != $remote_etag) {
                     $this->log->info("updating $eventName: remote ETag is $remote_etag, local ETag is $local_etag");
                     // local and remote etag differs, need update
@@ -197,7 +201,7 @@ class Agenda {
     private function updateEvents($urls) {
         $events = $this->caldav_client->updateEvents($urls);
         
-        if(is_null($event) || $event === false) {
+        if(is_null($events) || $events === false) {
             $this->log->error("Fail to update events ");
             return;
         }
@@ -236,21 +240,28 @@ class Agenda {
             if(isset($vcal->VEVENT->ATTENDEE)) {
                 foreach($vcal->VEVENT->ATTENDEE as $attendee) {
                     if(str_replace("mailto:","", (string)$attendee) === $usermail) {
-                        $this->log->info("Try to add a already registered attendee");
-                        return;
+                        if(isset($attendee['PARTSTAT']) && (string)$attendee['PARTSTAT'] === "DECLINED") {
+                            $this->log->info("Try to add a user that have already declined invitation (from outside).");
+                            // clean up
+                            $vcal->VEVENT->remove($attendee);
+                            // will add again the user
+                            break;
+                        } else {
+                            $this->log->info("Try to add a already registered attendee");
+                            return true; // not an error
+                        }
                     }
                 }
             }
             
-            /*$vcal->VEVENT->add(
-              'ATTENDEE',
-              'mailto:' . $usermail,
-              [
-              'RSVP' => 'TRUE',
-              'CN'   => (is_null($attendee_CN)) ? 'Bénévole' : $attendee_CN, //@TODO
-              ]
-              );*/
-            $vcal->VEVENT->add('ATTENDEE', 'mailto:' . $usermail);
+            $vcal->VEVENT->add(
+                'ATTENDEE',
+                'mailto:' . $usermail,
+                [
+                    'CN'   => (is_null($attendee_CN)) ? 'Bénévole' : $attendee_CN,
+                ]
+            );
+            //$vcal->VEVENT->add('ATTENDEE', 'mailto:' . $usermail);
         } else {
             $already_out = true;
             
@@ -266,7 +277,7 @@ class Agenda {
             
             if($already_out) {
                 $this->log->info("Try to remove an unregistered email");
-                return;
+                return true; // not an error
             }
         }
         
@@ -275,10 +286,13 @@ class Agenda {
             $this->log->error("Fails to update the event");
         } else if(is_null($new_etag)) {
             $this->log->info("The server did not answer a new etag after an event update, need to update the local calendar");
-            $this->updateEvents(array($url));
+            if(!$this->updateEvents(array($url))) {
+                return false;
+            }
         } else {
             $this->localcache->addEvent($url, $vcal->serialize(), $new_etag);
         }
+        return true;
     }
 
     function getEvent($url) {

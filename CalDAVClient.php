@@ -1,7 +1,6 @@
 <?php
 
 use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
 use Sabre\VObject;
 
 require __DIR__ . '/vendor/autoload.php';
@@ -13,7 +12,7 @@ class CalDAVClient {
     
     public function __construct($url, $username, $password) {
         $this->log = new Logger('CalDAVClient');
-        $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
+        setLogHandlers($this->log);
 
         $this->url = $url;
         $this->username = $username;
@@ -70,7 +69,7 @@ class CalDAVClient {
         
         $str = "";
         foreach($urls as $url) {
-            $str .= "<d:href>$this->url/$url</d:href>\n";
+            $str .= "<d:href>{$this->url}/$url</d:href>\n";
         }
 
         $data = "<c:calendar-multiget xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">
@@ -221,8 +220,10 @@ class CalDAVClient {
 
     // return: false if an error occured, null if no etag returned, or the etag
     function updateEvent($url, $etag, $data) {
+
         $this->log->debug("will update $url with ETag $etag");
-        $ch = $this->init_curl_request("$this->url/$url");
+        $ch = $this->init_curl_request("{$this->url}/$url");
+
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
 
         curl_setopt($ch, CURLOPT_HEADER  , true);
