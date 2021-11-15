@@ -1,7 +1,6 @@
 <?php
 
 use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
 use Sabre\VObject;
 
 require "CalDAVClient.php";
@@ -17,7 +16,7 @@ class Agenda {
     
     public function __construct($url, $username, $password, Localcache $localcache) {
         $this->log = new Logger('Agenda');
-        $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
+        setLogHandlers($this->log);
         $this->caldav_client = new CalDAVClient($url, $username, $password);
         $this->localcache = $localcache;
         $this->update();

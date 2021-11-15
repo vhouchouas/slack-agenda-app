@@ -158,8 +158,16 @@ class SlackEvents {
                 "options"=> $default_filters
             ]
         ];
+
+        if(isset($GLOBALS['PREPEND_BLOCK'])) {
+            array_unshift($blocks, $GLOBALS['PREPEND_BLOCK'], $header_block, $filter_block, ["type"=> "divider"]);
+        } else {
+            array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
+        }
         
-        array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
+        if(isset($GLOBALS['APPEND_BLOCK'])) {
+            array_push($blocks, $GLOBALS['APPEND_BLOCK']);
+        }
         
         $data = [
             'user_id' => $userid,

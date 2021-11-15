@@ -2,6 +2,85 @@
 
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
+use Monolog\Handler\NativeMailerHandler;
+
+function read_config_file() {
+    $log = new Logger('ConfigReader');
+    $handler = new StreamHandler('app.log', Logger::ERROR);
+    $log->pushHandler($handler);
+
+    if(!file_exists('config.json')) {
+        $log->error('config.json not found');
+        exit();
+    }
+    
+    $config_file_content = file_get_contents_safe('config.json');
+    $config = json_decode($config_file_content, true);
+    
+    if(is_null($config)) {
+        $log->error('config.json is not json formated');
+        exit();
+    }
+
+    $levels = Logger::getLevels();
+    if(isset($config['logger_level']) and array_key_exists($config['logger_level'], $levels)) {
+        $level = $levels[$config['logger_level']];
+        $handler->setLevel($level);
+        $log->debug("Log handler switch to level $config[logger_level]");
+        $GLOBALS['LOGGER_LEVEL'] = $level;
+    } else {
+        $log->debug("Log handler INFO");
+        $GLOBALS['LOGGER_LEVEL'] = Logger::INFO;
+    }
+    
+    $GLOBALS['LOG_HANDLERS'][] = $handler;
+    
+    if(!isset($config['slack_signing_secret']) ||
+       !isset($config['slack_bot_token']) ||
+       !isset($config['slack_user_token'])) {
+        $log->error("Slack signing secret and/or tokens not stored in config.json (exit).");
+        exit();
+    }
+
+    $slack_credentials = array(
+        "signing_secret" => $config['slack_signing_secret'],
+        "bot_token" => $config['slack_bot_token'],
+        "user_token" => $config['slack_user_token'],
+    );
+    
+    if(
+        !isset($config['caldav_url']) ||
+        !isset($config['caldav_username']) ||
+        !isset($config['caldav_password'])) {
+        $log->error('Caldav credentials not present in config.json (exit).');
+        exit();
+    }
+
+    $caldav_credentials = array(
+        "url" => $config['caldav_url'],
+        "username" => $config['caldav_username'],
+        "password" => $config['caldav_password'],
+    );
+
+    if(isset($config['error_mail_from']) and isset($config['error_mail_to'])) {
+        $GLOBALS['LOG_HANDLERS'][] = new NativeMailerHandler($config['error_mail_to'], 'Slack App Error', $config['error_mail_from'], Logger::ERROR);
+    }
+    
+    if(isset($config['prepend_block'])) {
+        $GLOBALS['PREPEND_BLOCK'] = $config['prepend_block'];
+    }
+    if(isset($config['append_block'])) {
+        $GLOBALS['APPEND_BLOCK'] = $config['append_block'];
+    }
+    
+    return [$slack_credentials, $caldav_credentials];
+}
+
+function setLogHandlers($log) {
+    foreach($GLOBALS['LOG_HANDLERS'] as $handler) {
+        $log->pushHandler($handler);
+    }
+}
 
 // @see https://www.php.net/manual/fr/function.flock.php
 function file_get_contents_safe($filename) {
@@ -113,14 +192,13 @@ function error_handler($severity, $message, $filename, $lineno) {
 // handle errors (because of throw new ErrorException) and exceptions
 function exception_handler($throwable) {
     $log = new Logger('ExceptionHandler');
-    $log->pushHandler(new StreamHandler('./access.log', Logger::DEBUG));
-
+    $log->pushHandler(new StreamHandler('./app.log', Logger::DEBUG));
+    
     $log->error("Exception: {$throwable->getMessage()} (type={$throwable->getCode()}, at {$throwable->getFile()}:{$throwable->getLine()})");
     
-    $credentials = json_decode(file_get_contents_safe('./credentials.json'));
     $config = json_decode(file_get_contents_safe('./config.json'));
     
-    if(is_null($config) || is_null($credentials)) {
+    if(is_null($config)) {
         $log->error("Can't contact the user about this error (file parsing error).");
         exit();
     }
@@ -130,7 +208,7 @@ function exception_handler($throwable) {
         exit();
     }
     
-    $api = new SlackAPI($credentials->slack_bot_token, $log);
+    $api = new SlackAPI($config->slack_bot_token, $config->slack_user_token, $log);
     
     $data = [
         'user_id' => $GLOBALS['userid'],
