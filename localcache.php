@@ -29,8 +29,7 @@ class FilesystemCache implements Localcache {
             mkdir($root, 0777, true);
         }
         $this->log = new Logger("Filesystemcache");
-        //$this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
-        $this->log->pushHandler(new StreamHandler('php://stdout', Logger::DEBUG));
+        setLogHandlers($this->log);
     }
 
     function getSerializedEvents(){

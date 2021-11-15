@@ -1,0 +1,26 @@
+{
+    "slack_signing_secret" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "slack_bot_token" : "xoxb-xxxxxxxxxxxxx-xxxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx",
+    "slack_user_token" : "xoxp-xxxxxxxxxxxxx-xxxxxxxxxxxxx-xxxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "caldav_username" : "user@server.com",
+    "caldav_password" : "xxxxxxxxxxxxxxxx",
+    "caldav_url" : "https://www.server.com/...", 
+    "error_message" : "Error, please contact your administrator.",
+    "logger_level" : "DEBUG",
+    "error_mail_from" : "error@server.com",
+    "error_mail_to" : "dev@server.com",
+    "prepend_block" : {
+	"type": "section",
+	"text": {
+	    "type": "mrkdwn",
+	    "text": "Pre message"
+	}
+    },
+    "append_block" : {
+	"type": "section",
+	"text": {
+	    "type": "mrkdwn",
+	    "text": "Post message"
+	}
+    }
+}
