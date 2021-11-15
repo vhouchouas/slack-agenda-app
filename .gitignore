@@ -2,3 +2,4 @@ credentials.json
 vendor
 *~
 .*.sw*
+composer.phar

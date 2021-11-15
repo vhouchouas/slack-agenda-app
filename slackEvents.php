@@ -167,10 +167,7 @@ class SlackEvents {
             ]
         ];
         
-        $response = json_decode($this->api->views_publish($data));
-        if($response->ok !== true) {
-            $this->log->debug("Client info", ["response"=>$response]);
-        }
+        $this->api->views_publish($data);
     }
 
     protected function getRegistrationButton($in) {
@@ -251,6 +248,10 @@ class SlackEvents {
 
     function register($url, $userid, $in, $request) {
         $profile = $this->api->users_profile_get($userid);
+        if(is_null($profile)) {
+            $this->log->error("Can determine user mail from the Slack API");
+            exit(); // @TODO maybe throw something here
+        }
         $this->log->debug("register mail $profile->email $profile->first_name $profile->last_name");
         $parsed_event = $this->agenda->parseEvent($userid, $this->agenda->getEvent($url), $this->api);
         slackEvents::ack();
@@ -269,19 +270,25 @@ class SlackEvents {
         if($in) {
             $summary = (string)$vevent->SUMMARY;
             $response = $this->api->reminders_add($userid, "Rappel pour l'événement: $summary", $datetime);
-            $this->log->debug("reminder created ({$response->reminder->id})");
+            if(!is_null($response)) {
+                $this->log->debug("reminder created ({$response->reminder->id})");
+            } else {
+                $this->log->error("failed to create reminder");
+            }
         } else {
             $reminders = $this->api->reminders_list();
-            $reminder_id = getReminderID($reminders["reminders"], $userid, $datetime);
-            if(is_null($reminder_id)) {
-                $this->log->error("can't find the reminder to delete.");
-            } else {
-                $this->api->reminders_delete($reminder_id);
+            
+            if(!is_null($reminders) and
+               !is_null($reminder_id = getReminderID($reminders["reminders"], $userid, $datetime)) and
+               !is_null($this->api->reminders_delete($reminder_id))
+            ) {
                 $this->log->debug("reminder deleted ($reminder_id)");
+            } else {
+                $this->log->error("can't find the reminder to delete.");
             }
         }
     }
-
+    
     function filters_has_changed($action, $userid) {
         $filters_to_apply = array();
         foreach($action->selected_options as $filter) {

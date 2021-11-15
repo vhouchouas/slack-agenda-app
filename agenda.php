@@ -132,13 +132,23 @@ class Agenda {
     // update agenda
     function update() {
         $remote_ctag = $this->caldav_client->getctag();
+        if(is_null($remote_ctag)) {
+            $this->log->error("Fail to update the CTag");
+            return;
+        }
         
         // check if we need to update events from the server
         $local_ctag = $this->localcache->getctag();
-        $this->log->debug("ctags", ["remote" => $remote_ctag, "local" => $local_ctag]);
+        $this->log->debug("local CTag is $local_ctag, remote CTag is $remote_ctag");
         if (is_null($local_ctag) || $local_ctag != $remote_ctag){
             $this->log->debug("Agenda update needed");
+            
             $remote_etags = $this->caldav_client->getetags();
+            if(is_null($remote_ctag)) {
+                $this->log->error("Fail to get calendar ETags");
+                return;
+            }
+            
             $this->updateInternalState($remote_etags);
             $this->localcache->setctag($remote_ctag);
         }
@@ -151,10 +161,13 @@ class Agenda {
             $eventName = basename($url);
             if($this->localcache->eventExists($eventName)) {
                 $local_etag = $this->localcache->getEventEtag($eventName);
-                $this->log->debug($eventName, ["remote_etag"=>$remote_etag, "local_etag" => $local_etag]);
-                
-                if($local_etag != $remote_etag) { // local and remote etag differs, need update
+
+                if($local_etag != $remote_etag) {
+                    $this->log->info("updating $eventName: remote ETag is $remote_etag, local ETag is $local_etag");
+                    // local and remote etag differs, need update
                     $url_to_update[] = $eventName;
+                } else {
+                    $this->log->debug("no need to update $eventName");
                 }
             } else {
                 $url_to_update[] = $eventName;
@@ -186,31 +199,38 @@ class Agenda {
     }
 
     private function updateEvents($urls) {
-        $xml = $this->caldav_client->updateEvents($urls);
+        $events = $this->caldav_client->updateEvents($urls);
         
-        foreach($xml as $event) {
-            if(isset($event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data'])) {
-                $eventName = basename($event['value']['href']);
-                $this->log->info("Adding event " . $eventName);
-                
-                $this->localcache->deleteEvent($eventName);
-                
-                // parse event to get its DTSTART
-                $vcal = \Sabre\VObject\Reader::read($event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data']);
-                $startDate = $vcal->VEVENT->DTSTART->getDateTime();
-                
-                if($startDate < new DateTime('NOW')) {
-                    $this->log->debug("Event is in the past, skiping");
-                    continue;
-                }
-                
-                $this->localcache->addEvent($eventName, $event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data'], trim($event['value']['propstat']['prop']['getetag'], '"'));
+        if(is_null($events) || $events === false) {
+            $this->log->error("Fail to update events ");
+            return;
+        }
+
+        foreach($events as $event) {
+            $this->log->info("Adding event $event[filename]");
+            
+            $this->localcache->deleteEvent($event['filename']);
+            
+            // parse event to get its DTSTART
+            $vcal = \Sabre\VObject\Reader::read($event['data']);
+            $startDate = $vcal->VEVENT->DTSTART->getDateTime();
+            
+            if($startDate < new DateTime('NOW')) {
+                $this->log->debug("Event is in the past, skiping");
+                continue;
             }
+            
+            $this->localcache->addEvent(
+                $event['filename'],
+                $event['data'],
+                $event['etag']
+            );
         }
     }
     
     //if add is true, then add $usermail to the event, otherwise, remove it.
     function updateAttendee($url, $usermail, $add, $attendee_CN=NULL) {
+        $this->log->info("updating $url");
         $raw = $this->localcache->getSerializedEvent($url);
         $etag = $this->localcache->getEventEtag($url);
         
@@ -262,9 +282,9 @@ class Agenda {
         }
         
         $new_etag = $this->caldav_client->updateEvent($url, $etag, $vcal->serialize());
-        
-        $this->log->debug($vcal->serialize());
-        if(is_null($new_etag)) {
+        if($new_etag === false) {
+            $this->log->error("Fails to update the event");
+        } else if(is_null($new_etag)) {
             $this->log->info("The server did not answer a new etag after an event update, need to update the local calendar");
             if(!$this->updateEvents(array($url))) {
                 return false;
