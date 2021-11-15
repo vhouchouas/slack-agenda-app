@@ -53,8 +53,9 @@ class FilesystemCache implements Localcache {
     
     function getctag(){
         if(is_file("{$this->root}ctag")) {
-            $this->log->error("{$this->root}ctag not found");
             return file_get_contents_safe("{$this->root}ctag");
+        } else {
+            $this->log->error("{$this->root}ctag not found");
         }
         return null;
     }

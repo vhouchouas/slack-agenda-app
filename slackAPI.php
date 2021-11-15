@@ -78,9 +78,7 @@ class SlackAPI{
         }
     }
 
-    function view_open($data, $request) {
-        $trigger_id = $request->trigger_id;
-        
+    function view_open($data, $trigger_id) {
         $ch = $this->curl_init("https://slack.com/api/views.open", array('application/x-www-form-urlencoded'));
         curl_setopt($ch, CURLOPT_POSTFIELDS, array(
             "view" => json_encode($data),

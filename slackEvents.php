@@ -243,7 +243,7 @@ class SlackEvents {
                 'blocks' => $request->view->blocks
             ]
         ];
-        $response = json_decode($this->api->views_publish($data));
+        $this->api->views_publish($data);
     }
 
     function register($url, $userid, $in, $request) {
