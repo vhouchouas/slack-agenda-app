@@ -87,7 +87,7 @@ Technical notes for admin
 
 Technical notes for  for developers
 ===================================
-This app is architecture as follows:
+This app is architectured as follows:
 
 ```
                           ┌───────────────────┐
