@@ -136,7 +136,8 @@ function format_userids($names) {
             $names[$i] = "<@$name[userid]>";
         }
         if(count($names) == 1) {
-            return "$names[0].";
+            $key = array_key_first($names);
+            return "$names[$key].";
         } else {
             return implode(", ", array_slice($names, 0, count($names) - 1)) . " et " . end($names) . ".";
         }
