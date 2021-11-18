@@ -87,8 +87,14 @@ class SlackEvents {
             if($parsed_event["keep"] === false) {
                 continue;
             }
-
-            $blocks[] = $this->render_event($parsed_event, false);
+            
+            $block = $this->render_event($parsed_event, false);
+            if(json_encode($block) === false) {
+                $this->log->warning("Event $file is not JSON serializable" . (string)$parsed_event["vcal"]->VEVENT->SUMMARY, $block);
+                continue;
+            }
+            
+            $blocks[] = $block;
             $blocks[] = [
                 'type'=> 'actions',
                 'block_id'=> $file,
@@ -121,13 +127,19 @@ class SlackEvents {
         ];
         
         foreach(array_unique($all_filters) as $filter) {
-            array_push($default_filters, [
+            $block = [
                 "text" => [
                     "type" => "plain_text",
                     "text" => $filter
                 ],
                 "value" => $filter
-            ]);
+            ];
+            
+            if(json_encode($block) === false) {
+                $this->log->warning("Filter ($filter) is not JSON serializable");
+                continue;
+            }
+            array_push($default_filters, $block);
         }
         
         $filter_block = [
@@ -150,13 +162,20 @@ class SlackEvents {
         ];
 
         if(isset($GLOBALS['PREPEND_BLOCK'])) {
-            array_unshift($blocks, $GLOBALS['PREPEND_BLOCK'], $header_block, $filter_block, ["type"=> "divider"]);
+            if(json_encode($GLOBALS['PREPEND_BLOCK']) !== false) {
+                array_unshift($blocks, $GLOBALS['PREPEND_BLOCK'], $header_block, $filter_block, ["type"=> "divider"]);
+            } else {
+                $this->log->warning("PREPEND_BLOCK is not JSON serializable");
+                array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
+            }
         } else {
             array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
         }
         
-        if(isset($GLOBALS['APPEND_BLOCK'])) {
+        if(isset($GLOBALS['APPEND_BLOCK']) && json_encode($GLOBALS['APPEND_BLOCK']) !== false) {
             array_push($blocks, $GLOBALS['APPEND_BLOCK']);
+        } else {
+            $this->log->warning("APPEND_BLOCK is not JSON serializable");
         }
         
         $data = [
@@ -258,7 +277,7 @@ class SlackEvents {
         $this->register_fast_rendering($url, $userid, $profile->email, $in, $request, $parsed_event);
         
         $response = $this->agenda->updateAttendee($url, $profile->email, $in, $profile->first_name . ' ' . $profile->last_name);
-        if(!$response) { //an error occured
+        if($response === false) { //an error occured
             $this->agenda->update();
             $this->app_home_page($userid);
         }

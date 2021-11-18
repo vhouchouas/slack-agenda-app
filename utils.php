@@ -107,7 +107,7 @@ function file_put_contents_safe($filename, $data) {
 }
 
 function format_date($start, $end) {
-    setlocale(LC_TIME, "fr_FR");
+    setlocale(LC_TIME, "fr_FR.UTF-8");
     $start_date = $start->format('Y-m-d');
     $end_date = $end->format('Y-m-d');
     
@@ -136,7 +136,8 @@ function format_userids($names) {
             $names[$i] = "<@$name[userid]>";
         }
         if(count($names) == 1) {
-            return "$names[0].";
+            $key = array_key_first($names);
+            return "$names[$key].";
         } else {
             return implode(", ", array_slice($names, 0, count($names) - 1)) . " et " . end($names) . ".";
         }

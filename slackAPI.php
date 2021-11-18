@@ -12,7 +12,7 @@ class SlackAPI{
         $this->slack_user_token = $slack_user_token;
         
         $this->log = new Logger('SlackAPI');
-        $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
+        setLogHandlers($this->log);
     }
 
     protected function curl_init($url, $additional_headers) {
@@ -28,7 +28,7 @@ class SlackAPI{
         curl_close($ch);
         $json = json_decode($response, $as_array);
         
-        if(!is_null($response)) {
+        if(!is_null($json)) {
             if(!$as_array and property_exists($json, 'ok') and $json->ok) { // json response with 'ok' key
                 return $json;
             } else if($as_array and in_array('ok', $json) and $json['ok']) { // array response with 'ok' key
@@ -48,8 +48,8 @@ class SlackAPI{
     }
     
     function views_publish($data) {
-        $ch = $this->curl_init("https://slack.com/api/views.publish", array('Content-Type:application/json'));
-        curl_setopt( $ch, CURLOPT_POSTFIELDS, json_encode($data));
+        $ch = $this->curl_init("https://slack.com/api/views.publish", array('Content-Type:application/json; charset=UTF-8'));
+        curl_setopt( $ch, CURLOPT_POSTFIELDS, json_encode($data, JSON_PARTIAL_OUTPUT_ON_ERROR));
         return $this->curl_process($ch);
     }
 
