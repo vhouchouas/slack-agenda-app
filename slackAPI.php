@@ -48,8 +48,8 @@ class SlackAPI{
     }
     
     function views_publish($data) {
-        $ch = $this->curl_init("https://slack.com/api/views.publish", array('Content-Type:application/json'));
-        curl_setopt( $ch, CURLOPT_POSTFIELDS, json_encode($data));
+        $ch = $this->curl_init("https://slack.com/api/views.publish", array('Content-Type:application/json; charset=UTF-8'));
+        curl_setopt( $ch, CURLOPT_POSTFIELDS, json_encode($data, JSON_PARTIAL_OUTPUT_ON_ERROR));
         return $this->curl_process($ch);
     }
 
