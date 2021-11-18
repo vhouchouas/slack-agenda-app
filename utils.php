@@ -107,7 +107,7 @@ function file_put_contents_safe($filename, $data) {
 }
 
 function format_date($start, $end) {
-    setlocale(LC_TIME, "fr_FR");
+    setlocale(LC_TIME, "fr_FR.UTF-8");
     $start_date = $start->format('Y-m-d');
     $end_date = $end->format('Y-m-d');
     
