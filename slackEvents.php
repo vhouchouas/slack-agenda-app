@@ -258,7 +258,7 @@ class SlackEvents {
         $this->register_fast_rendering($url, $userid, $profile->email, $in, $request, $parsed_event);
         
         $response = $this->agenda->updateAttendee($url, $profile->email, $in, $profile->first_name . ' ' . $profile->last_name);
-        if(!$response) { //an error occured
+        if($response === false) { //an error occured
             $this->agenda->update();
             $this->app_home_page($userid);
         }

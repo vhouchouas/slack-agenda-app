@@ -208,7 +208,7 @@ class Agenda {
         
         if(is_null($events) || $events === false) {
             $this->log->error("Fail to update events ");
-            return;
+            return false;
         }
 
         foreach($events as $event) {
@@ -231,6 +231,7 @@ class Agenda {
                 $event['etag']
             );
         }
+        return true;
     }
     
     //if add is true, then add $usermail to the event, otherwise, remove it.
@@ -289,6 +290,7 @@ class Agenda {
         $new_etag = $this->caldav_client->updateEvent($url, $etag, $vcal->serialize());
         if($new_etag === false) {
             $this->log->error("Fails to update the event");
+            return false;
         } else if(is_null($new_etag)) {
             $this->log->info("The server did not answer a new etag after an event update, need to update the local calendar");
             if(!$this->updateEvents(array($url))) {
