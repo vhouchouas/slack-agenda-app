@@ -12,7 +12,7 @@ class SlackAPI{
         $this->slack_user_token = $slack_user_token;
         
         $this->log = new Logger('SlackAPI');
-        $this->log->pushHandler(new StreamHandler('access.log', Logger::DEBUG));
+        setLogHandlers($this->log);
     }
 
     protected function curl_init($url, $additional_headers) {
