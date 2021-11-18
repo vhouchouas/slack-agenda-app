@@ -59,6 +59,11 @@ class Agenda {
             }
             $parsed_events[$filename] = $parsed_event;
         }
+
+        uasort($parsed_events, function ($v1, $v2) {
+            return $v1["vcal"]->VEVENT->DTSTART->getDateTime()->getTimestamp() - $v2["vcal"]->VEVENT->DTSTART->getDateTime()->getTimestamp();
+        });
+        
         return $parsed_events;
     }
 
