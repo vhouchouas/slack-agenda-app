@@ -28,7 +28,7 @@ class SlackAPI{
         curl_close($ch);
         $json = json_decode($response, $as_array);
         
-        if(!is_null($response)) {
+        if(!is_null($json)) {
             if(!$as_array and property_exists($json, 'ok') and $json->ok) { // json response with 'ok' key
                 return $json;
             } else if($as_array and in_array('ok', $json) and $json['ok']) { // array response with 'ok' key
