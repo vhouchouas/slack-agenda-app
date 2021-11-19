@@ -35,8 +35,9 @@ class SlackAPI{
                 return $json;
             } else {
                 $trace = debug_backtrace();
-                $this->log->error("API call failed in {$trace[1]["function"]}.");
-                $this->log->error("raw response: $response");
+                // TODO: log as an error, except when the caller is users_lookupByEmail
+                $this->log->info("API call failed in {$trace[1]["function"]}.");
+                $this->log->info("raw response: $response");
                 return NULL;
             }
         } else {
