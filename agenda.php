@@ -81,7 +81,8 @@ class Agenda {
                     "mail" => str_replace("mailto:", "", (string)$attendee)
                 ];
                 
-                $a["userid"] = $api->users_lookupByEmail($a["mail"])->id;
+                $user = $api->users_lookupByEmail($a["mail"]);
+                $a["userid"] = !is_null($user) ? $user->id : "Utilisateur inconnu";
                 
                 $parsed_event["attendees"][] = $a;
                 if($a["userid"] == $userid) {
