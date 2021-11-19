@@ -9,6 +9,7 @@
     "logger_level" : "DEBUG",
     "error_mail_from" : "error@server.com",
     "error_mail_to" : "dev@server.com",
+    "path_to_localcache_on_filesystem": "./data",
     "prepend_block" : {
 	"type": "section",
 	"text": {

@@ -72,8 +72,10 @@ function read_config_file() {
     if(isset($config['append_block'])) {
         $GLOBALS['APPEND_BLOCK'] = $config['append_block'];
     }
+
+    $localFsCachePath = isset($config["path_to_localcache_on_filesystem"]) ? $config["path_to_localcache_on_filesystem"] : "./data";
     
-    return [$slack_credentials, $caldav_credentials];
+    return [$slack_credentials, $caldav_credentials, $localFsCachePath];
 }
 
 function setLogHandlers($log) {

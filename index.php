@@ -21,7 +21,7 @@ require "slackAPI.php";
 require "slackEvents.php";
 require "localcache.php";
 
-list($slack_credentials, $caldav_credentials) = read_config_file();
+list($slack_credentials, $caldav_credentials, $localFsCachePath) = read_config_file();
 
 $log = new Logger('SlackApp');
 setLogHandlers($log);
@@ -64,7 +64,7 @@ if(is_null($json)) {
 challenge_response($json, $log);
 
 $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token'], $log);
-$agenda = new Agenda($caldav_credentials['url'], $caldav_credentials['username'], $caldav_credentials['password'], new FilesystemCache("./data"));
+$agenda = new Agenda($caldav_credentials['url'], $caldav_credentials['username'], $caldav_credentials['password'], new FilesystemCache($localFsCachePath));
 $slack_events = new SlackEvents($agenda, $api, $log);
 
 if(property_exists($json, 'event') && property_exists($json->event, 'type')) {
