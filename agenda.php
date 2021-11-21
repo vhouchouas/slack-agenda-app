@@ -150,7 +150,7 @@ class Agenda {
             $this->log->debug("Agenda update needed");
             
             $remote_etags = $this->caldav_client->getetags();
-            if(is_null($remote_ctag)) {
+            if($remote_ctag === false || is_null($remote_ctag)) {
                 $this->log->error("Fail to get calendar ETags");
                 return;
             }
