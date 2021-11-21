@@ -93,6 +93,7 @@ class SlackAPI{
         curl_setopt($ch, CURLOPT_POSTFIELDS, array(
             "text" => $text,
             "time" => $datetime->getTimestamp(),
+            "user" => $userid,
             "token" => $this->slack_user_token
         ));
         return $this->curl_process($ch);
