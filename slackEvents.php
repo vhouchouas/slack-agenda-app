@@ -266,11 +266,12 @@ class SlackEvents {
     }
 
     function register($url, $userid, $in, $request) {
-        $profile = $this->api->users_profile_get($userid);
-        if(is_null($profile)) {
-            $this->log->error("Can determine user mail from the Slack API");
+        $user = $this->api->users_profile_get($userid);
+        if(is_null($user)) {
+            $this->log->error("Can't determine user mail from the Slack API");
             exit(); // @TODO maybe throw something here
         }
+        $profile = $user->profile;
         $this->log->debug("register mail $profile->email $profile->first_name $profile->last_name");
         $parsed_event = $this->agenda->parseEvent($userid, $this->agenda->getEvent($url), $this->api);
         slackEvents::ack();
