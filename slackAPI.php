@@ -72,7 +72,7 @@ class SlackAPI{
         }   
     }
     
-    function users_profile_get($userid) {
+    function users_info($userid) {
         $ch = $this->curl_init("https://slack.com/api/users.info", array('application/x-www-form-urlencoded'));
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt( $ch, CURLOPT_POSTFIELDS, [
