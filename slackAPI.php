@@ -96,28 +96,23 @@ class SlackAPI{
     }
 
     function reminders_add($userid, $text, $datetime) {
-        $ch = $this->curl_init("https://slack.com/api/reminders.add", array('application/x-www-form-urlencoded'));
+        $ch = $this->curl_init("https://slack.com/api/reminders.add", array('application/x-www-form-urlencoded'), "user");
         curl_setopt($ch, CURLOPT_POSTFIELDS, array(
             "text" => $text,
             "time" => $datetime->getTimestamp(),
-            "user" => $userid,
-            "token" => $this->slack_user_token
+            "user" => $userid
         ));
         return $this->curl_process($ch);
     }
 
     function reminders_list() {
-        $ch = $this->curl_init("https://slack.com/api/reminders.list", array('application/x-www-form-urlencoded'));
-        curl_setopt($ch, CURLOPT_POSTFIELDS, array(
-            "token" => $this->slack_user_token
-        ));
+        $ch = $this->curl_init("https://slack.com/api/reminders.list", array('application/x-www-form-urlencoded'), "user");
         return $this->curl_process($ch, true);
     }
 
     function reminders_delete($reminder_id) {
-        $ch = $this->curl_init("https://slack.com/api/reminders.delete", array('application/x-www-form-urlencoded'));
+        $ch = $this->curl_init("https://slack.com/api/reminders.delete", array('application/x-www-form-urlencoded'), "user");
         curl_setopt($ch, CURLOPT_POSTFIELDS, array(
-            "token" => $this->slack_user_token,
             "reminder" => $reminder_id
         ));
         return $this->curl_process($ch);
