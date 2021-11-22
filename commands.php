@@ -7,20 +7,11 @@ if(!isset($_SERVER['CONTENT_TYPE']) ||
     exit();
 }
 
-$params = [];
-foreach (explode('&', $request_body) as $chunk) {
-    $param = explode("=", $chunk);
-    
-    if ($param) {
-        $params[urldecode($param[0])] = urldecode($param[1]);
-    }
-}
-
-if(!isset($params['command'])) {
+if(!isset($_POST['command'])) {
     $log->warning("missing command, exiting.");
     exit();
 }
-$command = $params['command'];
+$command = $_POST['command'];
 
 $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token'], $log);
 $agenda = new Agenda($caldav_credentials['url'], $caldav_credentials['username'], $caldav_credentials['password'], new FilesystemCache($localFsCachePath));

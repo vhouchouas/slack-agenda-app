@@ -7,21 +7,12 @@ if(!isset($_SERVER['CONTENT_TYPE']) ||
     exit();
 }
 
-$params = [];
-foreach (explode('&', $request_body) as $chunk) {
-    $param = explode("=", $chunk);
-    
-    if ($param) {
-        $params[urldecode($param[0])] = json_decode(urldecode($param[1]));
-    }
-}
-
-if(!isset($params['payload']) || is_null($params['payload'])) {
+if(!isset($_POST['payload']) || is_null($_POST['payload'])) {
     $log->warning("missing or malformed payload, exiting.");
     exit();
 }
 
-$json = $params['payload'];
+$json = json_decode($_POST['payload']);
 
 if(!property_exists($json, 'actions')) {
     $log->warning("missing 'actions' parameter within the payload, exiting.");
