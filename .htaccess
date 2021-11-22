@@ -1,6 +1,14 @@
 Order deny,allow
 Deny from all
 
-<Files "index.php">
+<Files "events.php">
+    Allow from all
+</Files>
+
+<Files "actions.php">
+    Allow from all
+</Files>
+
+<Files "commands.php">
     Allow from all
 </Files>
