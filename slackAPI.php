@@ -6,6 +6,10 @@ class SlackAPI{
     protected $slack_bot_token;
     protected $slack_user_token;
     protected $log;
+
+    const QUIET_ERRORS = array(
+        "users_lookupByEmail" => array("users_not_found")
+    );
     
     function __construct($slack_bot_token, $slack_user_token, $log) {
         $this->slack_bot_token = $slack_bot_token;
@@ -34,17 +38,31 @@ class SlackAPI{
         $json = json_decode($response, $as_array);
         
         if(!is_null($json)) {
-            if(!$as_array and property_exists($json, 'ok') and $json->ok) { // json response with 'ok' key
-                return $json;
-            } else if($as_array and in_array('ok', $json) and $json['ok']) { // array response with 'ok' key
-                return $json;
+            $error = NULL;
+            if(!$as_array and property_exists($json, 'ok')) { // json response with 'ok' key
+                if($json->ok) {
+                    return $json;
+                } else if(property_exists($json, 'error')) {
+                    $error = $json->error;
+                }
+            } else if($as_array and in_array('ok', $json)) { // array response with 'ok' key
+                if($json['ok']) {
+                    return $json;
+                } else if(in_array('error', $json)) {
+                    $error = $json["error"];
+                }
+            } 
+            $trace = debug_backtrace();
+            $function = $trace[1]["function"];
+            
+            if(!is_null($error) and isset(slackAPI::QUIET_ERRORS[$function]) and in_array($error, slackAPI::QUIET_ERRORS[$function])) {
+                // nothing to do
             } else {
-                $trace = debug_backtrace();
-                // TODO: log as an error, except when the caller is users_lookupByEmail
                 $this->log->info("API call failed in {$trace[1]["function"]}.");
                 $this->log->info("raw response: $response");
-                return NULL;
             }
+            
+            return NULL;
         } else {
             $trace = debug_backtrace();
             $this->log->error("malformed response ({$trace[1]["function"]}).");
