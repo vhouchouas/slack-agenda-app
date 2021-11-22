@@ -130,18 +130,40 @@ function getReminderID($reminders, $userid, $datetime) {
     }
     return NULL;
 }
-function format_userids($names) {
-    if(count($names) == 0) {
-        return "aucun.";
+
+function format_unknown_attendees($N) {
+    if($N === 1) {
+        return "1 personne.";
+    } else {
+        return "$N personnes.";
+    }
+    return "";
+}
+
+function format_userids($names, $unknown_attendees) {
+    if(count($names) === 0 ) {
+        if($unknown_attendees === 0) {
+            return "aucun.";
+        } else {
+            return format_unknown_attendees($unknown_attendees);
+        }
     } else {
         foreach($names as $i => $name) {
             $names[$i] = "<@$name[userid]>";
         }
-        if(count($names) == 1) {
+        if(count($names) === 1){
             $key = array_key_first($names);
-            return "$names[$key].";
+            if($unknown_attendees === 0) {
+                return "$names[$key].";
+            } else {
+                return "$names[$key] et " . format_unknown_attendees($unknown_attendees);
+            }
         } else {
-            return implode(", ", array_slice($names, 0, count($names) - 1)) . " et " . end($names) . ".";
+            if($unknown_attendees === 0) {
+                return implode(", ", array_slice($names, 0, count($names) - 1)) . " et " . end($names) . ".";
+            } else {
+                return implode(", ", array_slice($names, 0, count($names))) . " et " . format_unknown_attendees($unknown_attendees);
+            }
         }
     }
 }
