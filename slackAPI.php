@@ -58,8 +58,8 @@ class SlackAPI{
             if(!is_null($error) and isset(slackAPI::QUIET_ERRORS[$function]) and in_array($error, slackAPI::QUIET_ERRORS[$function])) {
                 // nothing to do
             } else {
-                $this->log->info("API call failed in {$trace[1]["function"]}.");
-                $this->log->info("raw response: $response");
+                $this->log->error("API call failed in {$trace[1]["function"]}.");
+                $this->log->error("raw response: $response");
             }
             
             return NULL;
