@@ -72,6 +72,7 @@ class Agenda {
         $parsed_event["vcal"] = $event;
         $parsed_event["is_registered"] = false;
         $parsed_event["attendees"] = array();
+        $parsed_event["unknown_attendees"] = 0;
         $parsed_event["categories"] = array();
         
         if(isset($event->VEVENT->ATTENDEE)) {
@@ -82,7 +83,12 @@ class Agenda {
                 ];
                 
                 $user = $api->users_lookupByEmail($a["mail"]);
-                $a["userid"] = !is_null($user) ? $user->id : "Utilisateur inconnu";
+                if(!is_null($user)) {
+                    $a["userid"] = $user->id;
+                } else {
+                    $parsed_event["unknown_attendees"] += 1;
+                    continue;
+                }
                 
                 $parsed_event["attendees"][] = $a;
                 if($a["userid"] == $userid) {
