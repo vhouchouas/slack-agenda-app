@@ -304,7 +304,10 @@ class SlackEvents {
             ) {
                 $this->log->debug("reminder deleted ($reminder_id)");
             } else {
-                $this->log->error("can't find the reminder to delete.");
+                // Don't log as an error because it may be normal, for instance:
+                // - when the user deleted the reminder manually from slack
+                // - or when we did not create a reminder (for instance when the registration occurs less than 24h before the event start)
+                $this->log->info("can't find the reminder to delete.");
             }
         }
     }
