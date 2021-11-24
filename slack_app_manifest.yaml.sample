@@ -25,12 +25,12 @@ oauth_config:
       - users:read
 settings:
   event_subscriptions:
-    request_url: https://www.server.com/events
+    request_url: https://www.server.com/events.php
     bot_events:
       - app_home_opened
   interactivity:
     is_enabled: true
-    request_url: https://www.server.com/actions
+    request_url: https://www.server.com/actions.php
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false
