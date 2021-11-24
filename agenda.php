@@ -37,11 +37,6 @@ class Agenda {
                             $parsed_event["keep"] = false;
                             break;
                         }
-                    } else if(!is_nan(is_level_category($filter))) {
-                        if($filter !== "E{$parsed_event["level"]}") {
-                            $parsed_event["keep"] = false;
-                            break;
-                        }
                     } else if($filter === "need_volunteers") {
                         if(is_nan($parsed_event["participant_number"]) or
                            count($parsed_event["attendees"]) >= $parsed_event["participant_number"]) {
@@ -53,9 +48,6 @@ class Agenda {
                         break;
                     }
                 }            
-                //if($parsed_event["keep"] == false) {
-                //return $parsed_event; // no need to process render
-                //}
             }
             $parsed_events[$filename] = $parsed_event;
         }
@@ -97,22 +89,16 @@ class Agenda {
             }
         }
         
-        $parsed_event["level"] = NAN;
         $parsed_event["participant_number"] = NAN;
         
         if(isset($event->VEVENT->CATEGORIES)) {
             foreach($event->VEVENT->CATEGORIES as $category) {
-                
-                if(is_nan($parsed_event["level"]) and
-                   !is_nan($parsed_event["level"] = is_level_category((string)$category))) {
-                    continue;
-                }
-                
+                                
                 if(is_nan($parsed_event["participant_number"]) and
                    !is_nan($parsed_event["participant_number"] = is_number_of_attendee_category((string)$category))) {
                     continue;
                 }
-                //$filters[] = (string)$category;
+                
                 $parsed_event["categories"][] = (string)$category;
             }
         }

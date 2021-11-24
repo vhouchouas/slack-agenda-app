@@ -1,16 +1,6 @@
 <?php
 
 class SlackEvents {
-    
-    const LEVEL_LUT = [
-        1 => ["emoji" => ":white_circle:",
-              "category_name" => "Expertise 1/3"],
-        2 => ["emoji" => ":large_blue_circle:",
-              "category_name" => "Expertise 2/3"],
-        3 => ["emoji" => ":large_purple_circle:",
-              "category_name" => "Expertise 3/3"]
-    ];
-    
     protected $agenda;
     protected $log;
     protected $api;
@@ -67,16 +57,6 @@ class SlackEvents {
                 "value" => "need_volunteers"
             ]
         ];
-
-        foreach(slackEvents::LEVEL_LUT as $level_i => $level) {
-            array_push($default_filters, [
-                "text" => [
-                    "type" => "plain_text",
-                    "text" => "$level[category_name] $level[emoji]"
-                ],
-                "value" => "E$level_i"
-            ]);
-        }
                 
         $all_filters = array();
         foreach($events as $file=>$parsed_event) {
@@ -123,8 +103,24 @@ class SlackEvents {
                 "text"=> "Évènements à venir"
             ]
         ];
+
+        $all_filters = array_unique($all_filters);
+        foreach($GLOBALS['CATEGORIES'] as $category) {
+            $value = (isset($category["short_name"])) ? $category["short_name"] : $category["name"];
+            array_push($default_filters, [
+                "text" => [
+                    "type" => "plain_text",
+                    "text" => "$category[name] $category[emoji]"
+                ],
+                "value" => $value
+            ]);
+
+            if (($key = array_search($value, $all_filters)) !== false) {
+                unset($all_filters[$key]);
+            }
+        }
         
-        foreach(array_unique($all_filters) as $filter) {
+        foreach($all_filters as $filter) {
             $block = [
                 "text" => [
                     "type" => "plain_text",
