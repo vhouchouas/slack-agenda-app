@@ -102,8 +102,6 @@ class Agenda {
         
         if(isset($event->VEVENT->CATEGORIES)) {
             foreach($event->VEVENT->CATEGORIES as $category) {
-                //preg_match_all(slackEvents::$regex_number_attendee, $category, $matches_number_attendee, PREG_SET_ORDER, 0);
-                //preg_match_all(slackEvents::$regex_level, $category, $matches_level, PREG_SET_ORDER, 0);
                 
                 if(is_nan($parsed_event["level"]) and
                    !is_nan($parsed_event["level"] = is_level_category((string)$category))) {

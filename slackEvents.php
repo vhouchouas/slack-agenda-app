@@ -1,9 +1,7 @@
 <?php
 
 class SlackEvents {
-
-    //const REGEX_LEVEL='/^E([\d]*)$/m';
-    //const REGEX_NUMBER_ATTENNDEE='/^([\d]*)P$/m';
+    
     const LEVEL_LUT = [
         1 => ["emoji" => ":white_circle:",
               "category_name" => "Expertise 1/3"],
