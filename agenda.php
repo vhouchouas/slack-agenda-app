@@ -121,7 +121,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
         return $results;
     }
     
-    private function parseEvent(string $vCalendarFilename, string $userid, array &$result) {
+    public function parseEvent(string $vCalendarFilename, string $userid, array &$result) {
         $result['vCalendar'] = \Sabre\VObject\Reader::read($result['vCalendarRaw']);
         
         $sql = "SELECT userid from attendees
@@ -150,15 +150,14 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
     }
 
     public function getEvents() {
-        $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `vCalendarRaw` FROM events WHERE Date(datetime_begin) > :datetime_begin");
+        $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `vCalendarRaw` 
+                                      FROM events WHERE Date(datetime_begin) > :datetime_begin 
+                                      ORDER BY datetime_begin;");
         $query->execute(array('datetime_begin' => (new DateTime('NOW'))->format('Y-m-d H:i:s')));
-        $results = $query->fetchAll();
-        
+        $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         $events = array();
-        foreach($results as $result) {
-            $events[] = array(
-                $result['vCalendarFilename'] => $result['vCalendarRaw']
-            );
+        foreach($results as $vCalendarFilename => $result) {
+            $events[$vCalendarFilename] = \Sabre\VObject\Reader::read($result['vCalendarRaw']);
         }        
         return $events;
     }

@@ -11,15 +11,17 @@ class SlackEvents {
         $this->api = $api;
     }
 
-    protected function render_event($parsed_event, $description=false) {
+    protected function render_event($parsed_event, $description=false, $with_attendees=true) {
 
         $infos  = '*' . (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event) . PHP_EOL;
         $infos .= '*Quand:* ' . format_date($parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime(), $parsed_event["vCalendar"]->VEVENT->DTEND->getDateTime()) . PHP_EOL;
         if(isset($parsed_event["vCalendar"]->VEVENT->LOCATION) and strlen((string)$parsed_event["vCalendar"]->VEVENT->LOCATION) > 0) {
             $infos .= '*Ou:* ' . (string)$parsed_event["vCalendar"]->VEVENT->LOCATION . " (<https://www.openstreetmap.org/search?query=".(string)$parsed_event["vCalendar"]->VEVENT->LOCATION."|voir>)" . PHP_EOL;
         }
-        $infos .= "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["number_volunteers_required"])."*: " . format_userids($parsed_event["attendees"], $parsed_event["unknown_attendees"]);
-
+        if($with_attendees) {
+            $infos .= "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["number_volunteers_required"])."*: " . format_userids($parsed_event["attendees"], $parsed_event["unknown_attendees"]);
+        }
+        
         if($description) {
             $infos .= PHP_EOL . PHP_EOL . '*Description:*' . PHP_EOL . PHP_EOL . (string)$parsed_event["vCalendar"]->VEVENT->DESCRIPTION;
         }
@@ -208,7 +210,7 @@ class SlackEvents {
             ],
             "close" =>  [
                 "type" =>  "plain_text",
-                "text" =>  "Close"
+                "text" =>  "Fermer"
             ],
             
             "blocks" =>  [$block],
@@ -216,8 +218,73 @@ class SlackEvents {
         $this->api->view_open($data, $trigger_id);
     }
 
+    function more_inchannel($vCalendarFilename, $request, $update = false, $register = null) {
+        $userid = $request->user->id;
+        $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
+        $trigger_id = $request->trigger_id;
+
+        if(is_null($register)) {
+            $register = $parsed_event['is_registered'];
+        } else {
+            $user = $this->api->users_info($userid);
+            if(is_null($user)) {
+                $this->log->error("Can't determine user mail from the Slack API");
+                exit(); // @TODO maybe throw something here
+            }
+            $profile = $user->profile;
+            $this->log->debug("register from channel mail $profile->email $profile->first_name $profile->last_name");
+            if($register) {
+                $parsed_event["attendees"][] = $userid;
+            } else {
+                $parsed_event["attendees"] = array_filter($parsed_event["attendees"],
+                                                          function($attendee) use ($userid) {
+                                                              return $attendee !== $userid;
+                                                          }
+                );
+            }
+        }
+        
+        $block = $this->render_event($parsed_event, true);
+        
+        $data = [
+            "type" =>  "modal",
+            "title" =>  [
+                "type" =>  "plain_text",
+                "text" =>  "Informations"
+            ],
+            "close" =>  [
+                "type" =>  "plain_text",
+                "text" =>  "Fermer"
+            ],
+            "submit" =>  [
+                "type" =>  "plain_text",
+                "text"=> (!$register) ? 'Je  viens !' : 'Me déinscrire',
+            ],
+            "blocks" => [$block],
+            "private_metadata" => $vCalendarFilename,
+            "callback_id" => (!$register) ? "getin-fromchannel" : "getout-fromchannel"
+        ];
+        
+        if(!$update) {
+            $this->api->view_open($data, $trigger_id);
+        } else {
+            //@see: https://api.slack.com/surfaces/modals/using#updating_response
+            $response = [
+                "response_action" => "update",
+                "view"=> $data
+            ];
+            header("Content-type:application/json");
+            echo json_encode($response);
+            fastcgi_finish_request();
+            $response = $this->agenda->updateAttendee($vCalendarFilename,
+                                                      $profile->email,
+                                                      $register,
+                                                      $profile->first_name . ' ' . $profile->last_name);
+        }
+    }
+    
     // update just the modified event
-    protected function register_fast_rendering($vCalendarFilename, $userid, $usermail, $in, $request, $event) {
+    protected function register_fast_rendering($vCalendarFilename, $userid, $usermail, $register, $request, $event) {
         $i = 0;
         foreach($request->view->blocks as $block) { //looking for the block of interest
             if($block->block_id === $vCalendarFilename) {
@@ -226,8 +293,7 @@ class SlackEvents {
             $i++;
         }
         
-        
-        if($in) {
+        if($register) {
             $event["attendees"][] = $userid;
         } else {
             $event["attendees"] = array_filter($event["attendees"],
@@ -238,7 +304,7 @@ class SlackEvents {
         }
         
         $request->view->blocks[$i-1] = $this->render_event($event);
-        $request->view->blocks[$i]->elements[0] = $this->getRegistrationButton($in);
+        $request->view->blocks[$i]->elements[0] = $this->getRegistrationButton($register);
         
         $data = [
             'user_id' => $userid,
@@ -313,7 +379,89 @@ class SlackEvents {
         }
         $this->app_home_page($userid, $filters_to_apply);
     }
+    
+    function in_channel_event_show($channel, $userid, $vCalendarFilename) {
+        $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
+        $render = $this->render_event($parsed_event, false, false);
+        $this->api->chat_postMessage($channel, array(
+            $render,
+            [
+                'type'=> 'actions',
+                'block_id'=> $vCalendarFilename,
+                'elements'=> array(
+                    array(
+                        'type'=> 'button',
+                        'action_id'=> 'more-inchannel',
+                        'text'=> array(
+                            'type'=> 'plain_text',
+                            'text'=> 'Inscription/Plus d\'informations',
+                            'emoji'=> true
+                        ),
+                        'value'=> 'more'
+                    )
+                )
+            ]
+        )
+        );
+    }
 
+    public function event_selection($channel_id, $trigger_id) {
+        $options = [];
+        foreach($this->agenda->getEvents() as $vCalendarFilename => $vCalendar) {
+            $options[] = [
+                "text"=> [
+                    "type"  => "plain_text",
+                    "text"  => $vCalendar->VEVENT->DTSTART->getDateTime()->format('Y-m-d H:i:s') . " " .(string)$vCalendar->VEVENT->SUMMARY,
+                    "emoji" => true
+                ],
+                "value" => $vCalendarFilename
+            ];
+        }
+        
+        $data = [
+            "callback_id" => "show-fromchannel",
+            "private_metadata" => $channel_id,
+            "type"=> "modal",
+            "title"=> [
+                "type"=> "plain_text",
+                "text"=> "ZWP Agenda",
+                "emoji"=> true
+            ],
+            "submit"=> [
+                "type"=> "plain_text",
+                "text"=> "Submit",
+                "emoji"=> true
+            ],
+            "close"=> [
+                "type"=> "plain_text",
+                "text"=> "Cancel",
+                "emoji"=> true
+            ],
+            "blocks"=> [
+                [
+                    "type"=> "input",
+                    "block_id"=> "vCalendarFilename",
+                    "element"=> [
+                        "type"=> "static_select",
+                        "placeholder"=> [
+                            "type"=> "plain_text",
+                            "text"=> "Select an item",
+                            "emoji"=> true
+                        ],
+                        "options"=> $options,
+                        "action_id"=> "vCalendarFilename"
+                    ],
+                    "label"=> [
+                        "type"=> "plain_text",
+                        "text"=> "Choix de l'évènement",
+                        "emoji"=> true
+                    ]
+                ]
+            ]
+        ];
+        $this->api->view_open($data, $trigger_id);
+    }
+    
     // @SEE https://api.slack.com/interactivity/handling#acknowledgment_response
     static function ack() {
         http_response_code(200);
