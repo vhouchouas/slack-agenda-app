@@ -285,7 +285,7 @@ class SlackEvents {
 
         $vevent = $this->agenda->getEvent($url)->VEVENT;
         $datetime = $vevent->DTSTART->getDateTime();
-        $datetime->modify("-1 day");
+        $datetime = $datetime->modify("-1 day");
         
         if($in) {
             $summary = (string)$vevent->SUMMARY;
