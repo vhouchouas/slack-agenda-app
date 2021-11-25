@@ -69,10 +69,15 @@ function read_config_file() {
     if(isset($config['prepend_block'])) {
         $GLOBALS['PREPEND_BLOCK'] = $config['prepend_block'];
     }
+    
     if(isset($config['append_block'])) {
         $GLOBALS['APPEND_BLOCK'] = $config['append_block'];
     }
 
+    if(isset($config['categories'])) {
+        $GLOBALS['CATEGORIES'] = $config['categories'];
+    }
+    
     $localFsCachePath = isset($config["path_to_localcache_on_filesystem"]) ? $config["path_to_localcache_on_filesystem"] : "./data";
     
     return [$slack_credentials, $caldav_credentials, $localFsCachePath];
@@ -179,26 +184,20 @@ function format_number_of_attendees($attendees, $participant_number) {
 function format_emoji($parsed_event) {
     $r = "";
     foreach($parsed_event["categories"] as $key => $category) {
-        if($category === "Visioconférence") {
-            $r = ":desktop_computer:" . $r;
-        } else {
-            $r .= "`$category` ";
+
+        foreach($GLOBALS['CATEGORIES'] as $mandatory_category) {
+            if( (
+                (isset($mandatory_category["short_name"]) and $category === $mandatory_category["short_name"]) ||
+                $category === $mandatory_category["name"])
+                and isset($mandatory_category["emoji"])) {
+                $r = $mandatory_category["emoji"] . $r;
+                continue 2;
+            }
         }
-    }
-    
-    if(!is_nan($parsed_event["level"]) and array_key_exists($parsed_event["level"], slackEvents::LEVEL_LUT)) {
-        $r = slackEvents::LEVEL_LUT[$parsed_event["level"]]["emoji"] . $r;
+        $r .= "`$category` ";
     }
     return $r;
 }    
-
-
-function is_level_category($category) {
-    if(strlen($category) === 2 and $category[0] === 'E' and is_numeric($category[1])) {
-        return intval($category[1]);
-    }
-    return NAN;
-}
 
 function is_number_of_attendee_category($category) {
     if(strlen($category) === 2 and $category[1] === 'P' and is_numeric($category[0])) {
@@ -206,7 +205,6 @@ function is_number_of_attendee_category($category) {
     }
     return NAN;
 }
-
 
 // Error to Exception
 //https://www.php.net/manual/en/language.exceptions.php, Example #3

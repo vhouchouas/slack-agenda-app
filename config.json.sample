@@ -23,5 +23,12 @@
 	    "type": "mrkdwn",
 	    "text": "Post message"
 	}
-    }
+    },
+    "categories": [
+         {"name": "Visioconférence", "emoji" : ":desktop_computer:"},
+	 {"name": "Urgent", "emoji" : ":warning:"},
+  	 {"name": "Nouveau bénévole", "short_name" : "NB", "emoji": ":white_circle:"},
+	 {"name": "Observateur", "short_name" : "OBS", "emoji" : ":large_blue_circle:"},
+	 {"name": "Intervenant", "short_name" : "INT", "emoji" : ":large_purple_circle:"}
+    ]
 }
