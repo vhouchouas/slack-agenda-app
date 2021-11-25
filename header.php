@@ -21,7 +21,7 @@ require "slackAPI.php";
 require "slackEvents.php";
 require "localcache.php";
 
-list($slack_credentials, $caldav_credentials, $localFsCachePath) = read_config_file();
+list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
 
 $log = new Logger('SlackApp');
 setLogHandlers($log);

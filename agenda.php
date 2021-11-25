@@ -10,23 +10,27 @@ class NotImplementedException extends BadMethodCallException {}
 require __DIR__ . '/vendor/autoload.php';
 
 class Agenda {
-    
     private $caldav_client;
     protected $localcache;
+    protected $api;
     
-    public function __construct($url, $username, $password, Localcache $localcache) {
+    public function __construct($url, $username, $password, $api, $agenda_args) {
         $this->log = new Logger('Agenda');
         setLogHandlers($this->log);
+        
         $this->caldav_client = new CalDAVClient($url, $username, $password);
-        $this->localcache = $localcache;
+
+        $localFsCachePath = isset($agenda_args["path_to_localcache_on_filesystem"]) ? $agenda_args["path_to_localcache_on_filesystem"] : "./data";
+        $this->localcache = new FilesystemCache($localFsCachePath);
+        $this->api = $api;
     }
 
-    function getUserEventsFiltered($userid, $api, $filters_to_apply = array()) {
+    function getUserEventsFiltered($userid, $filters_to_apply = array()) {
         $parsed_events = array();
         
         foreach($this->localcache->getAllEventsNames() as $filename) {
             $event = $this->getEvent($filename);
-            $parsed_event = $this->parseEvent($userid, $event, $api);
+            $parsed_event = $this->parseEvent($userid, $event);
 
             $parsed_event["keep"] = true;
             
@@ -59,7 +63,7 @@ class Agenda {
         return $parsed_events;
     }
 
-    function parseEvent($userid, $event, $api) {
+    function parseEvent($userid, $event) {
         $parsed_event = array();
         $parsed_event["vcal"] = $event;
         $parsed_event["is_registered"] = false;
@@ -74,7 +78,7 @@ class Agenda {
                     "mail" => str_replace("mailto:", "", (string)$attendee)
                 ];
                 
-                $user = $api->users_lookupByEmail($a["mail"]);
+                $user = $this->api->users_lookupByEmail($a["mail"]);
                 if(!is_null($user)) {
                     $a["userid"] = $user->id;
                 } else {
