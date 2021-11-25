@@ -55,6 +55,11 @@ function read_config_file() {
         $log->error('Caldav credentials not present in config.json (exit).');
         exit();
     }
+
+    if(!isset($config['agenda'])) {
+        $log->error('No agenda backend specified (exit).');
+        exit();
+    }
     
     $caldav_credentials = array(
         "url" => $config['caldav_url'],
@@ -80,7 +85,7 @@ function read_config_file() {
     
     return [$slack_credentials,
             $caldav_credentials,
-            isset($config["agenda"]) ? $config["agenda"] : null
+            $config['agenda']
     ];
 }
 
