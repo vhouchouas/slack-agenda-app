@@ -289,11 +289,16 @@ class SlackEvents {
         
         if($in) {
             $summary = (string)$vevent->SUMMARY;
-            $response = $this->api->reminders_add($userid, "Rappel pour l'événement: $summary", $datetime);
-            if(!is_null($response)) {
-                $this->log->debug("reminder created ({$response->reminder->id})");
+            $now = new DateTimeImmutable();
+            if ($datetime < $now){
+                $this->log->debug("not creating the reminder for $userid because " . $datetime->format('Y-m-dTH:i:s') . " is in the past");
             } else {
-                $this->log->error("failed to create reminder");
+                $response = $this->api->reminders_add($userid, "Rappel pour l'événement: $summary", $datetime);
+                if(!is_null($response)) {
+                  $this->log->debug("reminder created ({$response->reminder->id})");
+                } else {
+                  $this->log->error("failed to create reminder");
+                }
             }
         } else {
             $reminders = $this->api->reminders_list();
