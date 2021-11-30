@@ -56,6 +56,11 @@ function read_config_file() {
         exit();
     }
 
+    if(!isset($config['agenda'])) {
+        $log->error('No agenda backend specified (exit).');
+        exit();
+    }
+    
     $caldav_credentials = array(
         "url" => $config['caldav_url'],
         "username" => $config['caldav_username'],
@@ -78,9 +83,10 @@ function read_config_file() {
         $GLOBALS['CATEGORIES'] = $config['categories'];
     }
     
-    $localFsCachePath = isset($config["path_to_localcache_on_filesystem"]) ? $config["path_to_localcache_on_filesystem"] : "./data";
-    
-    return [$slack_credentials, $caldav_credentials, $localFsCachePath];
+    return [$slack_credentials,
+            $caldav_credentials,
+            $config['agenda']
+    ];
 }
 
 function setLogHandlers($log) {

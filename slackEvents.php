@@ -38,7 +38,7 @@ class SlackEvents {
     function app_home_page($userid, $filters_to_apply = array()) {
         $this->log->info('event: app_home_opened received');
         
-        $events = $this->agenda->getUserEventsFiltered($userid, $this->api, $filters_to_apply);
+        $events = $this->agenda->getUserEventsFiltered($userid, $filters_to_apply);
         
         $blocks = [];
         $default_filters = [
@@ -200,7 +200,7 @@ class SlackEvents {
     function more($url, $request) {
         $vcal = $this->agenda->getEvent($url);
         $userid = $request->user->id;
-        $parsed_event = $this->agenda->parseEvent($userid, $vcal, $this->api);
+        $parsed_event = $this->agenda->parseEvent($userid, $vcal);
         $trigger_id = $request->trigger_id;
         
         $block = $this->render_event($parsed_event, true);
@@ -267,7 +267,7 @@ class SlackEvents {
         }
         $profile = $user->profile;
         $this->log->debug("register mail $profile->email $profile->first_name $profile->last_name");
-        $parsed_event = $this->agenda->parseEvent($userid, $this->agenda->getEvent($url), $this->api);
+        $parsed_event = $this->agenda->parseEvent($userid, $this->agenda->getEvent($url));
         slackEvents::ack();
         $this->register_fast_rendering($url, $userid, $profile->email, $in, $request, $parsed_event);
         

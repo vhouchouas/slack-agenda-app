@@ -22,7 +22,8 @@ if(!property_exists($json, 'actions')) {
 $GLOBALS['userid'] = $json->user->id; // in case we need to show an error message to the user
 
 $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token'], $log);
-$agenda = new Agenda($caldav_credentials['url'], $caldav_credentials['username'], $caldav_credentials['password'], new FilesystemCache($localFsCachePath));
+$agenda = initAgendaFromType($caldav_credentials['url'], $caldav_credentials['username'], $caldav_credentials['password'],
+                             $api, $agenda_args, $log);
 $slack_events = new SlackEvents($agenda, $api, $log);
 
 foreach ($json->actions as $action) {
