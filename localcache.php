@@ -47,8 +47,10 @@ class FilesystemCache implements Localcache {
     function getSerializedEvent($eventName) {
         if(is_file($this->root . $eventName)) {
             return file_get_contents_safe($this->root . $eventName);
+        } else {
+          $this->log->debug("Can't get event $eventName: it is not present in local cache");
+          return null;
         }
-        return null;
     }
     
     function getctag(){
