@@ -25,7 +25,7 @@ $log->info('event: ' . $event_type);
 // @see: https://api.slack.com/events/app_home_opened    
 if($event_type == "app_home_opened") {
     $slack_events->app_home_page($json->event->user);
-    if($agenda->update()) {
+    if($agenda->checkAgenda()) {
         $slack_events->app_home_page($json->event->user);
     }
 }
