@@ -3,10 +3,8 @@
 use Monolog\Logger;
 use Sabre\VObject;
 
-class FSAgenda implements Agenda {
-    private $caldav_client;
+class FSAgenda extends Agenda {
     protected $localcache;
-    protected $api;
     
     public function __construct(string $vCalendarFilename, string $username, string $password, object $api, array $agenda_args) {
         $this->log = new Logger('Agenda');
@@ -23,8 +21,8 @@ class FSAgenda implements Agenda {
         $parsed_events = array();
         
         foreach($this->localcache->getAllEventsFilenames() as $vCalendarFilename) {
-            $event = $this->getEvent($vCalendarFilename);
-            $parsed_event = $this->parseEvent($userid, $event);
+            list($vCalendar, $ETag) = $this->getEvent($vCalendarFilename);
+            $parsed_event = $this->parseEvent($userid, $vCalendar);
 
             $parsed_event["keep"] = true;
             
@@ -102,7 +100,11 @@ class FSAgenda implements Agenda {
         }
         return $parsed_event;
     }
-
+    
+    public function getParsedEvent(string $vCalendarFilename, string $userid) {
+        list($vCalendar, $ETag) = $this->getEvent($vCalendarFilename);
+        return $this->parseEvent($userid, $vCalendar);
+    }
 
     public function getEvents() {
         $events = array();
@@ -122,34 +124,9 @@ class FSAgenda implements Agenda {
         
         return $events;
     }
-    
-    // update agenda
-    public function update() {
-        $remote_ctag = $this->caldav_client->getctag();
-        if(is_null($remote_ctag)) {
-            $this->log->error("Fail to update the CTag");
-            return;
-        }
-        
-        // check if we need to update events from the server
-        $local_ctag = $this->localcache->getctag();
-        $this->log->debug("local CTag is $local_ctag, remote CTag is $remote_ctag");
-        if (is_null($local_ctag) || $local_ctag != $remote_ctag){
-            $this->log->debug("Agenda update needed");
-            
-            $remote_ETags = $this->caldav_client->getETags();
-            if($remote_ctag === false || is_null($remote_ctag)) {
-                $this->log->error("Fail to get calendar ETags");
-                return;
-            }
-            
-            $this->updateInternalState($remote_ETags);
-            $this->localcache->setctag($remote_ctag);
-        }
-    }
 
     // 
-    protected function updateInternalState(array $ETags) {
+    protected function update(array $ETags) {
         $vCalendarFilename_to_update = [];
         foreach($ETags as $vCalendarFilename => $remote_ETag) {
             $vCalendarFilename = basename($vCalendarFilename);
@@ -175,6 +152,14 @@ class FSAgenda implements Agenda {
         $this->removeDeletedEvents($ETags);
     }
     
+    protected function getCTag() {
+        return $this->localcache->getCTag();
+    }
+
+    protected function setCTag(string $CTag) {
+        $this->localcache->setCTag($CTag);
+    }
+    
     // delete local events that have been deleted on the server
     protected function removeDeletedEvents(array $ETags) {
         $vCalendarFilenames = [];
@@ -192,109 +177,35 @@ class FSAgenda implements Agenda {
         }
     }
 
-    private function updateEvents(array $vCalendarFilenames) {
-        $events = $this->caldav_client->updateEvents($vCalendarFilenames);
+    protected function updateEvent(array $event) {
+        $this->localcache->deleteEvent($event['vCalendarFilename']);
         
-        if(is_null($events) || $events === false) {
-            $this->log->error("Fail to update events ");
-            return false;
-        }
+        // parse event to get its DTSTART
+        $vCalendar = \Sabre\VObject\Reader::read($event['vCalendarRaw']);
+        $startDate = $vCalendar->VEVENT->DTSTART->getDateTime();
+	    
+        if($startDate < new DateTime('NOW')) {
+            $this->log->debug("Event is in the past, skiping");
+            return;
 
-        foreach($events as $event) {
-            $this->log->info("Adding event $event[vCalendarFilename]");
-            
-            $this->localcache->deleteEvent($event['vCalendarFilename']);
-            
-            // parse event to get its DTSTART
-            $vCalendar = \Sabre\VObject\Reader::read($event['vCalendarRaw']);
-            $startDate = $vCalendar->VEVENT->DTSTART->getDateTime();
-            
-            if($startDate < new DateTime('NOW')) {
-                $this->log->debug("Event is in the past, skiping");
-                continue;
-            }
-            
-            $this->localcache->addEvent(
-                $event['vCalendarFilename'],
-                $event['vCalendarRaw'],
-                $event['ETag']
-            );
         }
-        return true;
+	    
+        $this->localcache->addEvent(
+            $event['vCalendarFilename'],
+            $event['vCalendarRaw'],
+            $event['ETag']
+        );
     }
-    
-    //if add is true, then add $usermail to the event, otherwise, remove it.
-    public function updateAttendee(string $vCalendarFilename, string $usermail, bool $add, ?string $attendee_CN=null) {
-        $this->log->info("updating $vCalendarFilename");
-        $vCalendarRaw = $this->localcache->getSerializedEvent($vCalendarFilename);
-        $ETag = $this->localcache->getEventETag($vCalendarFilename);
-        
-        $vCalendar = \Sabre\VObject\Reader::read($vCalendarRaw);
-        
-        if($add) {
-            if(isset($vCalendar->VEVENT->ATTENDEE)) {
-                foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
-                    if(str_replace("mailto:","", (string)$attendee) === $usermail) {
-                        if(isset($attendee['PARTSTAT']) && (string)$attendee['PARTSTAT'] === "DECLINED") {
-                            $this->log->info("Try to add a user that have already declined invitation (from outside).");
-                            // clean up
-                            $vCalendar->VEVENT->remove($attendee);
-                            // will add again the user
-                            break;
-                        } else {
-                            $this->log->info("Try to add a already registered attendee");
-                            return true; // not an error
-                        }
-                    }
-                }
-            }
-            
-            $vCalendar->VEVENT->add(
-                'ATTENDEE',
-                'mailto:' . $usermail,
-                [
-                    'CN'   => (is_null($attendee_CN)) ? 'Bénévole' : $attendee_CN,
-                ]
-            );
-            //$vCalendar->VEVENT->add('ATTENDEE', 'mailto:' . $usermail);
-        } else {
-            $already_out = true;
-            
-            if(isset($vCalendar->VEVENT->ATTENDEE)) {
-                foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
-                    if(str_replace("mailto:","", (string)$attendee) === $usermail) {
-                        $vCalendar->VEVENT->remove($attendee);
-                        $already_out = false;
-                        break;
-                    }
-                }
-            }
-            
-            if($already_out) {
-                $this->log->info("Try to remove an unregistered email");
-                return true; // not an error
-            }
-        }
-        
-        $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize());
-        if($new_ETag === false) {
-            $this->log->error("Fails to update the event");
-            return false;
-        } else if(is_null($new_ETag)) {
-            $this->log->info("The server did not answer a new ETag after an event update, need to update the local calendar");
-            if(!$this->updateEvents(array($vCalendarFilename))) {
-                return false;
-            }
-        } else {
-            $this->localcache->addEvent($vCalendarFilename, $vCalendar->serialize(), $new_ETag);
-        }
-        return true;
+
+    protected function saveEvent(string $url, string $ETag, object $vcal) {
+        return $this->localcache->addEvent($url, $vcal->serialize(), $new_etag);
     }
 
     public function getEvent(string $vCalendarFilename) {
         $vCalendarRaw = $this->localcache->getSerializedEvent($vCalendarFilename);
+        $ETag = $this->localcache->getEventEtag($vCalendarFilename);
         if(!is_null($vCalendarRaw)) {
-            return \Sabre\VObject\Reader::read($vCalendarRaw);
+            return [\Sabre\VObject\Reader::read($vCalendarRaw), $ETag];
         }
     	return null;
     }

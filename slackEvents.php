@@ -198,9 +198,8 @@ class SlackEvents {
     }
     
     function more($vCalendarFilename, $request) {
-        $vCalendar = $this->agenda->getEvent($vCalendarFilename);
         $userid = $request->user->id;
-        $parsed_event = $this->agenda->parseEvent($userid, $vCalendar);
+        $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
         $trigger_id = $request->trigger_id;
         
         $block = $this->render_event($parsed_event, true);
@@ -267,7 +266,7 @@ class SlackEvents {
         }
         $profile = $user->profile;
         $this->log->debug("register mail $profile->email $profile->first_name $profile->last_name");
-        $parsed_event = $this->agenda->parseEvent($userid, $this->agenda->getEvent($vCalendarFilename));
+        $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
         slackEvents::ack();
         $this->register_fast_rendering($vCalendarFilename, $userid, $profile->email, $in, $request, $parsed_event);
         
@@ -277,12 +276,12 @@ class SlackEvents {
             $this->app_home_page($userid);
         }
 
-        $vevent = $this->agenda->getEvent($vCalendarFilename)->VEVENT;
-        $datetime = $vevent->DTSTART->getDateTime();
+        $vCalendar = $parsed_event['vCalendar']->VEVENT;
+        $datetime = $vCalendar->DTSTART->getDateTime();
         $datetime = $datetime->modify("-1 day");
         
         if($in) {
-            $summary = (string)$vevent->SUMMARY;
+            $summary = (string)$vCalendar->SUMMARY;
             $now = new DateTimeImmutable();
             if ($datetime < $now){
                 $this->log->debug("not creating the reminder for $userid because " . $datetime->format('Y-m-dTH:i:s') . " is in the past");
