@@ -179,11 +179,11 @@ function format_userids($names, $unknown_attendees) {
     }
 }
 
-function format_number_of_attendees($attendees, $participant_number) {
-    if(is_null($participant_number)) {
+function format_number_of_attendees($attendees, $number_volunteers_required) {
+    if(is_null($number_volunteers_required)) {
         return "";
     } else {
-        return "(" . count($attendees) . " / $participant_number)";
+        return "(" . count($attendees) . " / $number_volunteers_required)";
     }
 }    
 
