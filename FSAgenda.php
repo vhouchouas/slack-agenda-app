@@ -36,7 +36,7 @@ class FSAgenda implements Agenda {
                             break;
                         }
                     } else if($filter === "need_volunteers") {
-                        if(is_nan($parsed_event["participant_number"]) or
+                        if(is_null($parsed_event["participant_number"]) or
                            count($parsed_event["attendees"]) >= $parsed_event["participant_number"]) {
                             $parsed_event["keep"] = false;
                             break;
@@ -87,13 +87,13 @@ class FSAgenda implements Agenda {
             }
         }
         
-        $parsed_event["participant_number"] = NAN;
+        $parsed_event["participant_number"] = null;
         
         if(isset($event->VEVENT->CATEGORIES)) {
             foreach($event->VEVENT->CATEGORIES as $category) {
                                 
-                if(is_nan($parsed_event["participant_number"]) and
-                   !is_nan($parsed_event["participant_number"] = is_number_of_attendee_category((string)$category))) {
+                if(is_null($parsed_event["participant_number"]) and
+                   !is_null($parsed_event["participant_number"] = is_number_of_attendee_category((string)$category))) {
                     continue;
                 }
                 
