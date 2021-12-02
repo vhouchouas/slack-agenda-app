@@ -9,14 +9,14 @@ require_once __DIR__ . '/utils.php';
 
 interface Localcache {
     public function getSerializedEvents();
-    public function getSerializedEvent($eventName);
-    public function getctag();
-    public function setctag($ctag);
-    public function eventExists($eventName);
-    public function getEventEtag($eventName);
-    public function deleteEvent($eventName);
-    public function getAllEventsNames();
-    public function addEvent($eventName, $eventData, $etag);
+    public function getSerializedEvent($vCalendarFilename);
+    public function getCTag();
+    public function setCTag($CTag);
+    public function eventExists($vCalendarFilename);
+    public function getEventETag($vCalendarFilename);
+    public function deleteEvent($vCalendarFilename);
+    public function getAllEventsFilenames();
+    public function addEvent($vCalendarFilename, $vCalendarRaw, $ETag);
 }
 
 class FilesystemCache implements Localcache {
@@ -44,16 +44,16 @@ class FilesystemCache implements Localcache {
           return $events;
     }
 
-    function getSerializedEvent($eventName) {
-        if(is_file($this->root . $eventName)) {
-            return file_get_contents_safe($this->root . $eventName);
+    function getSerializedEvent($vCalendarFilename) {
+        if(is_file($this->root . $vCalendarFilename)) {
+            return file_get_contents_safe($this->root . $vCalendarFilename);
         } else {
-          $this->log->debug("Can't get event $eventName: it is not present in local cache");
+          $this->log->debug("Can't get event $vCalendarFilename: it is not present in local cache");
           return null;
         }
     }
     
-    function getctag(){
+    function getCTag(){
         if(is_file("{$this->root}ctag")) {
             return file_get_contents_safe("{$this->root}ctag");
         } else {
@@ -61,24 +61,24 @@ class FilesystemCache implements Localcache {
         }
     }
 
-    function setctag($ctag){
-        file_put_contents_safe($this->root . "ctag", $ctag);
+    function setCTag($CTag){
+        file_put_contents_safe($this->root . "ctag", $CTag);
     }
 
-    function eventExists($eventName){
-        return is_file($this->root . $eventName) and is_file($this->root .$eventName . ".etag");
+    function eventExists($vCalendarFilename){
+        return is_file($this->root . $vCalendarFilename) and is_file($this->root .$vCalendarFilename . ".etag");
     }
 
-    function getEventEtag($eventName){
-        return file_get_contents_safe($this->root . $eventName . ".etag");
+    function getEventETag($vCalendarFilename){
+        return file_get_contents_safe($this->root . $vCalendarFilename . ".etag");
     }
 
-    function deleteEvent($eventName){
-        $this->deleteFile($this->root . $eventName);
-        $this->deleteFile($this->root . $eventName . ".etag");
+    function deleteEvent($vCalendarFilename){
+        $this->deleteFile($this->root . $vCalendarFilename);
+        $this->deleteFile($this->root . $vCalendarFilename . ".etag");
     }
 
-    function getAllEventsNames(){
+    function getAllEventsFilenames(){
         $result = array();
 
         $it = new RecursiveDirectoryIterator($this->root);
@@ -100,9 +100,9 @@ class FilesystemCache implements Localcache {
         }
     }
 
-    function addEvent($eventName, $eventData, $etag){
-        file_put_contents_safe($this->root . $eventName, $eventData);
-        file_put_contents_safe($this->root . $eventName . ".etag", $etag);
+    function addEvent($vCalendarFilename, $vCalendarRaw, $ETag){
+        file_put_contents_safe($this->root . $vCalendarFilename, $vCalendarRaw);
+        file_put_contents_safe($this->root . $vCalendarFilename . ".etag", $ETag);
     }
 
     private function isNonEventFile($filename){
