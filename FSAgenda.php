@@ -3,6 +3,8 @@
 use Monolog\Logger;
 use Sabre\VObject;
 
+require_once "localcache.php";
+
 class FSAgenda extends Agenda {
     protected $localcache;
     
@@ -65,22 +67,18 @@ class FSAgenda extends Agenda {
         
         if(isset($vCalendar->VEVENT->ATTENDEE)) {
             foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
-                $a = [
-                    //"cn" => $attendee['CN']->getValue(),
-                    "mail" => str_replace("mailto:", "", (string)$attendee)
-                ];
+                $email = str_replace("mailto:", "", (string)$attendee);
                 
-                $user = $this->api->users_lookupByEmail($a["mail"]);
+                $user = $this->api->users_lookupByEmail($email);
                 if(!is_null($user)) {
-                    $a["userid"] = $user->id;
+                    $parsed_event["attendees"][] = $user->id;
+
+                    if($user->id == $userid) {
+                        $parsed_event["is_registered"] = true;
+                    }   
                 } else {
                     $parsed_event["unknown_attendees"] += 1;
                     continue;
-                }
-                
-                $parsed_event["attendees"][] = $a;
-                if($a["userid"] == $userid) {
-                    $parsed_event["is_registered"] = true;
                 }
             }
         }
