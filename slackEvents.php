@@ -62,10 +62,6 @@ class SlackEvents {
         foreach($events as $file=>$parsed_event) {
             $all_filters = array_merge($all_filters, $parsed_event["categories"]);
             
-            if($parsed_event["keep"] === false) {
-                continue;
-            }
-            
             $block = $this->render_event($parsed_event, false);
             if(json_encode($block) === false) {
                 $this->log->warning("Event $file is not JSON serializable" . (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY, $block);
@@ -232,15 +228,11 @@ class SlackEvents {
         
         
         if($in) {
-            $a = [
-                "mail" => $usermail,
-                "userid" => $userid
-            ];
-            $event["attendees"][] = $a;
+            $event["attendees"][] = $userid;
         } else {
             $event["attendees"] = array_filter($event["attendees"],
                                                function($attendee) use ($userid) {
-                                                   return $attendee["userid"] !== $userid;
+                                                   return $attendee !== $userid;
                                                }
             );
         }

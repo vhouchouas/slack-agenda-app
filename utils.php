@@ -160,7 +160,7 @@ function format_userids($names, $unknown_attendees) {
         }
     } else {
         foreach($names as $i => $name) {
-            $names[$i] = "<@$name[userid]>";
+            $names[$i] = "<@$name>";
         }
         if(count($names) === 1){
             $key = array_key_first($names);
