@@ -13,6 +13,38 @@ $log = new Logger('CLITOOLS');
 $log->pushHandler(new StreamHandler('php://stdout', Logger::DEBUG));
 $GLOBALS['LOG_HANDLERS'][] = new StreamHandler('php://stdout', Logger::DEBUG);
 
+function reminders_list() {
+    global $log;
+    list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
+    $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
+    $user_infos = $api->auth_test("user");
+    foreach($api->reminders_list() as $id => $reminder) {
+        if($user_infos->user_id === $reminder["creator"]) { // delete only reminders that have been created by the app
+            $log->info("Reminder:");
+            foreach($reminder as $key => $val) {
+                if(is_null($val)) {
+                    $log->info("    $key = null");
+                } else {
+                    $log->info("    $key = $val");
+                }
+            }
+        }
+    }
+}
+
+function reminders_purge() {
+    global $log;
+    list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
+    $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
+    $user_infos = $api->auth_test("user");
+    foreach($api->reminders_list() as $id => $reminder) {
+        if($user_infos->user_id === $reminder["creator"]) { // delete only reminders that have been created by the app
+            $log->info("deleting reminder id: $reminder[id]\n");
+            $api->reminders_delete($reminder["id"]);
+        }
+    }
+}
+
 function config_read() {
     global $log;
     $log->info("Try to read config file...");
@@ -124,6 +156,11 @@ function checkAgenda() {
 }
 
 $cmds = [
+    "reminders" => [
+        "check"=> null,
+        "list" => null,
+        "purge" => null
+    ],
     "checkAgenda" => null,
     "api" => [
         "checktokens" => null

@@ -46,7 +46,8 @@ class SqliteAgenda extends Agenda {
         
         $this->pdo->query("CREATE TABLE IF NOT EXISTS attendees ( 
     email                           VARCHAR( 256 ) PRIMARY KEY,
-    userid                          VARCHAR( 11 ));");
+    userid                          VARCHAR( 11 ) NULL
+    );");
 
         $this->pdo->query("CREATE TABLE IF NOT EXISTS events_attendees (
     vCalendarFilename               VARCHAR( 256 ),
@@ -61,6 +62,14 @@ class SqliteAgenda extends Agenda {
 
         $query = $this->pdo->prepare("INSERT OR IGNORE INTO properties (property, value) VALUES ('CTag', 'NULL')");
         $query->execute();
+
+        $this->pdo->query("CREATE TABLE IF NOT EXISTS reminders ( 
+    id                              VARCHAR( 12 ) PRIMARY KEY,
+    vCalendarFilename               VARCHAR( 256 ),
+    userid                          VARCHAR( 11 ),
+    FOREIGN KEY (vCalendarFilename) REFERENCES events(vCalendarFilename) ON DELETE CASCADE
+    );");
+
         $this->log->info("Create database tables - done.");
     }
 }

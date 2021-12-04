@@ -32,9 +32,9 @@ abstract class Agenda {
 
     public function clean_orphan_categories($quiet = false) {
         $sql = "FROM categories WHERE not exists (
-                select 1
-                from events_categories
-                where events_categories.category_id = categories.id
+                SELECT 1
+                FROM events_categories
+                WHERE events_categories.category_id = categories.id
         );";
 
         if(!$quiet) {
@@ -52,9 +52,9 @@ abstract class Agenda {
     
     public function clean_orphan_attendees($quiet = true) {
         $sql = "FROM attendees WHERE not exists (
-            select 1
-            from events_attendees
-            where events_attendees.email = attendees.email
+            SELECT 1
+            FROM events_attendees
+            WHERE events_attendees.email = attendees.email
         );";
         
         if(!$quiet) {
@@ -124,7 +124,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
     private function parseEvent(string $vCalendarFilename, string $userid, array &$result) {
         $result['vCalendar'] = \Sabre\VObject\Reader::read($result['vCalendarRaw']);
         
-        $sql = "SELECT userid from attendees
+        $sql = "SELECT userid FROM attendees
                 INNER JOIN events_attendees
                 WHERE events_attendees.email = attendees.email AND events_attendees.vCalendarFilename = :vCalendarFilename;";
         $query = $this->pdo->prepare($sql);
@@ -241,10 +241,37 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
                 }
             }
         }
-
+        
         $this->pdo->beginTransaction();
+        
+        $query = $this->pdo->prepare("SELECT datetime_begin FROM events WHERE vCalendarFilename=:vCalendarFilename;");
+        $query->execute(array(
+            'vCalendarFilename' =>  $event['vCalendarFilename']
+        ));
+        $results = $query->fetch();
+        
+        $previous_datetime = null;
+        $new_event = false;
+        if($results === false) {
+            $new_event = true;
+        } else {
+            $previous_datetime = DateTimeImmutable::createFromFormat("Y-m-d H:i:s", $results["datetime_begin"]);
+        }
+                
         try {
-            $query = $this->pdo->prepare("REPLACE INTO events (vCalendarFilename, ETag, datetime_begin, number_volunteers_required, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :datetime_begin, :number_volunteers_required, :vCalendarRaw)");
+            // can't use UPDATE INTO, because it would delete reminders related to the event (because of ON CASCADE DELETE)
+            if($new_event) {
+                $this->log->info("Creating event $event[vCalendarFilename].");
+                $query = $this->pdo->prepare("INSERT INTO events (vCalendarFilename, ETag, datetime_begin, number_volunteers_required, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :datetime_begin, :number_volunteers_required, :vCalendarRaw)");
+            } else {
+                $this->log->info("Updating event $event[vCalendarFilename].");
+                $query = $this->pdo->prepare("UPDATE events
+SET vCalendarFilename=:vCalendarFilename, ETag=:ETag, datetime_begin=:datetime_begin, number_volunteers_required=:number_volunteers_required, vCalendarRaw=:vCalendarRaw
+WHERE vCalendarFilename =:vCalendarFilename;
+DELETE FROM events_categories WHERE vCalendarFilename =:vCalendarFilename;
+DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
+            }
+            
             $query->execute(array(
                 'vCalendarFilename' =>  $event['vCalendarFilename'],
                 'ETag' => $event['ETag'],
@@ -252,7 +279,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
                 'number_volunteers_required' => $number_volunteers_required,
                 'vCalendarRaw' => $event['vCalendarRaw']
             ));
-            
+
             if(isset($vCalendar->VEVENT->ATTENDEE)) {
                 foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
                     $mail = str_replace("mailto:", "", (string)$attendee);
@@ -261,23 +288,25 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
                     $query->execute(array(
                         'email' => $mail
                     ));
+
                     
                     if(is_array($ret = $query->fetch())) {
                         $this->log->debug("attendee: $mail already exists.");
                     } else {
                         $user = $this->api->users_lookupByEmail($mail);
+
+                        $query = $this->pdo->prepare("REPLACE INTO attendees (email, userid) VALUES (:email, :userid)");
+                        
                         if(!is_null($user)) {
                             $userid = $user->id;
+                            $query->bindValue(":userid", $user->id, PDO::PARAM_STR);
                         } else {
-                            $userid = null;
-                        }
-                        
-                        $query = $this->pdo->prepare("REPLACE INTO attendees (email, userid) VALUES (:email, :userid)");
-                        $query->execute(array(
-                            'email' =>  $mail,
-                            'userid' =>  $userid
-                        ));
+                            $query->bindValue(":userid", null, PDO::PARAM_NULL);
+                        }                        
+                        $query->bindValue(":email", $mail, PDO::PARAM_STR);
                     }
+
+                    $query->execute();
                     
                     $query = $this->pdo->prepare("INSERT INTO events_attendees (vCalendarFilename, email) VALUES (:vCalendarFilename, :email)");
                     $query->execute(array(
@@ -321,13 +350,38 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
                     ));
                 }
             }
-
+            
+            if($new_event === false and $previous_datetime != $datetime_begin) {
+                $sql = "SELECT userid FROM attendees
+                        INNER JOIN events_attendees
+                        WHERE events_attendees.email = attendees.email 
+                        AND events_attendees.vCalendarFilename = :vCalendarFilename
+                        AND attendees.userid IS NOT NULL;";
+                $query = $this->pdo->prepare($sql);
+                $query->execute(array('vCalendarFilename' => $event['vCalendarFilename']));
+                $attendees_with_reminders = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
+                $attendees_with_reminders = array_keys($attendees_with_reminders);
+            }
+            
             $this->pdo->commit();
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
             $this->log->error($e->getMessage());
             die($e->getMessage());
-        } 
+        }
+
+        if($new_event === false and $previous_datetime != $datetime_begin) {
+            foreach($attendees_with_reminders as $userid) {
+                if(!is_null($userid)) {
+                    $this->log->info("Updating reminders for user $userid (DSTART has changed).");
+                    $this->deleteReminder($userid, $event['vCalendarFilename']);
+                    $this->addReminder($userid,
+                                       $event['vCalendarFilename'],
+                                       (string)$vCalendar->VEVENT->SUMMARY,
+                                       $datetime_begin->modify("-1 day"));
+                }
+            }
+        }
     }
 
     public function getParsedEvent(string $vCalendarFilename, string $userid) {
@@ -478,10 +532,61 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
         }
 
         foreach($events as $event) {
-            $this->log->info("Adding event $event[vCalendarFilename]");
             $this->updateEvent($event);
         }
         return true;
+    }
+    
+    public function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $datetime) {
+        $now = new DateTimeImmutable();
+        if ($datetime < $now){
+            $this->log->debug("not creating the reminder for $userid because " . $datetime->format('Y-m-dTH:i:s') . " is in the past");
+        } else {
+            $response = $this->api->reminders_add($userid, "Rappel pour l'événement: $message", $datetime);
+            $this->log->debug("Creating slack reminder: {$response->reminder->id} for event $vCalendarFilename");
+            if(!is_null($response)) {
+                $this->log->debug("Adding reminder within the database.");
+                $query = $this->pdo->prepare("INSERT INTO reminders (id, vCalendarFilename, userid) VALUES (:id, :vCalendarFilename, :userid)");
+                $query->execute(array(
+                    'id' => $response->reminder->id,
+                    'vCalendarFilename' =>  $vCalendarFilename,
+                    'userid' =>  $userid
+                ));                
+            } else {
+                $this->log->error("failed to create reminder");
+            }
+        }
+    }
+
+    public function deleteReminder(string $userid, string $vCalendarFilename) {
+        $query = $this->pdo->prepare("SELECT id FROM reminders WHERE vCalendarFilename= :vCalendarFilename AND userid = :userid;");
+        $query->execute(array(
+            'vCalendarFilename' =>  $vCalendarFilename,
+            'userid' =>  $userid
+        ));
+        $result = $query->fetch();
+        
+        if(!isset($result['id'])) {
+            $this->log->warning("Reminder for event $vCalendarFilename and for user $userid does not exists in database.");
+            return;
+        }
+
+        $query = $this->pdo->prepare("DELETE FROM reminders WHERE vCalendarFilename= :vCalendarFilename AND userid = :userid;");
+        $query->execute(array(
+            'vCalendarFilename' =>  $vCalendarFilename,
+            'userid' =>  $userid
+        ));
+        
+        $this->log->info("DB reminder deleted for event $vCalendarFilename and user $userid.");
+        
+        if(!is_null($reminder_id = $this->api->reminders_delete($result['id']))) {
+            $this->log->info("Slack reminder deleted ($result[id]).");
+        } else {
+            // Don't log as an error because it may be normal, for instance:
+            // - when the user deleted the reminder manually from slack
+            // - or when we did not create a reminder (for instance when the registration occurs less than 24h before the event start)
+            $this->log->info("can't find the reminder to delete  ($result[id]).");
+        }
     }
 
 }
