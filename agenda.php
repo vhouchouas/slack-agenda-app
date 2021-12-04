@@ -54,7 +54,6 @@ abstract class Agenda {
     public function updateAttendee(string $vCalendarFilename, string $usermail, bool $add, ?string $attendee_CN) {
         $this->log->info("updating $vCalendarFilename");
         list($vCalendar, $ETag) = $this->getEvent($vCalendarFilename);
-        
         if($add) {
             if(isset($vCalendar->VEVENT->ATTENDEE)) {
                 foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
@@ -80,7 +79,6 @@ abstract class Agenda {
                     'CN'   => (is_null($attendee_CN)) ? 'Bénévole' : $attendee_CN,
                 ]
             );
-            //$vCalendar->VEVENT->add('ATTENDEE', 'mailto:' . $usermail);
         } else {
             $already_out = true;
             
@@ -95,7 +93,7 @@ abstract class Agenda {
             }
             
             if($already_out) {
-                $this->log->info("Try to remove an unregistered email");
+                $this->log->info("Try to remove an unregistered email ($usermail)");
                 return 0; // not an error
             }
         }
@@ -132,6 +130,9 @@ abstract class Agenda {
 }
 
 require_once "FSAgenda.php";
+require_once "DBAgenda.php";
+require_once "SqliteAgenda.php";
+require_once "MySQLAgenda.php";
 
 function initAgendaFromType(string $url, string $username, string $password, object $api, array $agenda_args, object $log) {
     if(!isset($agenda_args["type"])) {
@@ -141,6 +142,12 @@ function initAgendaFromType(string $url, string $username, string $password, obj
     
     if($agenda_args["type"] === "filesystem") {
         return new FSAgenda($url, $username, $password, $api, $agenda_args);
+    }else if($agenda_args["type"] === "database") {
+        if($agenda_args["db_type"] === "MySQL") {
+            return new MySQLAgenda($url, $username, $password, $api, $agenda_args);
+        } else if($agenda_args["db_type"] === "sqlite") {
+            return new SqliteAgenda($url, $username, $password, $api, $agenda_args);
+        }
     } else {
         $log->error("Agenda type $agenda_args[type] is unknown (exit).");
         exit();

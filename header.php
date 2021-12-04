@@ -19,7 +19,7 @@ require "agenda.php";
 require "security.php";
 require "slackAPI.php";
 require "slackEvents.php";
-require "localcache.php";
+require_once "localcache.php";
 
 list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
 
