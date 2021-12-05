@@ -13,15 +13,15 @@ class SlackEvents {
 
     protected function render_event($parsed_event, $description=false) {
 
-        $infos  = '*' . (string)$parsed_event["vcal"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event) . PHP_EOL;
-        $infos .= '*Quand:* ' . format_date($parsed_event["vcal"]->VEVENT->DTSTART->getDateTime(), $parsed_event["vcal"]->VEVENT->DTEND->getDateTime()) . PHP_EOL;
-        if(isset($parsed_event["vcal"]->VEVENT->LOCATION) and strlen((string)$parsed_event["vcal"]->VEVENT->LOCATION) > 0) {
-            $infos .= '*Ou:* ' . (string)$parsed_event["vcal"]->VEVENT->LOCATION . " (<https://www.openstreetmap.org/search?query=".(string)$parsed_event["vcal"]->VEVENT->LOCATION."|voir>)" . PHP_EOL;
+        $infos  = '*' . (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event) . PHP_EOL;
+        $infos .= '*Quand:* ' . format_date($parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime(), $parsed_event["vCalendar"]->VEVENT->DTEND->getDateTime()) . PHP_EOL;
+        if(isset($parsed_event["vCalendar"]->VEVENT->LOCATION) and strlen((string)$parsed_event["vCalendar"]->VEVENT->LOCATION) > 0) {
+            $infos .= '*Ou:* ' . (string)$parsed_event["vCalendar"]->VEVENT->LOCATION . " (<https://www.openstreetmap.org/search?query=".(string)$parsed_event["vCalendar"]->VEVENT->LOCATION."|voir>)" . PHP_EOL;
         }
-        $infos .= "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["participant_number"])."*: " . format_userids($parsed_event["attendees"], $parsed_event["unknown_attendees"]);
+        $infos .= "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["number_volunteers_required"])."*: " . format_userids($parsed_event["attendees"], $parsed_event["unknown_attendees"]);
 
         if($description) {
-            $infos .= PHP_EOL . PHP_EOL . '*Description:*' . PHP_EOL . PHP_EOL . (string)$parsed_event["vcal"]->VEVENT->DESCRIPTION;
+            $infos .= PHP_EOL . PHP_EOL . '*Description:*' . PHP_EOL . PHP_EOL . (string)$parsed_event["vCalendar"]->VEVENT->DESCRIPTION;
         }
 
         $block = [
@@ -68,7 +68,7 @@ class SlackEvents {
             
             $block = $this->render_event($parsed_event, false);
             if(json_encode($block) === false) {
-                $this->log->warning("Event $file is not JSON serializable" . (string)$parsed_event["vcal"]->VEVENT->SUMMARY, $block);
+                $this->log->warning("Event $file is not JSON serializable" . (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY, $block);
                 continue;
             }
             
@@ -197,10 +197,10 @@ class SlackEvents {
         );
     }
     
-    function more($url, $request) {
-        $vcal = $this->agenda->getEvent($url);
+    function more($vCalendarFilename, $request) {
+        $vCalendar = $this->agenda->getEvent($vCalendarFilename);
         $userid = $request->user->id;
-        $parsed_event = $this->agenda->parseEvent($userid, $vcal);
+        $parsed_event = $this->agenda->parseEvent($userid, $vCalendar);
         $trigger_id = $request->trigger_id;
         
         $block = $this->render_event($parsed_event, true);
@@ -222,10 +222,10 @@ class SlackEvents {
     }
 
     // update just the modified event
-    protected function register_fast_rendering($url, $userid, $usermail, $in, $request, $event) {
+    protected function register_fast_rendering($vCalendarFilename, $userid, $usermail, $in, $request, $event) {
         $i = 0;
         foreach($request->view->blocks as $block) { //looking for the block of interest
-            if($block->block_id === $url) {
+            if($block->block_id === $vCalendarFilename) {
                 break;
             }
             $i++;
@@ -259,7 +259,7 @@ class SlackEvents {
         $this->api->views_publish($data);
     }
 
-    function register($url, $userid, $in, $request) {
+    function register($vCalendarFilename, $userid, $in, $request) {
         $user = $this->api->users_info($userid);
         if(is_null($user)) {
             $this->log->error("Can't determine user mail from the Slack API");
@@ -267,17 +267,17 @@ class SlackEvents {
         }
         $profile = $user->profile;
         $this->log->debug("register mail $profile->email $profile->first_name $profile->last_name");
-        $parsed_event = $this->agenda->parseEvent($userid, $this->agenda->getEvent($url));
+        $parsed_event = $this->agenda->parseEvent($userid, $this->agenda->getEvent($vCalendarFilename));
         slackEvents::ack();
-        $this->register_fast_rendering($url, $userid, $profile->email, $in, $request, $parsed_event);
+        $this->register_fast_rendering($vCalendarFilename, $userid, $profile->email, $in, $request, $parsed_event);
         
-        $response = $this->agenda->updateAttendee($url, $profile->email, $in, $profile->first_name . ' ' . $profile->last_name);
+        $response = $this->agenda->updateAttendee($vCalendarFilename, $profile->email, $in, $profile->first_name . ' ' . $profile->last_name);
         if($response === false) { //an error occured
             $this->agenda->update();
             $this->app_home_page($userid);
         }
 
-        $vevent = $this->agenda->getEvent($url)->VEVENT;
+        $vevent = $this->agenda->getEvent($vCalendarFilename)->VEVENT;
         $datetime = $vevent->DTSTART->getDateTime();
         $datetime = $datetime->modify("-1 day");
         

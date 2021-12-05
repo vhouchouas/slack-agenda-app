@@ -8,11 +8,11 @@ class FSAgenda implements Agenda {
     protected $localcache;
     protected $api;
     
-    public function __construct(string $url, string $username, string $password, object $api, array $agenda_args) {
+    public function __construct(string $vCalendarFilename, string $username, string $password, object $api, array $agenda_args) {
         $this->log = new Logger('Agenda');
         setLogHandlers($this->log);
         
-        $this->caldav_client = new CalDAVClient($url, $username, $password);
+        $this->caldav_client = new CalDAVClient($vCalendarFilename, $username, $password);
 
         $localFsCachePath = isset($agenda_args["path_to_localcache_on_filesystem"]) ? $agenda_args["path_to_localcache_on_filesystem"] : "./data";
         $this->localcache = new FilesystemCache($localFsCachePath);
@@ -22,8 +22,8 @@ class FSAgenda implements Agenda {
     public function getUserEventsFiltered(string $userid, array $filters_to_apply = array()) {
         $parsed_events = array();
         
-        foreach($this->localcache->getAllEventsNames() as $filename) {
-            $event = $this->getEvent($filename);
+        foreach($this->localcache->getAllEventsFilenames() as $vCalendarFilename) {
+            $event = $this->getEvent($vCalendarFilename);
             $parsed_event = $this->parseEvent($userid, $event);
 
             $parsed_event["keep"] = true;
@@ -36,8 +36,8 @@ class FSAgenda implements Agenda {
                             break;
                         }
                     } else if($filter === "need_volunteers") {
-                        if(is_nan($parsed_event["participant_number"]) or
-                           count($parsed_event["attendees"]) >= $parsed_event["participant_number"]) {
+                        if(is_null($parsed_event["number_volunteers_required"]) or
+                           count($parsed_event["attendees"]) >= $parsed_event["number_volunteers_required"]) {
                             $parsed_event["keep"] = false;
                             break;
                         }
@@ -47,26 +47,26 @@ class FSAgenda implements Agenda {
                     }
                 }            
             }
-            $parsed_events[$filename] = $parsed_event;
+            $parsed_events[$vCalendarFilename] = $parsed_event;
         }
 
         uasort($parsed_events, function ($v1, $v2) {
-            return $v1["vcal"]->VEVENT->DTSTART->getDateTime()->getTimestamp() - $v2["vcal"]->VEVENT->DTSTART->getDateTime()->getTimestamp();
+            return $v1["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp() - $v2["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp();
         });
         
         return $parsed_events;
     }
 
-    public function parseEvent(string $userid, object $event) {
+    public function parseEvent(string $userid, object $vCalendar) {
         $parsed_event = array();
-        $parsed_event["vcal"] = $event;
+        $parsed_event["vCalendar"] = $vCalendar;
         $parsed_event["is_registered"] = false;
         $parsed_event["attendees"] = array();
         $parsed_event["unknown_attendees"] = 0;
         $parsed_event["categories"] = array();
         
-        if(isset($event->VEVENT->ATTENDEE)) {
-            foreach($event->VEVENT->ATTENDEE as $attendee) {
+        if(isset($vCalendar->VEVENT->ATTENDEE)) {
+            foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
                 $a = [
                     //"cn" => $attendee['CN']->getValue(),
                     "mail" => str_replace("mailto:", "", (string)$attendee)
@@ -87,13 +87,13 @@ class FSAgenda implements Agenda {
             }
         }
         
-        $parsed_event["participant_number"] = NAN;
+        $parsed_event["number_volunteers_required"] = null;
         
-        if(isset($event->VEVENT->CATEGORIES)) {
-            foreach($event->VEVENT->CATEGORIES as $category) {
+        if(isset($vCalendar->VEVENT->CATEGORIES)) {
+            foreach($vCalendar->VEVENT->CATEGORIES as $category) {
                                 
-                if(is_nan($parsed_event["participant_number"]) and
-                   !is_nan($parsed_event["participant_number"] = is_number_of_attendee_category((string)$category))) {
+                if(is_null($parsed_event["number_volunteers_required"]) and
+                   !is_null($parsed_event["number_volunteers_required"] = is_number_of_attendee_category((string)$category))) {
                     continue;
                 }
                 
@@ -106,15 +106,15 @@ class FSAgenda implements Agenda {
 
     public function getEvents() {
         $events = array();
-        foreach($this->localCache->getEvents() as $eventName => $serializedEvent){
-            $vcal = \Sabre\VObject\Reader::read($serializedEvent);
-            $startDate = $vcal->VEVENT->DTSTART->getDateTime();
+        foreach($this->localCache->getEvents() as $vCalendarFilename => $serializedEvent){
+            $vCalendar = \Sabre\VObject\Reader::read($serializedEvent);
+            $startDate = $vCalendar->VEVENT->DTSTART->getDateTime();
             
             if($startDate < new DateTime('NOW')) {
                 $this->log->debug("Event is in the past, skiping");
                 continue;
             }
-            $events[$eventName] = $vcal;
+            $events[$vCalendarFilename] = $vCalendar;
         }    
         uasort($events, function ($v1, $v2) {
             return $v1->VEVENT->DTSTART->getDateTime()->getTimestamp() - $v2->VEVENT->DTSTART->getDateTime()->getTimestamp();
@@ -125,75 +125,75 @@ class FSAgenda implements Agenda {
     
     // update agenda
     public function update() {
-        $remote_ctag = $this->caldav_client->getctag();
-        if(is_null($remote_ctag)) {
+        $remote_CTag = $this->caldav_client->getCTag();
+        if(is_null($remote_CTag)) {
             $this->log->error("Fail to update the CTag");
             return;
         }
         
         // check if we need to update events from the server
-        $local_ctag = $this->localcache->getctag();
-        $this->log->debug("local CTag is $local_ctag, remote CTag is $remote_ctag");
-        if (is_null($local_ctag) || $local_ctag != $remote_ctag){
+        $local_CTag = $this->localcache->getCTag();
+        $this->log->debug("local CTag is $local_CTag, remote CTag is $remote_CTag");
+        if (is_null($local_CTag) || $local_CTag != $remote_CTag){
             $this->log->debug("Agenda update needed");
             
-            $remote_etags = $this->caldav_client->getetags();
-            if($remote_ctag === false || is_null($remote_ctag)) {
+            $remote_ETags = $this->caldav_client->getETags();
+            if($remote_CTag === false || is_null($remote_CTag)) {
                 $this->log->error("Fail to get calendar ETags");
                 return;
             }
             
-            $this->updateInternalState($remote_etags);
-            $this->localcache->setctag($remote_ctag);
+            $this->updateInternalState($remote_ETags);
+            $this->localcache->setCTag($remote_CTag);
         }
     }
 
     // 
-    protected function updateInternalState(array $etags) {
-        $url_to_update = [];
-        foreach($etags as $url => $remote_etag) {
-            $eventName = basename($url);
-            if($this->localcache->eventExists($eventName)) {
-                $local_etag = $this->localcache->getEventEtag($eventName);
+    protected function updateInternalState(array $ETags) {
+        $vCalendarFilename_to_update = [];
+        foreach($ETags as $vCalendarFilename => $remote_ETag) {
+            $vCalendarFilename = basename($vCalendarFilename);
+            if($this->localcache->eventExists($vCalendarFilename)) {
+                $local_ETag = $this->localcache->getEventETag($vCalendarFilename);
 
-                if($local_etag != $remote_etag) {
-                    $this->log->info("updating $eventName: remote ETag is $remote_etag, local ETag is $local_etag");
-                    // local and remote etag differs, need update
-                    $url_to_update[] = $eventName;
+                if($local_ETag != $remote_ETag) {
+                    $this->log->info("updating $vCalendarFilename: remote ETag is $remote_ETag, local ETag is $local_ETag");
+                    // local and remote ETag differs, need update
+                    $vCalendarFilename_to_update[] = $vCalendarFilename;
                 } else {
-                    $this->log->debug("no need to update $eventName");
+                    $this->log->debug("no need to update $vCalendarFilename");
                 }
             } else {
-                $url_to_update[] = $eventName;
+                $vCalendarFilename_to_update[] = $vCalendarFilename;
             }
         }
         
-        if(count($url_to_update) > 0) {
-            $this->updateEvents($url_to_update);
+        if(count($vCalendarFilename_to_update) > 0) {
+            $this->updateEvents($vCalendarFilename_to_update);
         }
         
-        $this->removeDeletedEvents($etags);
+        $this->removeDeletedEvents($ETags);
     }
     
     // delete local events that have been deleted on the server
-    protected function removeDeletedEvents(array $etags) {
-        $eventNames = [];
-        foreach($etags as $url => $etag) {
-            $eventNames[] = basename($url);
+    protected function removeDeletedEvents(array $ETags) {
+        $vCalendarFilenames = [];
+        foreach($ETags as $vCalendarFilename => $ETag) {
+            $vCalendarFilenames[] = basename($vCalendarFilename);
         }
         
-        foreach($this->localcache->getAllEventsNames() as $eventName){
-            if(in_array($eventName, $eventNames)) {
-                $this->log->debug("No need to remove ". $eventName);
+        foreach($this->localcache->getAllEventsFilenames() as $vCalendarFilename){
+            if(in_array($vCalendarFilename, $vCalendarFilenames)) {
+                $this->log->debug("No need to remove ". $vCalendarFilename);
             } else {
-                $this->log->info("Need to remove ". $eventName);
-                $this->localcache->deleteEvent($eventName);
+                $this->log->info("Need to remove ". $vCalendarFilename);
+                $this->localcache->deleteEvent($vCalendarFilename);
             }
         }
     }
 
-    private function updateEvents(array $urls) {
-        $events = $this->caldav_client->updateEvents($urls);
+    private function updateEvents(array $vCalendarFilenames) {
+        $events = $this->caldav_client->updateEvents($vCalendarFilenames);
         
         if(is_null($events) || $events === false) {
             $this->log->error("Fail to update events ");
@@ -201,13 +201,13 @@ class FSAgenda implements Agenda {
         }
 
         foreach($events as $event) {
-            $this->log->info("Adding event $event[filename]");
+            $this->log->info("Adding event $event[vCalendarFilename]");
             
-            $this->localcache->deleteEvent($event['filename']);
+            $this->localcache->deleteEvent($event['vCalendarFilename']);
             
             // parse event to get its DTSTART
-            $vcal = \Sabre\VObject\Reader::read($event['data']);
-            $startDate = $vcal->VEVENT->DTSTART->getDateTime();
+            $vCalendar = \Sabre\VObject\Reader::read($event['vCalendarRaw']);
+            $startDate = $vCalendar->VEVENT->DTSTART->getDateTime();
             
             if($startDate < new DateTime('NOW')) {
                 $this->log->debug("Event is in the past, skiping");
@@ -215,30 +215,30 @@ class FSAgenda implements Agenda {
             }
             
             $this->localcache->addEvent(
-                $event['filename'],
-                $event['data'],
-                $event['etag']
+                $event['vCalendarFilename'],
+                $event['vCalendarRaw'],
+                $event['ETag']
             );
         }
         return true;
     }
     
     //if add is true, then add $usermail to the event, otherwise, remove it.
-    public function updateAttendee(string $url, string $usermail, bool $add, ?string $attendee_CN=null) {
-        $this->log->info("updating $url");
-        $raw = $this->localcache->getSerializedEvent($url);
-        $etag = $this->localcache->getEventEtag($url);
+    public function updateAttendee(string $vCalendarFilename, string $usermail, bool $add, ?string $attendee_CN=null) {
+        $this->log->info("updating $vCalendarFilename");
+        $vCalendarRaw = $this->localcache->getSerializedEvent($vCalendarFilename);
+        $ETag = $this->localcache->getEventETag($vCalendarFilename);
         
-        $vcal = \Sabre\VObject\Reader::read($raw);
+        $vCalendar = \Sabre\VObject\Reader::read($vCalendarRaw);
         
         if($add) {
-            if(isset($vcal->VEVENT->ATTENDEE)) {
-                foreach($vcal->VEVENT->ATTENDEE as $attendee) {
+            if(isset($vCalendar->VEVENT->ATTENDEE)) {
+                foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
                     if(str_replace("mailto:","", (string)$attendee) === $usermail) {
                         if(isset($attendee['PARTSTAT']) && (string)$attendee['PARTSTAT'] === "DECLINED") {
                             $this->log->info("Try to add a user that have already declined invitation (from outside).");
                             // clean up
-                            $vcal->VEVENT->remove($attendee);
+                            $vCalendar->VEVENT->remove($attendee);
                             // will add again the user
                             break;
                         } else {
@@ -249,21 +249,21 @@ class FSAgenda implements Agenda {
                 }
             }
             
-            $vcal->VEVENT->add(
+            $vCalendar->VEVENT->add(
                 'ATTENDEE',
                 'mailto:' . $usermail,
                 [
                     'CN'   => (is_null($attendee_CN)) ? 'Bénévole' : $attendee_CN,
                 ]
             );
-            //$vcal->VEVENT->add('ATTENDEE', 'mailto:' . $usermail);
+            //$vCalendar->VEVENT->add('ATTENDEE', 'mailto:' . $usermail);
         } else {
             $already_out = true;
             
-            if(isset($vcal->VEVENT->ATTENDEE)) {
-                foreach($vcal->VEVENT->ATTENDEE as $attendee) {
+            if(isset($vCalendar->VEVENT->ATTENDEE)) {
+                foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
                     if(str_replace("mailto:","", (string)$attendee) === $usermail) {
-                        $vcal->VEVENT->remove($attendee);
+                        $vCalendar->VEVENT->remove($attendee);
                         $already_out = false;
                         break;
                     }
@@ -276,25 +276,25 @@ class FSAgenda implements Agenda {
             }
         }
         
-        $new_etag = $this->caldav_client->updateEvent($url, $etag, $vcal->serialize());
-        if($new_etag === false) {
+        $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize());
+        if($new_ETag === false) {
             $this->log->error("Fails to update the event");
             return false;
-        } else if(is_null($new_etag)) {
-            $this->log->info("The server did not answer a new etag after an event update, need to update the local calendar");
-            if(!$this->updateEvents(array($url))) {
+        } else if(is_null($new_ETag)) {
+            $this->log->info("The server did not answer a new ETag after an event update, need to update the local calendar");
+            if(!$this->updateEvents(array($vCalendarFilename))) {
                 return false;
             }
         } else {
-            $this->localcache->addEvent($url, $vcal->serialize(), $new_etag);
+            $this->localcache->addEvent($vCalendarFilename, $vCalendar->serialize(), $new_ETag);
         }
         return true;
     }
 
-    public function getEvent(string $url) {
-        $raw = $this->localcache->getSerializedEvent($url);
-        if(!is_null($raw)) {
-            return \Sabre\VObject\Reader::read($raw);
+    public function getEvent(string $vCalendarFilename) {
+        $vCalendarRaw = $this->localcache->getSerializedEvent($vCalendarFilename);
+        if(!is_null($vCalendarRaw)) {
+            return \Sabre\VObject\Reader::read($vCalendarRaw);
         }
     	return null;
     }

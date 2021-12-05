@@ -1,18 +1,27 @@
 <?php
 declare(strict_types=1);
+
 require_once("../CalDAVClient.php");
 require_once("../utils.php");
 
 use PHPUnit\Framework\TestCase;
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Handler\NativeMailerHandler;
 
 final class CalDAVTest extends TestCase {
+
+    public function setUp(): void {
+        $GLOBALS['LOG_HANDLERS'] = new StreamHandler('php://stdout', Logger::DEBUG);
+    }
+    
     /**
      * @dataProvider credentialsProvider
      */
     public function testGetCTag($username, $password, $url) {
         $client = new CalDAVClient($url, $username, $password);
-        $ctag = $client->getctag();
-        $this->assertNotNull($ctag, "ctag: $ctag");
+        $CTag = $client->getCTag();
+        $this->assertNotNull($CTag, "CTag: $CTag");
     }
     
     /**
@@ -21,21 +30,21 @@ final class CalDAVTest extends TestCase {
     public function testGetETagAndUpdateEvents($username, $password, $url) {
         $client = new CalDAVClient($url, $username, $password);
         
-        $etags = $client->getetags();
-        $this->assertNotNull($etags);
+        $ETags = $client->getETags();
+        $this->assertNotNull($ETags);
         
-        $filenames = [];
-        foreach($etags as $url => $etag) {
-            $filenames[] = basename($url);
+        $vCalendarFilenames = [];
+        foreach($ETags as $vCalendarFilename => $ETag) {
+            $vCalendarFilenames[] = basename($vCalendarFilename);
         }
         
-        $events = $client->updateEvents($filenames);
+        $events = $client->updateEvents($vCalendarFilenames);
         
         $this->assertNotNull($events);
         foreach($events as $event) {
-            $this->assertArrayHasKey('filename', $event);
-            $this->assertArrayHasKey('data', $event);
-            $this->assertArrayHasKey('etag', $event);
+            $this->assertArrayHasKey('vCalendarFilename', $event);
+            $this->assertArrayHasKey('vCalendarRaw', $event);
+            $this->assertArrayHasKey('ETag', $event);
         }
     }
     
@@ -44,18 +53,18 @@ final class CalDAVTest extends TestCase {
      */
     public function testUpdateEvent($username, $password, $url) {
         $client = new CalDAVClient($url, $username, $password);
-        $etags = $client->getetags();
+        $ETags = $client->getETags();
         
-        $this->assertNotNull($etags);
-        foreach($etags as $url => $etag) {
-            $events = $client->updateEvents(array(basename($url)));
+        $this->assertNotNull($ETags);
+        foreach($ETags as $vCalendarFilename => $ETag) {
+            $events = $client->updateEvents(array(basename($vCalendarFilename)));
             $this->assertCount(1, $events);
             $event = $events[0];
             
-            $this->assertTrue($event['filename'] === basename($url));
+            $this->assertTrue($event['vCalendarFilename'] === basename($vCalendarFilename));
 
-            $new_etag = $client->updateEvent(basename($url), $etag, $event['data']);
-            $this->assertTrue($new_etag !== false);
+            $new_ETag = $client->updateEvent(basename($vCalendarFilename), $ETag, $event['vCalendarRaw']);
+            $this->assertTrue($new_ETag !== false);
         }
     }
     

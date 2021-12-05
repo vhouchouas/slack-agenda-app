@@ -58,7 +58,7 @@ class CalDAVClient {
     }
     
     // url that need to be updated
-    function updateEvents($urls) {
+    function updateEvents($vCalendarFilenames) {
         $ch = $this->init_curl_request();
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "REPORT");
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
@@ -68,8 +68,8 @@ class CalDAVClient {
         );
         
         $str = "";
-        foreach($urls as $url) {
-            $str .= "<d:href>{$this->url}/$url</d:href>\n";
+        foreach($vCalendarFilenames as $vCalendarFilename) {
+            $str .= "<d:href>{$this->url}/$vCalendarFilename</d:href>\n";
         }
 
         $data = "<c:calendar-multiget xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">
@@ -110,9 +110,9 @@ class CalDAVClient {
                 isset($event['value']['href'])
             ) {
                 $events[] = array(
-                    "filename" => basename($event['value']['href']),
-                    "data" => $event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data'],
-                    "etag" => trim($event['value']['propstat']['prop']['getetag'], '"')
+                    "vCalendarFilename" => basename($event['value']['href']),
+                    "vCalendarRaw" => $event['value']['propstat']['prop']['{urn:ietf:params:xml:ns:caldav}calendar-data'],
+                    "ETag" => trim($event['value']['propstat']['prop']['getetag'], '"')
                 );
             }
         }
@@ -121,7 +121,7 @@ class CalDAVClient {
     }
 
     // get event etags from the server
-    function getetags() {
+    function getETags() {
         $ch = $this->init_curl_request();
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "REPORT");
         
@@ -174,7 +174,7 @@ class CalDAVClient {
     
     // get the ctag of the calendar on the server
     // @see https://sabre.io/dav/building-a-caldav-client/
-    function getctag() {
+    function getCTag() {
         $ch = $this->init_curl_request();
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PROPFIND");
         
@@ -219,10 +219,10 @@ class CalDAVClient {
     }
 
     // return: false if an error occured, null if no etag returned, or the etag
-    function updateEvent($url, $etag, $data) {
+    function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw) {
 
-        $this->log->debug("will update $url with ETag $etag");
-        $ch = $this->init_curl_request("{$this->url}/$url");
+        $this->log->debug("will update $vCalendarFilename with ETag $ETag");
+        $ch = $this->init_curl_request("{$this->url}/$vCalendarFilename");
 
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
 
@@ -230,11 +230,11 @@ class CalDAVClient {
         curl_setopt($ch, CURLOPT_NOBODY  , false);
         $header = array(
             "Content-Type: text/calendar; charset=utf-8",
-            'If-Match: "'. $etag . '"'
+            'If-Match: "'. $ETag . '"'
         );
         
         curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $vCalendarRaw);
         
         $response = $this->process_curl_request($ch);
         if(is_null($response) || $response === false) {

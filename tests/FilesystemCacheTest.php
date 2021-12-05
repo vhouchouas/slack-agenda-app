@@ -17,10 +17,10 @@ final class FilesystemCacheTest extends TestCase {
     public function test_setAndGetCTag(){
         $sut = new FilesystemCache("./tmp_for_test");
 
-        $this->assertNull($sut->getctag(), "no ctag was set yet, we should get null");
+        $this->assertNull($sut->getCTag(), "no CTag was set yet, we should get null");
 
-        $sut->setctag("666");
-        $this->assertEquals("666", $sut->getctag());
+        $sut->setCTag("666");
+        $this->assertEquals("666", $sut->getCTag());
     }
 
     public function testAddAndDeleteEvent(){
@@ -28,32 +28,32 @@ final class FilesystemCacheTest extends TestCase {
 
         // Preconditions
         $this->assertEmpty($sut->getSerializedEvents());
-        $this->assertEmpty($sut->getAllEventsNames());
-        $this->assertFalse($sut->eventExists("my event name"));
+        $this->assertEmpty($sut->getAllEventsFilenames());
+        $this->assertFalse($sut->eventExists("my event vCalendarFilename"));
 
         // Add event
-        $sut->addEvent("my event name", "my event data", "666");
+        $sut->addEvent("my event vCalendarFilename", "my event data", "666");
 
         // Assert event has been correctly added
         $serializedEvents = $sut->getSerializedEvents();
         $this->assertEquals(1, count($serializedEvents));
-        $this->assertEquals("my event data", $serializedEvents["my event name"]);
+        $this->assertEquals("my event data", $serializedEvents["my event vCalendarFilename"]);
 
-        $eventsNames = $sut->getAllEventsNames();
-        $this->assertEquals(1, count($eventsNames));
-        $this->assertEquals("my event name", $eventsNames[0]);
+        $vCalendarFilenames = $sut->getAllEventsFilenames();
+        $this->assertEquals(1, count($vCalendarFilenames));
+        $this->assertEquals("my event vCalendarFilename", $vCalendarFilenames[0]);
 
-        $this->assertTrue($sut->eventExists("my event name"));
+        $this->assertTrue($sut->eventExists("my event vCalendarFilename"));
 
-        $this->assertEquals($sut->getEventEtag("my event name"), "666");
+        $this->assertEquals($sut->getEventEtag("my event vCalendarFilename"), "666");
 
         // Delete event
-        $sut->deleteEvent("my event name");
+        $sut->deleteEvent("my event vCalendarFilename");
 
         // Assert event has been correctly deleted
         $this->assertEmpty($sut->getSerializedEvents());
-        $this->assertEmpty($sut->getAllEventsNames());
-        $this->assertFalse($sut->eventExists("my event name"));
+        $this->assertEmpty($sut->getAllEventsFilenames());
+        $this->assertFalse($sut->eventExists("my event vCalendarFilename"));
     }
 
     // Taken from https://stackoverflow.com/a/1653776/1796345

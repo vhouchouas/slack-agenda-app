@@ -179,11 +179,11 @@ function format_userids($names, $unknown_attendees) {
     }
 }
 
-function format_number_of_attendees($attendees, $participant_number) {
-    if(is_nan($participant_number)) {
+function format_number_of_attendees($attendees, $number_volunteers_required) {
+    if(is_null($number_volunteers_required)) {
         return "";
     } else {
-        return "(" . count($attendees) . " / $participant_number)";
+        return "(" . count($attendees) . " / $number_volunteers_required)";
     }
 }    
 
@@ -209,7 +209,7 @@ function is_number_of_attendee_category($category) {
     if(strlen($category) === 2 and $category[1] === 'P' and is_numeric($category[0])) {
         return intval($category[0]);
     }
-    return NAN;
+    return null;
 }
 
 // Error to Exception
