@@ -30,8 +30,7 @@ class MySQLAgenda extends DBAgenda {
     }
     
     public function createDB() {
-        $this->pdo->query("USE {$this->db_name};");
-        
+        $this->log->info("Create database tables...");
         $this->pdo->query("CREATE TABLE IF NOT EXISTS events ( 
     vCalendarFilename               VARCHAR( 256 ) PRIMARY KEY,
     ETag                            VARCHAR( 256 ),
@@ -69,5 +68,6 @@ class MySQLAgenda extends DBAgenda {
 
         $query = $this->pdo->prepare("INSERT IGNORE INTO properties (property, value) VALUES ('CTag', 'NULL')");
         $query->execute();
+        $this->log->info("Create database tables - done.");
     }
 }

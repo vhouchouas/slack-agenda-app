@@ -125,7 +125,12 @@ class SlackAPI{
 
     function reminders_list() {
         $ch = $this->curl_init("https://slack.com/api/reminders.list", array('application/x-www-form-urlencoded'), "user");
-        return $this->curl_process($ch, true);
+        $response = $this->curl_process($ch, true);
+        if(!is_null($response)) {
+            return $response["reminders"];
+        } else {
+            return NULL;
+        }
     }
 
     function reminders_delete($reminder_id) {
@@ -133,6 +138,11 @@ class SlackAPI{
         curl_setopt($ch, CURLOPT_POSTFIELDS, array(
             "reminder" => $reminder_id
         ));
+        return $this->curl_process($ch);
+    }
+
+    function auth_test($token_type) {
+        $ch = $this->curl_init("https://slack.com/api/auth.test", array('Content-Type:application/json; charset=UTF-8'), $token_type);
         return $this->curl_process($ch);
     }
 }

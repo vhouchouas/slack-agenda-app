@@ -22,6 +22,55 @@ abstract class DBAgenda extends Agenda {
     abstract public function createDB();
     abstract protected function openDB();
 
+    public function clean_orphan_categories($quiet = false) {
+        $sql = "FROM categories WHERE not exists (
+                select 1
+                from events_categories
+                where events_categories.category_id = categories.id
+        );";
+
+        if(!$quiet) {
+            $query = $this->pdo->prepare("SELECT * " . $sql);
+            $query->execute();
+            $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
+            foreach($results as $id => $category) {
+                $this->log->info("Category $category[name] will be deleted.");
+            }
+        }
+        $query = $this->pdo->prepare("DELETE " . $sql);
+        $query->execute();
+        $this->log->info("Cleaning orphan categories - done.");
+    }
+    
+    public function clean_orphan_attendees($quiet = true) {
+        $sql = "FROM attendees WHERE not exists (
+            select 1
+            from events_attendees
+            where events_attendees.email = attendees.email
+        );";
+        
+        if(!$quiet) {
+            $query = $this->pdo->prepare("SELECT * " . $sql);
+            $query->execute();
+            $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
+            foreach($results as $id => $category) {
+                $this->log->info("User $category[userid] will be deleted.");
+            }
+        }
+        $query = $this->pdo->prepare("DELETE " . $sql);
+        $query->execute();
+        $this->log->info("Cleaning orphan attendees - done.");
+    }
+
+    public function truncate_tables() {
+        $this->log->info("Truncate all tables");
+        foreach(["events", "categories", "attendees", "properties"] as $table) {
+            $this->log->info("Truncate table $table");
+            $this->pdo->query("DELETE FROM $table;");
+        }
+        $this->log->info("Truncate all tables - done.");
+    }
+    
     public function getUserEventsFiltered(string $userid, array $filters_to_apply = array()) {
         $sql = 'SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM events WHERE ';
         $sql .= 'Date(datetime_begin) > :datetime_begin ';
