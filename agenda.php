@@ -18,6 +18,7 @@ abstract class Agenda {
     abstract public function getParsedEvent(string $vCalendarFilename, string $userid);
     abstract public function getEvents();
     abstract protected function update(array $ETags);
+    abstract protected function updateEvent(array $event);
     
     abstract protected function saveEvent(string $vCalendarFilename, string $ETag, object $vCalendar);
     abstract protected function getEvent(string $vCalendarFilename);
