@@ -42,7 +42,7 @@ abstract class Agenda {
             
             $remote_ETags = $this->caldav_client->getETags();
             if($remote_CTag === false || is_null($remote_CTag)) {
-                $this->log->error("Fail to get calendar ETags");
+                $this->log->error("Fail to get CTag from the remote server");
                 return;
             }
             
