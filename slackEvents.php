@@ -198,9 +198,8 @@ class SlackEvents {
     }
     
     function more($vCalendarFilename, $request) {
-        $vCalendar = $this->agenda->getEvent($vCalendarFilename);
         $userid = $request->user->id;
-        $parsed_event = $this->agenda->parseEvent($userid, $vCalendar);
+        $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
         $trigger_id = $request->trigger_id;
         
         $block = $this->render_event($parsed_event, true);
@@ -259,7 +258,7 @@ class SlackEvents {
         $this->api->views_publish($data);
     }
 
-    function register($vCalendarFilename, $userid, $in, $request) {
+    function register($vCalendarFilename, $userid, $register, $request) {
         $user = $this->api->users_info($userid);
         if(is_null($user)) {
             $this->log->error("Can't determine user mail from the Slack API");
@@ -267,22 +266,26 @@ class SlackEvents {
         }
         $profile = $user->profile;
         $this->log->debug("register mail $profile->email $profile->first_name $profile->last_name");
-        $parsed_event = $this->agenda->parseEvent($userid, $this->agenda->getEvent($vCalendarFilename));
+        $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
         slackEvents::ack();
-        $this->register_fast_rendering($vCalendarFilename, $userid, $profile->email, $in, $request, $parsed_event);
+        $this->register_fast_rendering($vCalendarFilename, $userid, $profile->email, $register, $request, $parsed_event);
         
-        $response = $this->agenda->updateAttendee($vCalendarFilename, $profile->email, $in, $profile->first_name . ' ' . $profile->last_name);
-        if($response === false) { //an error occured
-            $this->agenda->update();
-            $this->app_home_page($userid);
-        }
+        $response = $this->agenda->updateAttendee($vCalendarFilename, $profile->email, $register, $profile->first_name . ' ' . $profile->last_name);
 
-        $vevent = $this->agenda->getEvent($vCalendarFilename)->VEVENT;
-        $datetime = $vevent->DTSTART->getDateTime();
+        if(is_null($response)) { //nothing to do
+            return;
+        }
+        
+        if($response === false) {
+            trigger_error("Event update failed", E_USER_ERROR); // it will: call error_handler, inform user and exit.
+        }
+        
+        $vCalendar = $parsed_event['vCalendar']->VEVENT;
+        $datetime = $vCalendar->DTSTART->getDateTime();
         $datetime = $datetime->modify("-1 day");
         
-        if($in) {
-            $summary = (string)$vevent->SUMMARY;
+        if($register) {
+            $summary = (string)$vCalendar->SUMMARY;
             $now = new DateTimeImmutable();
             if ($datetime < $now){
                 $this->log->debug("not creating the reminder for $userid because " . $datetime->format('Y-m-dTH:i:s') . " is in the past");
