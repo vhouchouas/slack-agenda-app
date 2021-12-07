@@ -12,7 +12,7 @@ abstract class DBAgenda extends Agenda {
         $this->caldav_client = new CalDAVClient($CalDAV_url, $CalDAV_username, $CalDAV_password);
         $this->api = $api;
 
-        $this->openDB($agenda_args);
+        $this->pdo = $this->openDB($agenda_args);
         
         $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); // ERRMODE_WARNING | ERRMODE_EXCEPTION | ERRMODE_SILENT

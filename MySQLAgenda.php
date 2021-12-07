@@ -14,9 +14,9 @@ class MySQLAgenda extends DBAgenda {
     
     protected function openDB(array $agenda_args) {
         try{
-            $this->pdo = new PDO("mysql:host=localhost;dbname=$agenda_args[db_name]",
-                                 $agenda_args["db_username"],
-                                 $agenda_args["db_password"]);
+            return new PDO("mysql:host=localhost;dbname=$agenda_args[db_name]",
+                           $agenda_args["db_username"],
+                           $agenda_args["db_password"]);
         } catch(Exception $e) {
             echo "Can't reach MySQL like database: ".$e->getMessage();
             die();
