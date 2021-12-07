@@ -4,9 +4,12 @@ use Monolog\Logger;
 use Sabre\VObject;
 
 class MySQLAgenda extends DBAgenda {
+    private $db_name;
+    
     public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
             $this->log = new Logger('MySQLAgenda');
             parent::__construct($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
+            $this->db_name = $agenda_args["db_name"];
         }
     
     protected function openDB(array $agenda_args) {
@@ -21,10 +24,9 @@ class MySQLAgenda extends DBAgenda {
     }
     
     public function createDB() {
-
-        $this->pdo->query("DROP DATABASE IF EXISTS slack_app;");
-        $this->pdo->query("CREATE DATABASE slack_app;");
-        $this->pdo->query("USE slack_app;");
+        $this->pdo->query("DROP DATABASE IF EXISTS {$this->db_name};");
+        $this->pdo->query("CREATE DATABASE {$this->db_name};");
+        $this->pdo->query("USE {$this->db_name};");
         
         $this->pdo->query("CREATE TABLE IF NOT EXISTS events ( 
     vCalendarFilename               VARCHAR( 256 ) PRIMARY KEY,
