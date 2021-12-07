@@ -28,16 +28,16 @@ abstract class DBAgenda extends Agenda {
         $sql .= 'Date(datetime_begin) > :datetime_begin ';
         
         $intersect = array();
-        if(isset($filter["my_events"])) {
+        if(($key = array_search("my_events", $filters_to_apply)) !== false) {
             $intersect[] = "SELECT vCalendarFilename FROM events_attendees
 INNER JOIN attendees
 WHERE attendees.email = events_attendees.email and attendees.userid = '$userid'";
-            unset($filter["my_events"]);
+            unset($filters_to_apply[$key]);
         }
         
-        if(isset($filter["need_volunteers"])) {
-            $sql .= " number_volunteers_required is not NULL AND ";
-            unset($filter["need_volunteers"]);
+        if(($key = array_search("need_volunteers", $filters_to_apply)) !== false) {
+            $sql .= "AND number_volunteers_required is not NULL ";
+            unset($filters_to_apply[$key]);
         }
         
         foreach($filters_to_apply as $filter) {
@@ -47,19 +47,18 @@ WHERE attendees.email = events_attendees.email and attendees.userid = '$userid'"
             $intersect[] = "SELECT vCalendarFilename FROM events_categories
 INNER JOIN categories
 WHERE events_categories.category_id = categories.id and categories.name = '$filter'";
-        }            
+        }
         if(count($intersect) > 0) {
             $sql .= "AND vCalendarFilename IN (\n";
             $sql .= implode("\nintersect\n", $intersect);
             $sql .= ")\n";
         }
         $sql .= "ORDER BY datetime_begin;";
-
         $query = $this->pdo->prepare($sql);
         $query->execute(array('datetime_begin' => (new DateTime('NOW'))->format('Y-m-d H:i:s')));
-        
+
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
-        $this->log->debug($sql);
+        
         foreach($results as $vCalendarFilename => &$result) {
             $this->parseEvent($vCalendarFilename, $userid, $result);
         }
