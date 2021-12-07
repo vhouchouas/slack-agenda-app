@@ -52,11 +52,25 @@ abstract class Agenda {
 
     }
     
-    public function updateAttendee(string $vCalendarFilename, string $usermail, bool $add, ?string $attendee_CN) {
+    /**
+     * (Un)register a user to an event
+     * 
+     * @param string $vCalendarFilename vCalendar filename (xxxxxxxxx.ics)
+     * @param string $usermail the user email
+     * @param boolean $register true: register, false: unregister
+     * @param string $attendee_CN the attendee commun name
+     *
+     * @return boolean|null
+     *    return null if the attendee is already registered and $register === true (i.e. nothing to do);
+     *    return null if the attendee is not registered and $register === false (i.e. nothing to do);
+     *    return true if no error occured;
+     *    return false if the event has not been updated on the CalDAV server (i.e. the registration has failed).
+     */    
+    public function updateAttendee(string $vCalendarFilename, string $usermail, bool $register, ?string $attendee_CN) {
         $this->log->info("updating $vCalendarFilename");
         list($vCalendar, $ETag) = $this->getEvent($vCalendarFilename);
         
-        if($add) {
+        if($register) {
             if(isset($vCalendar->VEVENT->ATTENDEE)) {
                 foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
                     if(str_replace("mailto:","", (string)$attendee) === $usermail) {
@@ -68,7 +82,7 @@ abstract class Agenda {
                             break;
                         } else {
                             $this->log->info("Try to add a already registered attendee");
-                            return 0; // not an error
+                            return null; // not an error
                         }
                     }
                 }
@@ -97,19 +111,18 @@ abstract class Agenda {
             
             if($already_out) {
                 $this->log->info("Try to remove an unregistered email");
-                return 0; // not an error
+                return null; // not an error
             }
         }
         
         $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize());
         if($new_ETag === false) {
             $this->log->error("Fails to update the event");
-            return false;
+            return false; // the event has not been updated
         } else if(is_null($new_ETag)) {
             $this->log->info("The server did not answer a new ETag after an event update, need to update the local calendar");
-            if(!$this->updateEvents(array($vCalendarFilename))) {
-                return false;
-            }
+            $this->updateEvents(array($vCalendarFilename));
+            return true;// the event has been updated
         } else {
             $this->saveEvent($vCalendarFilename, $new_ETag, $vCalendar->serialize());
         }
