@@ -11,7 +11,7 @@ class SqliteAgenda extends DBAgenda {
     
     protected function openDB(array $agenda_args) {
         try{
-            $this->pdo = new PDO("sqlite:$agenda_args[path]");
+            return new PDO("sqlite:$agenda_args[path]");
         } catch(Exception $e) {
             echo "Can't reach SQLite database: ".$e->getMessage();
             die();
