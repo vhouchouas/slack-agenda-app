@@ -255,10 +255,17 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
                     $this->log->debug("category: $category already exists.");
                 } else {                    
                     $query = $this->pdo->prepare("INSERT INTO categories (name) VALUES (:name);");
-                    $query->execute(array(
-                        'name' => $category
-                    ));
-                    
+                    try {
+                        $query->execute(array(
+                            'name' => $category
+                        ));
+                    } catch (PDOException $e) {
+                        if($e->errorInfo[0] === 23000 and $e->errorInfo[1] === 1062) { // Integrity constraint violation: 1062 Duplicate entry
+                            $this->log->warning($e->getMessage());
+                        } else {
+                            throw $e;
+                        }
+                    }
                     $id = $this->getLastInsertedRowId();
                 }
                 
