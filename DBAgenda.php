@@ -6,10 +6,10 @@ use Sabre\VObject;
 abstract class DBAgenda extends Agenda {
     protected $pdo;
     
-    public function __construct(string $url, string $username, string $password, object $api, array $agenda_args) {
+    public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
         setLogHandlers($this->log);
         
-        $this->caldav_client = new CalDAVClient($url, $username, $password);
+        $this->caldav_client = new CalDAVClient($CalDAV_url, $CalDAV_username, $CalDAV_password);
         $this->api = $api;
 
         $this->openDB($agenda_args);
