@@ -151,29 +151,29 @@ function format_unknown_attendees($N) {
     return "";
 }
 
-function format_userids($names, $unknown_attendees) {
-    if(count($names) === 0 ) {
+function format_userids($userids, $unknown_attendees) {
+    if(count($userids) === 0 ) {
         if($unknown_attendees === 0) {
             return "aucun.";
         } else {
             return format_unknown_attendees($unknown_attendees);
         }
     } else {
-        foreach($names as $i => $name) {
-            $names[$i] = "<@$name>";
+        foreach($userids as $i => $userid) {
+            $userids[$i] = "<@$userid>";
         }
-        if(count($names) === 1){
-            $key = array_key_first($names);
+        if(count($userids) === 1){
+            $key = array_key_first($userids);
             if($unknown_attendees === 0) {
-                return "$names[$key].";
+                return "$userids[$key].";
             } else {
-                return "$names[$key] et " . format_unknown_attendees($unknown_attendees);
+                return "$userids[$key] et " . format_unknown_attendees($unknown_attendees);
             }
         } else {
             if($unknown_attendees === 0) {
-                return implode(", ", array_slice($names, 0, count($names) - 1)) . " et " . end($names) . ".";
+                return implode(", ", array_slice($userids, 0, count($userids) - 1)) . " et " . end($userids) . ".";
             } else {
-                return implode(", ", array_slice($names, 0, count($names))) . " et " . format_unknown_attendees($unknown_attendees);
+                return implode(", ", array_slice($userids, 0, count($userids))) . " et " . format_unknown_attendees($unknown_attendees);
             }
         }
     }
