@@ -26,28 +26,31 @@ class FSAgenda extends Agenda {
             list($vCalendar, $ETag) = $this->getEvent($vCalendarFilename);
             $parsed_event = $this->parseEvent($userid, $vCalendar);
 
-            $parsed_event["keep"] = true;
+            $keep = true;
             
             if(count($filters_to_apply) >= 0) {
                 foreach($filters_to_apply as $filter) {
                     if($filter === "my_events") {
                         if(!$parsed_event["is_registered"]) {
-                            $parsed_event["keep"] = false;
+                            $keep = false;
                             break;
                         }
                     } else if($filter === "need_volunteers") {
                         if(is_null($parsed_event["number_volunteers_required"]) or
                            count($parsed_event["attendees"]) >= $parsed_event["number_volunteers_required"]) {
-                            $parsed_event["keep"] = false;
+                            $keep = false;
                             break;
                         }
                     } else if(!in_array($filter, $parsed_event["categories"])) {
-                        $parsed_event["keep"] = false;
+                        $keep = false;
                         break;
                     }
                 }            
             }
-            $parsed_events[$vCalendarFilename] = $parsed_event;
+            
+            if($keep) {
+                $parsed_events[$vCalendarFilename] = $parsed_event;
+            }
         }
 
         uasort($parsed_events, function ($v1, $v2) {
