@@ -8,11 +8,11 @@ require_once "localcache.php";
 class FSAgenda extends Agenda {
     protected $localcache;
     
-    public function __construct(string $vCalendarFilename, string $username, string $password, object $api, array $agenda_args) {
+    public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
         $this->log = new Logger('Agenda');
         setLogHandlers($this->log);
         
-        $this->caldav_client = new CalDAVClient($vCalendarFilename, $username, $password);
+        $this->caldav_client = new CalDAVClient($CalDAV_url, $CalDAV_username, $CalDAV_password);
 
         $localFsCachePath = isset($agenda_args["path_to_localcache_on_filesystem"]) ? $agenda_args["path_to_localcache_on_filesystem"] : "./data";
         $this->localcache = new FilesystemCache($localFsCachePath);

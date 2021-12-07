@@ -13,7 +13,7 @@ abstract class Agenda {
     protected $caldav_client;
     protected $api;
 
-    abstract public function __construct(string $vCalendarFilename, string $username, string $password, object $api, array $agenda_args);
+    abstract public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args);
     abstract public function getUserEventsFiltered(string $userid, array $filters_to_apply = array());
     abstract public function getParsedEvent(string $vCalendarFilename, string $userid);
     abstract public function getEvents();
@@ -134,19 +134,19 @@ require_once "DBAgenda.php";
 require_once "SqliteAgenda.php";
 require_once "MySQLAgenda.php";
 
-function initAgendaFromType(string $url, string $username, string $password, object $api, array $agenda_args, object $log) {
+function initAgendaFromType(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args, object $log) {
     if(!isset($agenda_args["type"])) {
         $log->error("No agenda type specified (exit).");
         exit();
     }
     
     if($agenda_args["type"] === "filesystem") {
-        return new FSAgenda($url, $username, $password, $api, $agenda_args);
+        return new FSAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
     }else if($agenda_args["type"] === "database") {
         if($agenda_args["db_type"] === "MySQL") {
-            return new MySQLAgenda($url, $username, $password, $api, $agenda_args);
+            return new MySQLAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
         } else if($agenda_args["db_type"] === "sqlite") {
-            return new SqliteAgenda($url, $username, $password, $api, $agenda_args);
+            return new SqliteAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
         }
     } else {
         $log->error("Agenda type $agenda_args[type] is unknown (exit).");

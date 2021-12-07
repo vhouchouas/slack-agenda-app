@@ -4,9 +4,9 @@ use Monolog\Logger;
 use Sabre\VObject;
 
 class MySQLAgenda extends DBAgenda {
-    public function __construct(string $url, string $username, string $password, object $api, array $agenda_args) {
+    public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
             $this->log = new Logger('MySQLAgenda');
-            parent::__construct($url, $username, $password, $api, $agenda_args);
+            parent::__construct($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
         }
     
     protected function openDB(array $agenda_args) {
