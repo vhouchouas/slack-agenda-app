@@ -131,6 +131,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
             $result = $query->fetchAll();
             
             if(count($result) === 0) {
+                $this->log->info("No event for $vCalendarFilename in database, will be added.");
                 $vCalendarFilename_to_update[] = $vCalendarFilename;
             } else if($result[0]['ETag'] !== $remote_ETag) {
                 $vCalendarFilename_to_update[] = $vCalendarFilename;
