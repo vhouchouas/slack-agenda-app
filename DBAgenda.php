@@ -65,7 +65,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
         return $results;
     }
     
-    public function parseEvent(string $vCalendarFilename, string $userid, array &$result) {
+    private function parseEvent(string $vCalendarFilename, string $userid, array &$result) {
         $result['vCalendar'] = \Sabre\VObject\Reader::read($result['vCalendarRaw']);
         
         $sql = "SELECT userid from attendees
