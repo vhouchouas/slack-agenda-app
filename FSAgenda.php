@@ -60,7 +60,7 @@ class FSAgenda extends Agenda {
         return $parsed_events;
     }
 
-    public function parseEvent(string $userid, object $vCalendar) {
+    private function parseEvent(string $userid, object $vCalendar) {
         $parsed_event = array();
         $parsed_event["vCalendar"] = $vCalendar;
         $parsed_event["is_registered"] = false;
