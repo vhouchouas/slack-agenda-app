@@ -43,7 +43,6 @@ class CalDAVClient {
         }
         
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
         
         if($httpcode !== 200 && $httpcode !== 204 && $httpcode !== 207) {
             $url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
@@ -51,8 +50,10 @@ class CalDAVClient {
             $trace = debug_backtrace();
             $this->log->error("in ({$trace[1]["function"]}).");
             $this->log->error($response);
+            curl_close($ch);
             return false;
         }
+        curl_close($ch);
         
         return $response;
     }
