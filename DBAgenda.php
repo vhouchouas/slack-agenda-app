@@ -108,9 +108,10 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
     }
 
     protected function getCTag() {
-        $query = $this->pdo->prepare("SELECT * FROM properties WHERE property = :property");
+        $query = $this->pdo->prepare("SELECT value FROM properties WHERE property = :property");
         $query->execute(array('property' => 'CTag'));
-        $result = $query->fetchAll();
+        $result = $query->fetch();
+        return $result['value'];
     }
 
     protected function setCTag(string $CTag) {
