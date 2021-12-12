@@ -167,7 +167,7 @@ class CalDAVClient {
         // ...
         $data = [];
         foreach($service->parse($response) as $event) {
-            $data[$event['value']['href']] = trim($event['value']['propstat']['prop']['getetag'], '"');
+            $data[basename($event['value']['href'])] = trim($event['value']['propstat']['prop']['getetag'], '"');
         }
         return $data;
     }
@@ -220,7 +220,6 @@ class CalDAVClient {
 
     // return: false if an error occured, null if no etag returned, or the etag
     function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw) {
-
         $this->log->debug("will update $vCalendarFilename with ETag $ETag");
         $ch = $this->init_curl_request("{$this->url}/$vCalendarFilename");
 
