@@ -49,7 +49,6 @@ abstract class Agenda {
             $this->update($remote_ETags);
             $this->setCTag($remote_CTag);
         }
-
     }
     
     /**
@@ -70,7 +69,7 @@ abstract class Agenda {
         $this->log->info("updating $vCalendarFilename");
         list($vCalendar, $ETag) = $this->getEvent($vCalendarFilename);
 
-        if($add) {
+        if($register) {
             if(isset($vCalendar->VEVENT->ATTENDEE)) {
                 foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
                     if(str_replace("mailto:","", (string)$attendee) === $usermail) {
@@ -142,6 +141,7 @@ abstract class Agenda {
         }
         return true;
     }
+
 }
 
 require_once "FSAgenda.php";
