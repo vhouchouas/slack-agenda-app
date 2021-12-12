@@ -31,7 +31,7 @@ abstract class Agenda {
         $remote_CTag = $this->caldav_client->getCTag();
         if(is_null($remote_CTag)) {
             $this->log->error("Fail to update the CTag");
-            return;
+            return null;
         }
         
         // check if we need to update events from the server
@@ -43,12 +43,14 @@ abstract class Agenda {
             $remote_ETags = $this->caldav_client->getETags();
             if($remote_CTag === false || is_null($remote_CTag)) {
                 $this->log->error("Fail to get CTag from the remote server");
-                return;
+                return null;
             }
             
             $this->update($remote_ETags);
             $this->setCTag($remote_CTag);
+            return true;
         }
+        return false;
     }
     
     /**
