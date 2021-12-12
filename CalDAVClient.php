@@ -35,26 +35,29 @@ class CalDAVClient {
     }
 
     private function process_curl_request($ch) {
-        $response = curl_exec($ch);
-        
-        if (curl_errno($ch)) {
-            $this->log->error(curl_error($ch) . " (error code " . curl_errno($ch) . ")");
-            return false;
+        try {
+            $response = curl_exec($ch);
+
+            if (curl_errno($ch)) {
+                $this->log->error(curl_error($ch) . " (error code " . curl_errno($ch) . ")");
+                return false;
+            }
+
+            $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            if($httpcode !== 200 && $httpcode !== 204 && $httpcode !== 207) {
+                $url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+                $this->log->error("Bad HTTP response code: $httpcode for $url");
+                $trace = debug_backtrace();
+                $this->log->error("in ({$trace[1]["function"]}).");
+                $this->log->error($response);
+                return false;
+            }
+
+            return $response;
+        } finally {
+            curl_close($ch);
         }
-        
-        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        if($httpcode !== 200 && $httpcode !== 204 && $httpcode !== 207) {
-            $url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
-            $this->log->error("Bad HTTP response code: $httpcode for $url");
-            $trace = debug_backtrace();
-            $this->log->error("in ({$trace[1]["function"]}).");
-            $this->log->error($response);
-            return false;
-        }
-        
-        return $response;
     }
     
     // url that need to be updated
