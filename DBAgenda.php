@@ -147,22 +147,28 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
             $this->updateEvents($vCalendarFilename_to_update);
         }
         
-        //$this->removeDeletedEvents($ETags);
+        $this->removeDeletedEvents($ETags);
     }
     
     // delete local events that have been deleted on the server
-    protected function removeDeletedEvents(array $ETags) {
-        $vCalendarFilenames = [];
-        foreach($ETags as $vCalendarFilename => $ETag) {
-            $vCalendarFilenames[] = basename($vCalendarFilename);
-        }
+    public function removeDeletedEvents(array $ETags) {
+        $server_vCalendarFilenames = array_keys($ETags);
         
-        foreach($this->localcache->getAllEventsNames() as $vCalendarFilename){
-            if(in_array($vCalendarFilename, $vCalendarFilenames)) {
-                $this->log->debug("No need to remove ". $vCalendarFilename);
+        $query = $this->pdo->prepare("SELECT vCalendarFilename FROM events;");
+        $query->execute();
+        $local_vCalendarFilenames = array_keys($query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC));
+
+        foreach($local_vCalendarFilenames as $local_vCalendarFilename) {
+            if(in_array($local_vCalendarFilename, $server_vCalendarFilenames)) {
+                $this->log->debug("No need to remove ". $local_vCalendarFilename);
             } else {
-                $this->log->info("Need to remove ". $vCalendarFilename);
-                $this->localcache->deleteEvent($vCalendarFilename);
+                $this->log->info("Need to remove ". $local_vCalendarFilename);
+                $this->log->info("Deleting event $local_vCalendarFilename.");
+                
+                $query = $this->pdo->prepare("DELETE FROM `events` WHERE vCalendarFilename = :vCalendarFilename;");
+                $query->execute(array(
+                    "vCalendarFilename" => $local_vCalendarFilename
+                ));
             }
         }
     }
