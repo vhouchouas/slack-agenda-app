@@ -176,19 +176,6 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
     protected function updateEvent(array $event) {
         $vCalendar = \Sabre\VObject\Reader::read($event['vCalendarRaw']);
         $datetime_begin = $vCalendar->VEVENT->DTSTART->getDateTime();
-
-        //$this->debug->log("deleting: $event[vCalendarFilename]");
-        
-        $query = $this->pdo->prepare("DELETE FROM `events_attendees` WHERE vCalendarFilename=:vCalendarFilename;");
-        $query->execute(array(
-            'vCalendarFilename' => $event['vCalendarFilename']
-        ));
-
-        $query = $this->pdo->prepare("DELETE FROM `events_categories` WHERE vCalendarFilename=:vCalendarFilename;");
-        $query->execute(array(
-            'vCalendarFilename' => $event['vCalendarFilename']
-        ));
-
         
         $number_volunteers_required = null;
         if(isset($vCalendar->VEVENT->CATEGORIES)) {
@@ -200,90 +187,93 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
                 }
             }
         }
-        
-        $query = $this->pdo->prepare("REPLACE INTO events (vCalendarFilename, ETag, datetime_begin, number_volunteers_required, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :datetime_begin, :number_volunteers_required, :vCalendarRaw)");
-        $query->execute(array(
-            'vCalendarFilename' =>  $event['vCalendarFilename'],
-            'ETag' => $event['ETag'],
-            'datetime_begin' => $datetime_begin->format('Y-m-d H:i:s'),
-            'number_volunteers_required' => $number_volunteers_required,
-            'vCalendarRaw' => $event['vCalendarRaw']
-        ));
-        
-        if(isset($vCalendar->VEVENT->ATTENDEE)) {
-            foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
-                $mail = str_replace("mailto:", "", (string)$attendee);
 
-                $query = $this->pdo->prepare("SELECT * FROM attendees WHERE email=:email;");
-                $query->execute(array(
-                    'email' => $mail
-                ));
-
-                if(is_array($ret = $query->fetch())) {
-                    $this->log->debug("attendee: $mail already exists.");
-                } else {
-                    $user = $this->api->users_lookupByEmail($mail);
-                    if(!is_null($user)) {
-                        $userid = $user->id;
-                    } else {
-                        $userid = null;
-                    }
-
-                    $query = $this->pdo->prepare("REPLACE INTO attendees (email, userid) VALUES (:email, :userid)");
+        $this->pdo->beginTransaction();
+        try {
+            $query = $this->pdo->prepare("REPLACE INTO events (vCalendarFilename, ETag, datetime_begin, number_volunteers_required, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :datetime_begin, :number_volunteers_required, :vCalendarRaw)");
+            $query->execute(array(
+                'vCalendarFilename' =>  $event['vCalendarFilename'],
+                'ETag' => $event['ETag'],
+                'datetime_begin' => $datetime_begin->format('Y-m-d H:i:s'),
+                'number_volunteers_required' => $number_volunteers_required,
+                'vCalendarRaw' => $event['vCalendarRaw']
+            ));
+            
+            if(isset($vCalendar->VEVENT->ATTENDEE)) {
+                foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
+                    $mail = str_replace("mailto:", "", (string)$attendee);
+                    
+                    $query = $this->pdo->prepare("SELECT * FROM attendees WHERE email=:email;");
                     $query->execute(array(
-                        'email' =>  $mail,
-                        'userid' =>  $userid
+                        'email' => $mail
+                    ));
+                    
+                    if(is_array($ret = $query->fetch())) {
+                        $this->log->debug("attendee: $mail already exists.");
+                    } else {
+                        $user = $this->api->users_lookupByEmail($mail);
+                        if(!is_null($user)) {
+                            $userid = $user->id;
+                        } else {
+                            $userid = null;
+                        }
+                        
+                        $query = $this->pdo->prepare("REPLACE INTO attendees (email, userid) VALUES (:email, :userid)");
+                        $query->execute(array(
+                            'email' =>  $mail,
+                            'userid' =>  $userid
+                        ));
+                    }
+                    
+                    $query = $this->pdo->prepare("INSERT INTO events_attendees (vCalendarFilename, email) VALUES (:vCalendarFilename, :email)");
+                    $query->execute(array(
+                        'vCalendarFilename' =>  $event['vCalendarFilename'],
+                        'email' =>  $mail
                     ));
                 }
-                
-                $query = $this->pdo->prepare("INSERT INTO events_attendees (vCalendarFilename, email) VALUES (:vCalendarFilename, :email)");
-                $query->execute(array(
-                    'vCalendarFilename' =>  $event['vCalendarFilename'],
-                    'email' =>  $mail
-                ));
             }
-        }
-        
-        if(isset($vCalendar->VEVENT->CATEGORIES)) {
-            foreach($vCalendar->VEVENT->CATEGORIES as $category) {
-                $category = (string)$category;
-                
-                if(is_number_of_attendee_category($category)) {
-                    continue;
-                }
-                
-                $query = $this->pdo->prepare("SELECT * FROM categories WHERE name=:name;");
-                $query->execute(array(
-                    'name' => $category
-                ));
-                
-                $id = null;
-                if(is_array($ret = $query->fetch())) {
-                    $id = $ret['id'];
-                    $this->log->debug("category: $category already exists.");
-                } else {                    
-                    $query = $this->pdo->prepare("INSERT INTO categories (name) VALUES (:name);");
-                    try {
+            
+            if(isset($vCalendar->VEVENT->CATEGORIES)) {
+                foreach($vCalendar->VEVENT->CATEGORIES as $category) {
+                    $category = (string)$category;
+                    
+                    if(is_number_of_attendee_category($category)) {
+                        continue;
+                    }
+                    
+                    $query = $this->pdo->prepare("SELECT * FROM categories WHERE name=:name;");
+                    $query->execute(array(
+                        'name' => $category
+                    ));
+                    
+                    $id = null;
+                    if(is_array($ret = $query->fetch())) {
+                        $id = $ret['id'];
+                        $this->log->debug("category: $category already exists.");
+                    } else {
+                        $this->log->info("adding category: $category.");
+                        $query = $this->pdo->prepare("INSERT INTO categories (name) VALUES (:name);");
+
                         $query->execute(array(
                             'name' => $category
                         ));
-                    } catch (PDOException $e) {
-                        if($e->errorInfo[0] === 23000 and $e->errorInfo[1] === 1062) { // Integrity constraint violation: 1062 Duplicate entry
-                            $this->log->warning($e->getMessage());
-                        } else {
-                            throw $e;
-                        }
+                        $id = $this->pdo->lastInsertId();
                     }
-                    $id = $this->getLastInsertedRowId();
+                    
+                    $query = $this->pdo->prepare("INSERT INTO events_categories (category_id, vCalendarFilename) VALUES (:category_id, :vCalendarFilename)");
+                    $query->execute(array(
+                        'category_id' => $id,
+                        'vCalendarFilename' =>  $event['vCalendarFilename']
+                    ));
                 }
-                
-                $query = $this->pdo->prepare("INSERT INTO events_categories (category_id, vCalendarFilename) VALUES (:category_id, :vCalendarFilename)");
-                $query->execute(array(
-                    'category_id' => $id,
-                    'vCalendarFilename' =>  $event['vCalendarFilename']
-                ));
             }
-        }
+
+            $this->pdo->commit();
+        } catch (\PDOException $e) {
+            $this->pdo->rollBack();
+            $this->log->error($e->getMessage());
+            die($e->getMessage());
+        } 
     }
 
     public function getParsedEvent(string $vCalendarFilename, string $userid) {
