@@ -44,8 +44,9 @@ class MySQLAgenda extends DBAgenda {
         $this->pdo->query("CREATE TABLE IF NOT EXISTS events_categories ( 
     category_id                     INTEGER,
     vCalendarFilename               VARCHAR( 256 ),
-    FOREIGN KEY (category_id)       REFERENCES categories(id),
-    FOREIGN KEY (vCalendarFilename) REFERENCES events(vCalendarFilename));");
+    FOREIGN KEY (category_id)       REFERENCES categories(id) ON DELETE CASCADE,
+    FOREIGN KEY (vCalendarFilename) REFERENCES events(vCalendarFilename) ON DELETE CASCADE
+    );");
         
         $this->pdo->query("CREATE TABLE IF NOT EXISTS attendees ( 
     email                           VARCHAR( 256 ) PRIMARY KEY,
@@ -54,8 +55,9 @@ class MySQLAgenda extends DBAgenda {
         $this->pdo->query("CREATE TABLE IF NOT EXISTS events_attendees (
     vCalendarFilename               VARCHAR( 256 ),
     email                           VARCHAR( 256 ),
-    FOREIGN KEY (email)             REFERENCES attendees(email),
-    FOREIGN KEY (vCalendarFilename) REFERENCES events(vCalendarFilename));");
+    FOREIGN KEY (email)             REFERENCES attendees(email) ON DELETE CASCADE,
+    FOREIGN KEY (vCalendarFilename) REFERENCES events(vCalendarFilename) ON DELETE CASCADE
+    );");
 
         $this->pdo->query("CREATE TABLE IF NOT EXISTS properties ( 
     property                        VARCHAR( 256 ) PRIMARY KEY,
