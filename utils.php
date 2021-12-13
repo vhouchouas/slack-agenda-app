@@ -237,7 +237,7 @@ function exception_handler($throwable) {
         exit();
     }
     
-    $api = new SlackAPI($config->slack_bot_token, $config->slack_user_token, $log);
+    $api = new SlackAPI($config->slack_bot_token, $config->slack_user_token);
     
     $data = [
         'user_id' => $GLOBALS['userid'],
