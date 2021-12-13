@@ -124,8 +124,6 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
     protected function update(array $ETags) {
         $vCalendarFilename_to_update = [];
         foreach($ETags as $vCalendarFilename => $remote_ETag) {
-            $vCalendarFilename = basename($vCalendarFilename);
-            
             $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `ETag` FROM events WHERE vCalendarFilename = :vCalendarFilename");
             $query->execute(array('vCalendarFilename' => $vCalendarFilename));
             $result = $query->fetchAll();

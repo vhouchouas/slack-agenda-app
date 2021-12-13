@@ -130,7 +130,6 @@ class FSAgenda extends Agenda {
     protected function update(array $ETags) {
         $vCalendarFilename_to_update = [];
         foreach($ETags as $vCalendarFilename => $remote_ETag) {
-            $vCalendarFilename = basename($vCalendarFilename);
             if($this->localcache->eventExists($vCalendarFilename)) {
                 $local_ETag = $this->localcache->getEventETag($vCalendarFilename);
 
@@ -163,10 +162,7 @@ class FSAgenda extends Agenda {
     
     // delete local events that have been deleted on the server
     protected function removeDeletedEvents(array $ETags) {
-        $vCalendarFilenames = [];
-        foreach($ETags as $vCalendarFilename => $ETag) {
-            $vCalendarFilenames[] = basename($vCalendarFilename);
-        }
+        $server_vCalendarFilenames = array_keys($ETags);
         
         foreach($this->localcache->getAllEventsFilenames() as $vCalendarFilename){
             if(in_array($vCalendarFilename, $vCalendarFilenames)) {
