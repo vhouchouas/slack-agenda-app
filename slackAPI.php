@@ -11,7 +11,7 @@ class SlackAPI{
         "users_lookupByEmail" => array("users_not_found")
     );
     
-    function __construct($slack_bot_token, $slack_user_token, $log) {
+    function __construct($slack_bot_token, $slack_user_token) {
         $this->slack_bot_token = $slack_bot_token;
         $this->slack_user_token = $slack_user_token;
         
