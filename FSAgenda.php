@@ -8,11 +8,11 @@ require_once "localcache.php";
 class FSAgenda extends Agenda {
     protected $localcache;
     
-    public function __construct(string $vCalendarFilename, string $username, string $password, object $api, array $agenda_args) {
+    public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
         $this->log = new Logger('Agenda');
         setLogHandlers($this->log);
         
-        $this->caldav_client = new CalDAVClient($vCalendarFilename, $username, $password);
+        $this->caldav_client = new CalDAVClient($CalDAV_url, $CalDAV_username, $CalDAV_password);
 
         $localFsCachePath = isset($agenda_args["path_to_localcache_on_filesystem"]) ? $agenda_args["path_to_localcache_on_filesystem"] : "./data";
         $this->localcache = new FilesystemCache($localFsCachePath);
@@ -60,7 +60,7 @@ class FSAgenda extends Agenda {
         return $parsed_events;
     }
 
-    public function parseEvent(string $userid, object $vCalendar) {
+    private function parseEvent(string $userid, object $vCalendar) {
         $parsed_event = array();
         $parsed_event["vCalendar"] = $vCalendar;
         $parsed_event["is_registered"] = false;
@@ -130,7 +130,6 @@ class FSAgenda extends Agenda {
     protected function update(array $ETags) {
         $vCalendarFilename_to_update = [];
         foreach($ETags as $vCalendarFilename => $remote_ETag) {
-            $vCalendarFilename = basename($vCalendarFilename);
             if($this->localcache->eventExists($vCalendarFilename)) {
                 $local_ETag = $this->localcache->getEventETag($vCalendarFilename);
 
@@ -163,10 +162,7 @@ class FSAgenda extends Agenda {
     
     // delete local events that have been deleted on the server
     protected function removeDeletedEvents(array $ETags) {
-        $vCalendarFilenames = [];
-        foreach($ETags as $vCalendarFilename => $ETag) {
-            $vCalendarFilenames[] = basename($vCalendarFilename);
-        }
+        $server_vCalendarFilenames = array_keys($ETags);
         
         foreach($this->localcache->getAllEventsFilenames() as $vCalendarFilename){
             if(in_array($vCalendarFilename, $vCalendarFilenames)) {

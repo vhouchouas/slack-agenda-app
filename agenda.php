@@ -13,7 +13,7 @@ abstract class Agenda {
     protected $caldav_client;
     protected $api;
 
-    abstract public function __construct(string $vCalendarFilename, string $username, string $password, object $api, array $agenda_args);
+    abstract public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args);
     abstract public function getUserEventsFiltered(string $userid, array $filters_to_apply = array());
     abstract public function getParsedEvent(string $vCalendarFilename, string $userid);
     abstract public function getEvents();
@@ -31,7 +31,7 @@ abstract class Agenda {
         $remote_CTag = $this->caldav_client->getCTag();
         if(is_null($remote_CTag)) {
             $this->log->error("Fail to update the CTag");
-            return;
+            return null;
         }
         
         // check if we need to update events from the server
@@ -43,13 +43,14 @@ abstract class Agenda {
             $remote_ETags = $this->caldav_client->getETags();
             if($remote_CTag === false || is_null($remote_CTag)) {
                 $this->log->error("Fail to get CTag from the remote server");
-                return;
+                return null;
             }
             
             $this->update($remote_ETags);
             $this->setCTag($remote_CTag);
+            return true;
         }
-
+        return false;
     }
     
     /**
@@ -69,7 +70,7 @@ abstract class Agenda {
     public function updateAttendee(string $vCalendarFilename, string $usermail, bool $register, ?string $attendee_CN) {
         $this->log->info("updating $vCalendarFilename");
         list($vCalendar, $ETag) = $this->getEvent($vCalendarFilename);
-        
+
         if($register) {
             if(isset($vCalendar->VEVENT->ATTENDEE)) {
                 foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
@@ -95,7 +96,6 @@ abstract class Agenda {
                     'CN'   => (is_null($attendee_CN)) ? 'Bénévole' : $attendee_CN,
                 ]
             );
-            //$vCalendar->VEVENT->add('ATTENDEE', 'mailto:' . $usermail);
         } else {
             $already_out = true;
             
@@ -110,7 +110,7 @@ abstract class Agenda {
             }
             
             if($already_out) {
-                $this->log->info("Try to remove an unregistered email");
+                $this->log->info("Try to remove an unregistered email ($usermail)");
                 return null; // not an error
             }
         }
@@ -143,18 +143,28 @@ abstract class Agenda {
         }
         return true;
     }
+
 }
 
 require_once "FSAgenda.php";
+require_once "DBAgenda.php";
+require_once "SqliteAgenda.php";
+require_once "MySQLAgenda.php";
 
-function initAgendaFromType(string $url, string $username, string $password, object $api, array $agenda_args, object $log) {
+function initAgendaFromType(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args, object $log) {
     if(!isset($agenda_args["type"])) {
         $log->error("No agenda type specified (exit).");
         exit();
     }
     
     if($agenda_args["type"] === "filesystem") {
-        return new FSAgenda($url, $username, $password, $api, $agenda_args);
+        return new FSAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
+    }else if($agenda_args["type"] === "database") {
+        if($agenda_args["db_type"] === "MySQL") {
+            return new MySQLAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
+        } else if($agenda_args["db_type"] === "sqlite") {
+            return new SqliteAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
+        }
     } else {
         $log->error("Agenda type $agenda_args[type] is unknown (exit).");
         exit();
