@@ -21,8 +21,7 @@ abstract class DBAgenda extends Agenda {
     
     abstract public function createDB();
     abstract protected function openDB(array $agenda_args);
-    abstract protected function getLastInsertedRowId();
-    
+
     public function getUserEventsFiltered(string $userid, array $filters_to_apply = array()) {
         $sql = 'SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM events WHERE ';
         $sql .= 'Date(datetime_begin) > :datetime_begin ';

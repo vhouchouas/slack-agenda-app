@@ -55,11 +55,4 @@ class SqliteAgenda extends DBAgenda {
         $query = $this->pdo->prepare("INSERT OR IGNORE INTO properties (property, value) VALUES ('CTag', 'NULL')");
         $query->execute();
     }
-    
-    protected function getLastInsertedRowId() {
-        $query = $this->pdo->prepare("SELECT last_insert_rowid() as Id;");
-        $query->execute();
-        return $query->fetch()['Id'];
-    }
-
 }

@@ -66,11 +66,4 @@ class MySQLAgenda extends DBAgenda {
         $query = $this->pdo->prepare("INSERT IGNORE INTO properties (property, value) VALUES ('CTag', 'NULL')");
         $query->execute();
     }
-
-    protected function getLastInsertedRowId() {
-        $query = $this->pdo->prepare("SELECT last_insert_id() as Id;");
-        $query->execute();
-        return $query->fetch()['Id'];
-    }
-
 }
