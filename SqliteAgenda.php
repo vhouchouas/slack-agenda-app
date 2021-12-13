@@ -11,7 +11,9 @@ class SqliteAgenda extends DBAgenda {
     
     protected function openDB(array $agenda_args) {
         try{
-            return new PDO("sqlite:$agenda_args[path]");
+            $pdo = new PDO("sqlite:$agenda_args[path]");
+            $pdo->exec("PRAGMA foreign_keys = ON;"); // needed for ON DELETE CASCADE
+            return $pdo;
         } catch(Exception $e) {
             echo "Can't reach SQLite database: ".$e->getMessage();
             die();
