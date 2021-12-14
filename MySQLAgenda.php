@@ -24,8 +24,6 @@ class MySQLAgenda extends DBAgenda {
     }
     
     public function createDB() {
-        $this->pdo->query("DROP DATABASE IF EXISTS {$this->db_name};");
-        $this->pdo->query("CREATE DATABASE {$this->db_name};");
         $this->pdo->query("USE {$this->db_name};");
         
         $this->pdo->query("CREATE TABLE IF NOT EXISTS events ( 
