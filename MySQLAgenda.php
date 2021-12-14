@@ -14,7 +14,7 @@ class MySQLAgenda extends DBAgenda {
     
     protected function openDB(array $agenda_args) {
         try{
-            return new PDO("mysql:host=localhost;dbname=$agenda_args[db_name]",
+            return new PDO("mysql:host=$agenda_args[db_host];dbname=$agenda_args[db_name]",
                            $agenda_args["db_username"],
                            $agenda_args["db_password"]);
         } catch(Exception $e) {

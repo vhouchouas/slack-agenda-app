@@ -18,6 +18,7 @@
 	"path" : "./database.sqlite",
 	// for MySQL database
 	"db_type" : "MySQL",
+    "db_host" : "localhost",
 	"db_name" : "slack_app",
 	"db_username" : "slack_app_user",
 	"db_password" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
