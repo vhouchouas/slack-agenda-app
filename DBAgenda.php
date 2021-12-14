@@ -6,13 +6,13 @@ use Sabre\VObject;
 abstract class DBAgenda extends Agenda {
     protected $pdo;
     
-    public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
+    public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api) {
         setLogHandlers($this->log);
         
         $this->caldav_client = new CalDAVClient($CalDAV_url, $CalDAV_username, $CalDAV_password);
         $this->api = $api;
 
-        $this->pdo = $this->openDB($agenda_args);
+        $this->pdo = $this->openDB();
         
         $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); // ERRMODE_WARNING | ERRMODE_EXCEPTION | ERRMODE_SILENT
@@ -20,7 +20,7 @@ abstract class DBAgenda extends Agenda {
     }
     
     abstract public function createDB();
-    abstract protected function openDB(array $agenda_args);
+    abstract protected function openDB();
 
     public function getUserEventsFiltered(string $userid, array $filters_to_apply = array()) {
         $sql = 'SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM events WHERE ';

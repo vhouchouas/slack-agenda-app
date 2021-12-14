@@ -4,14 +4,17 @@ use Monolog\Logger;
 use Sabre\VObject;
 
 class SqliteAgenda extends DBAgenda {
+    private $path;
+
     public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
         $this->log = new Logger('sqliteAgenda');
-        parent::__construct($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
+        $this->path = $agenda_args["path"];
+        parent::__construct($CalDAV_url, $CalDAV_username, $CalDAV_password, $api);
     }
     
-    protected function openDB(array $agenda_args) {
+    protected function openDB() {
         try{
-            $pdo = new PDO("sqlite:$agenda_args[path]");
+            $pdo = new PDO("sqlite:$this->path");
             $pdo->exec("PRAGMA foreign_keys = ON;"); // needed for ON DELETE CASCADE
             return $pdo;
         } catch(Exception $e) {

@@ -13,7 +13,6 @@ abstract class Agenda {
     protected $caldav_client;
     protected $api;
 
-    abstract public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args);
     abstract public function getUserEventsFiltered(string $userid, array $filters_to_apply = array());
     abstract public function getParsedEvent(string $vCalendarFilename, string $userid);
     abstract public function getEvents();

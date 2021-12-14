@@ -5,18 +5,24 @@ use Sabre\VObject;
 
 class MySQLAgenda extends DBAgenda {
     private $db_name;
+    private $host;
+    private $username;
+    private $password;
     
     public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
             $this->log = new Logger('MySQLAgenda');
-            parent::__construct($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
             $this->db_name = $agenda_args["db_name"];
+            $this->host = $agenda_args["db_host"];
+            $this->username = $agenda_args["db_username"];
+            $this->password = $agenda_args["db_password"];
+            parent::__construct($CalDAV_url, $CalDAV_username, $CalDAV_password, $api);
         }
     
-    protected function openDB(array $agenda_args) {
+    protected function openDB() {
         try{
-            return new PDO("mysql:host=$agenda_args[db_host];dbname=$agenda_args[db_name]",
-                           $agenda_args["db_username"],
-                           $agenda_args["db_password"]);
+            return new PDO("mysql:host=$this->host;dbname=$this->db_name",
+                           $this->username,
+                           $this->password);
         } catch(Exception $e) {
             echo "Can't reach MySQL like database: ".$e->getMessage();
             die();
