@@ -37,35 +37,35 @@ class MySQLAgenda extends DBAgenda {
     ETag                            VARCHAR( 256 ),
     datetime_begin                  DATETIME,
     number_volunteers_required      INT,
-    vCalendarRaw                    TEXT);");
+    vCalendarRaw                    TEXT)  DEFAULT CHARSET=utf8mb4;");
 
         $this->pdo->query("CREATE TABLE IF NOT EXISTS categories ( 
     id                              INTEGER PRIMARY KEY AUTO_INCREMENT,
     name                            VARCHAR( 64 ),
     UNIQUE (name)
-    );");
+    )  DEFAULT CHARSET=utf8mb4;");
 
         $this->pdo->query("CREATE TABLE IF NOT EXISTS events_categories ( 
     category_id                     INTEGER,
     vCalendarFilename               VARCHAR( 256 ),
     FOREIGN KEY (category_id)       REFERENCES categories(id) ON DELETE CASCADE,
     FOREIGN KEY (vCalendarFilename) REFERENCES events(vCalendarFilename) ON DELETE CASCADE
-    );");
+    )  DEFAULT CHARSET=utf8mb4;");
         
         $this->pdo->query("CREATE TABLE IF NOT EXISTS attendees ( 
     email                           VARCHAR( 256 ) PRIMARY KEY,
-    userid                          VARCHAR( 11 ));");
+    userid                          VARCHAR( 11 ))  DEFAULT CHARSET=utf8mb4;");
 
         $this->pdo->query("CREATE TABLE IF NOT EXISTS events_attendees (
     vCalendarFilename               VARCHAR( 256 ),
     email                           VARCHAR( 256 ),
     FOREIGN KEY (email)             REFERENCES attendees(email) ON DELETE CASCADE,
     FOREIGN KEY (vCalendarFilename) REFERENCES events(vCalendarFilename) ON DELETE CASCADE
-    );");
+    )  DEFAULT CHARSET=utf8mb4;");
 
         $this->pdo->query("CREATE TABLE IF NOT EXISTS properties ( 
     property                        VARCHAR( 256 ) PRIMARY KEY,
-    value                           VARCHAR( 256 ));");
+    value                           VARCHAR( 256 ))  DEFAULT CHARSET=utf8mb4;");
 
         $query = $this->pdo->prepare("INSERT IGNORE INTO properties (property, value) VALUES ('CTag', 'NULL')");
         $query->execute();
