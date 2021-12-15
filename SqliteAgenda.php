@@ -24,6 +24,8 @@ class SqliteAgenda extends DBAgenda {
     }
     
     public function createDB() {
+        $this->log->info("Create database tables...");
+        
         $this->pdo->query("CREATE TABLE IF NOT EXISTS events ( 
     vCalendarFilename               VARCHAR( 256 ) PRIMARY KEY,
     ETag                            VARCHAR( 256 ),
@@ -59,5 +61,6 @@ class SqliteAgenda extends DBAgenda {
 
         $query = $this->pdo->prepare("INSERT OR IGNORE INTO properties (property, value) VALUES ('CTag', 'NULL')");
         $query->execute();
+        $this->log->info("Create database tables - done.");
     }
 }

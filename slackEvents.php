@@ -293,7 +293,7 @@ class SlackEvents {
             $reminders = $this->api->reminders_list();
             
             if(!is_null($reminders) and
-               !is_null($reminder_id = getReminderID($reminders["reminders"], $userid, $datetime)) and
+               !is_null($reminder_id = getReminderID($reminders, $userid, $datetime)) and
                !is_null($this->api->reminders_delete($reminder_id))
             ) {
                 $this->log->debug("reminder deleted ($reminder_id)");
