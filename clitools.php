@@ -69,7 +69,7 @@ function database_checkconnection() {
     $log->info("Checking database connection... ");
     $agenda = open_agenda();
     
-    if (!is_a($agenda, 'DBAgenda')) {
+    if (!is_a($agenda, 'Agenda')) {
         $log->info("could not initiate backend.");
         return false;
     }

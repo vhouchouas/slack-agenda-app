@@ -3,7 +3,7 @@
 use Monolog\Logger;
 use Sabre\VObject;
 
-class MySQLAgenda extends DBAgenda {
+class MySQLAgenda extends Agenda {
     private $db_name;
     private $host;
     private $username;
