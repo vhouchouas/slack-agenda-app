@@ -10,18 +10,15 @@
     "error_mail_from" : "error@server.com",
     "error_mail_to" : "dev@server.com",
     "agenda" : {
-    	// for filesystem
-    	"type": "filesystem",
-        "path_to_localcache_on_filesystem": "./data",
-	// for sqlite database
         "type" : "database",
-	"path" : "./database.sqlite",
-	// for MySQL database
-	"db_type" : "MySQL",
-    "db_host" : "localhost",
-	"db_name" : "slack_app",
-	"db_username" : "slack_app_user",
-	"db_password" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        // for sqlite database
+        "path" : "./database.sqlite",
+        // for MySQL database
+        "db_type" : "MySQL",
+        "db_host" : "localhost",
+        "db_name" : "slack_app",
+        "db_username" : "slack_app_user",
+        "db_password" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     },
     "prepend_block" : {
 	"type": "section",

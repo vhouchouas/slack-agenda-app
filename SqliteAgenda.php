@@ -3,7 +3,7 @@
 use Monolog\Logger;
 use Sabre\VObject;
 
-class SqliteAgenda extends DBAgenda {
+class SqliteAgenda extends Agenda {
     private $path;
 
     public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
