@@ -145,7 +145,6 @@ abstract class Agenda {
 
 }
 
-require_once "FSAgenda.php";
 require_once "DBAgenda.php";
 require_once "SqliteAgenda.php";
 require_once "MySQLAgenda.php";
@@ -155,10 +154,8 @@ function initAgendaFromType(string $CalDAV_url, string $CalDAV_username, string 
         $log->error("No agenda type specified (exit).");
         exit();
     }
-    
-    if($agenda_args["type"] === "filesystem") {
-        return new FSAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
-    }else if($agenda_args["type"] === "database") {
+
+    if($agenda_args["type"] === "database") {
         if($agenda_args["db_type"] === "MySQL") {
             return new MySQLAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
         } else if($agenda_args["db_type"] === "sqlite") {
@@ -168,5 +165,4 @@ function initAgendaFromType(string $CalDAV_url, string $CalDAV_username, string 
         $log->error("Agenda type $agenda_args[type] is unknown (exit).");
         exit();
     }
-    
 }
