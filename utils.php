@@ -14,7 +14,7 @@ function read_config_file() {
         exit();
     }
     
-    $config_file_content = file_get_contents_safe('config.json');
+    $config_file_content = file_get_contents('config.json');
     $config = json_decode($config_file_content, true);
     
     if(is_null($config)) {
@@ -93,30 +93,6 @@ function setLogHandlers($log) {
     foreach($GLOBALS['LOG_HANDLERS'] as $handler) {
         $log->pushHandler($handler);
     }
-}
-
-// @see https://www.php.net/manual/fr/function.flock.php
-function file_get_contents_safe($filename) {
-    if(!is_file($filename)) {
-        return NULL;
-    }
-    $fp = fopen($filename, "r");
-
-    flock($fp, LOCK_SH);
-
-    $contents = fread($fp, filesize($filename));
-    flock($fp, LOCK_UN);
-    fclose($fp);
-    return $contents;
-}
-
-function file_put_contents_safe($filename, $data) {
-    $fp = fopen($filename, "w");
-
-    flock($fp, LOCK_EX);
-    fwrite($fp, $data);
-    flock($fp, LOCK_UN);
-    fclose($fp);
 }
 
 function format_date($start, $end) {
@@ -225,7 +201,7 @@ function exception_handler($throwable) {
     
     $log->error("Exception: {$throwable->getMessage()} (type={$throwable->getCode()}, at {$throwable->getFile()}:{$throwable->getLine()})");
     
-    $config = json_decode(file_get_contents_safe('./config.json'));
+    $config = json_decode(file_get_contents('./config.json'));
     
     if(is_null($config)) {
         $log->error("Can't contact the user about this error (file parsing error).");

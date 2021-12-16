@@ -69,7 +69,7 @@ final class CalDAVTest extends TestCase {
     }
     
     public function credentialsProvider() {
-        $raw = file_get_contents_safe("credentials.json");
+        $raw = file_get_contents("credentials.json");
         $this->assertNotNull($raw);
         $credentials = json_decode($raw, true);
         $this->assertNotNull($credentials);
