@@ -15,6 +15,7 @@ class MySQLAgenda extends Agenda {
             $this->host = $agenda_args["db_host"];
             $this->username = $agenda_args["db_username"];
             $this->password = $agenda_args["db_password"];
+            $this->table_prefix = $agenda_args["db_table_prefix"];
             parent::__construct($CalDAV_url, $CalDAV_username, $CalDAV_password, $api);
         }
     
@@ -31,42 +32,42 @@ class MySQLAgenda extends Agenda {
     
     public function createDB() {
         $this->log->info("Create database tables...");
-        $this->pdo->query("CREATE TABLE IF NOT EXISTS events ( 
+        $this->pdo->query("CREATE TABLE IF NOT EXISTS {$this->table_prefix}events ( 
     vCalendarFilename               VARCHAR( 256 ) PRIMARY KEY,
     ETag                            VARCHAR( 256 ),
     datetime_begin                  DATETIME,
     number_volunteers_required      INT,
     vCalendarRaw                    TEXT)  DEFAULT CHARSET=utf8mb4;");
 
-        $this->pdo->query("CREATE TABLE IF NOT EXISTS categories ( 
+        $this->pdo->query("CREATE TABLE IF NOT EXISTS {$this->table_prefix}categories ( 
     id                              INTEGER PRIMARY KEY AUTO_INCREMENT,
     name                            VARCHAR( 64 ),
     UNIQUE (name)
     )  DEFAULT CHARSET=utf8mb4;");
 
-        $this->pdo->query("CREATE TABLE IF NOT EXISTS events_categories ( 
+        $this->pdo->query("CREATE TABLE IF NOT EXISTS {$this->table_prefix}events_categories ( 
     category_id                     INTEGER,
     vCalendarFilename               VARCHAR( 256 ),
-    FOREIGN KEY (category_id)       REFERENCES categories(id) ON DELETE CASCADE,
-    FOREIGN KEY (vCalendarFilename) REFERENCES events(vCalendarFilename) ON DELETE CASCADE
+    FOREIGN KEY (category_id)       REFERENCES {$this->table_prefix}categories(id) ON DELETE CASCADE,
+    FOREIGN KEY (vCalendarFilename) REFERENCES {$this->table_prefix}events(vCalendarFilename) ON DELETE CASCADE
     )  DEFAULT CHARSET=utf8mb4;");
         
-        $this->pdo->query("CREATE TABLE IF NOT EXISTS attendees ( 
+        $this->pdo->query("CREATE TABLE IF NOT EXISTS {$this->table_prefix}attendees ( 
     email                           VARCHAR( 256 ) PRIMARY KEY,
     userid                          VARCHAR( 11 ))  DEFAULT CHARSET=utf8mb4;");
 
-        $this->pdo->query("CREATE TABLE IF NOT EXISTS events_attendees (
+        $this->pdo->query("CREATE TABLE IF NOT EXISTS {$this->table_prefix}events_attendees (
     vCalendarFilename               VARCHAR( 256 ),
     email                           VARCHAR( 256 ),
-    FOREIGN KEY (email)             REFERENCES attendees(email) ON DELETE CASCADE,
-    FOREIGN KEY (vCalendarFilename) REFERENCES events(vCalendarFilename) ON DELETE CASCADE
+    FOREIGN KEY (email)             REFERENCES {$this->table_prefix}attendees(email) ON DELETE CASCADE,
+    FOREIGN KEY (vCalendarFilename) REFERENCES {$this->table_prefix}events(vCalendarFilename) ON DELETE CASCADE
     )  DEFAULT CHARSET=utf8mb4;");
 
-        $this->pdo->query("CREATE TABLE IF NOT EXISTS properties ( 
+        $this->pdo->query("CREATE TABLE IF NOT EXISTS {$this->table_prefix}properties ( 
     property                        VARCHAR( 256 ) PRIMARY KEY,
     value                           VARCHAR( 256 ))  DEFAULT CHARSET=utf8mb4;");
 
-        $query = $this->pdo->prepare("INSERT IGNORE INTO properties (property, value) VALUES ('CTag', 'NULL')");
+        $query = $this->pdo->prepare("INSERT IGNORE INTO {$this->table_prefix}properties (property, value) VALUES ('CTag', 'NULL')");
         $query->execute();
         $this->log->info("Create database tables - done.");
     }
