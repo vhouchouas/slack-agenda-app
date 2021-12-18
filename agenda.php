@@ -490,19 +490,17 @@ require_once "SqliteAgenda.php";
 require_once "MySQLAgenda.php";
 
 function initAgendaFromType(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args, object $log) {
-    if(!isset($agenda_args["type"])) {
-        $log->error("No agenda type specified (exit).");
+    if(!isset($agenda_args["db_type"])) {
+        $log->error("No db type specified (exit).");
         exit();
     }
 
-    if($agenda_args["type"] === "database") {
-        if($agenda_args["db_type"] === "MySQL") {
-            return new MySQLAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
-        } else if($agenda_args["db_type"] === "sqlite") {
-            return new SqliteAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
-        }
+    if($agenda_args["db_type"] === "MySQL") {
+        return new MySQLAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
+    } else if($agenda_args["db_type"] === "sqlite") {
+        return new SqliteAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
     } else {
-        $log->error("Agenda type $agenda_args[type] is unknown (exit).");
+        $log->error("db type $agenda_args[db_type] is unknown (exit).");
         exit();
     }
 }
