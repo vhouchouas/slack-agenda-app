@@ -10,7 +10,6 @@
     "error_mail_from" : "error@server.com",
     "error_mail_to" : "dev@server.com",
     "agenda" : {
-        "type" : "database",
         // for sqlite database
         "path" : "./database.sqlite",
         // for MySQL database
