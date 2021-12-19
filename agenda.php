@@ -259,7 +259,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
         }
                 
         try {
-            // can't use UPDATE INTO, because it would delete reminders related to the event (because of ON CASCADE DELETE)
+            // can't use REPLACE INTO, because it would delete reminders related to the event (because of ON CASCADE DELETE)
             if($new_event) {
                 $this->log->info("Creating event $event[vCalendarFilename].");
                 $query = $this->pdo->prepare("INSERT INTO events (vCalendarFilename, ETag, datetime_begin, number_volunteers_required, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :datetime_begin, :number_volunteers_required, :vCalendarRaw)");
