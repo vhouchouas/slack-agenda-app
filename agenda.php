@@ -298,7 +298,6 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
                         $query = $this->pdo->prepare("REPLACE INTO attendees (email, userid) VALUES (:email, :userid)");
                         
                         if(!is_null($user)) {
-                            $userid = $user->id;
                             $query->bindValue(":userid", $user->id, PDO::PARAM_STR);
                         } else {
                             $query->bindValue(":userid", null, PDO::PARAM_NULL);
