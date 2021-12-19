@@ -140,9 +140,18 @@ class SlackAPI{
         ));
         return $this->curl_process($ch);
     }
-
+    
     function auth_test($token_type) {
         $ch = $this->curl_init("https://slack.com/api/auth.test", array('Content-Type:application/json; charset=UTF-8'), $token_type);
+        return $this->curl_process($ch);
+    }
+    
+    function chat_postMessage($channel_id, $blocks) {
+        $ch = $this->curl_init("https://slack.com/api/chat.postMessage", array('Content-Type:application/json'));
+        curl_setopt($ch, CURLOPT_POSTFIELDS,
+                    json_encode(array(
+                        "channel" => $channel_id,
+                        "blocks" => $blocks), JSON_PARTIAL_OUTPUT_ON_ERROR));
         return $this->curl_process($ch);
     }
 }

@@ -11,14 +11,22 @@ features:
   bot_user:
     display_name: AgendaZWP
     always_online: false
+  slash_commands:
+    - command: /remindEvent
+      url: https://www.server.com/commands.php
+      description: Rappel pour un évènement
+      should_escape: false
 oauth_config:
   scopes:
     user:
       - users:read
+      - users:read.email
+      - users.profile:read
       - identify
       - reminders:write
       - reminders:read
     bot:
+      - commands
       - chat:write
       - users.profile:read
       - users:read.email
