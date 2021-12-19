@@ -19,7 +19,7 @@ function reminders_list() {
     $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
     $user_infos = $api->auth_test("user");
     foreach($api->reminders_list() as $id => $reminder) {
-        if($user_infos->user_id === $reminder["creator"]) { // delete only reminders that have been created by the app
+        if($user_infos->user_id === $reminder["creator"]) { // list only reminders that have been created by the app
             $log->info("Reminder:");
             foreach($reminder as $key => $val) {
                 if(is_null($val)) {
