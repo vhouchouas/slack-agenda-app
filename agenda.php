@@ -266,7 +266,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
             } else {
                 $this->log->info("Updating event $event[vCalendarFilename].");
                 $query = $this->pdo->prepare("UPDATE events
-SET vCalendarFilename=:vCalendarFilename, ETag=:ETag, datetime_begin=:datetime_begin, number_volunteers_required=:number_volunteers_required, vCalendarRaw=:vCalendarRaw
+SET ETag=:ETag, datetime_begin=:datetime_begin, number_volunteers_required=:number_volunteers_required, vCalendarRaw=:vCalendarRaw
 WHERE vCalendarFilename =:vCalendarFilename;
 DELETE FROM events_categories WHERE vCalendarFilename =:vCalendarFilename;
 DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
