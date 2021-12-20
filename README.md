@@ -41,6 +41,8 @@ In a nutshell: to install it you need to
 
 - Create the Slack app
 - install those PHP scripts
+- set up your configuration file
+- create the tables of the database
 
 Create the Slack app
 --------------------
@@ -77,6 +79,13 @@ Fill in the fields of `config.json` with:
 - logger_level, must be one of [these](https://github.com/Seldaek/monolog/blob/fb2c324c17941ffe805aa7c953895af96840d0c9/src/Monolog/Logger.php#L103).
 
 If you are using a Google calendar you should follow this [doc](https://support.google.com/accounts/answer/185833?hl=fr) to get your CalDAV credentials.
+
+Create the tables of the database
+---------------------------------
+
+From the directory where you installed the php files run:
+
+    php clitools.php database create
 
 Technical notes for admin
 =========================
