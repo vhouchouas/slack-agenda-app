@@ -17,7 +17,8 @@
         "db_host" : "localhost",
         "db_name" : "slack_app",
         "db_username" : "slack_app_user",
-        "db_password" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        "db_password" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "db_table_prefix": "slack_app_"
     },
     "prepend_block" : {
 	"type": "section",

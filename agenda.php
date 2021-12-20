@@ -14,6 +14,8 @@ abstract class Agenda {
     protected $api;
     protected $pdo;
 
+    protected $table_prefix;
+
     public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api) {
         setLogHandlers($this->log);
         
@@ -31,7 +33,7 @@ abstract class Agenda {
     abstract protected function openDB();
 
     public function clean_orphan_categories($quiet = false) {
-        $sql = "FROM categories WHERE not exists (
+        $sql = "FROM {$this->table_prefix}categories WHERE not exists (
                 SELECT 1
                 FROM events_categories
                 WHERE events_categories.category_id = categories.id
@@ -51,9 +53,9 @@ abstract class Agenda {
     }
     
     public function clean_orphan_attendees($quiet = true) {
-        $sql = "FROM attendees WHERE not exists (
+        $sql = "FROM {$this->table_prefix}attendees WHERE not exists (
             SELECT 1
-            FROM events_attendees
+            FROM {$this->table_prefix}events_attendees
             WHERE events_attendees.email = attendees.email
         );";
         
@@ -72,7 +74,10 @@ abstract class Agenda {
 
     public function truncate_tables() {
         $this->log->info("Truncate all tables");
-        foreach(["events", "categories", "attendees", "properties"] as $table) {
+        foreach(["{$this->table_prefix}events",
+                 "{$this->table_prefix}categories",
+                 "{$this->table_prefix}attendees",
+                 "{$this->table_prefix}properties"] as $table) {
             $this->log->info("Truncate table $table");
             $this->pdo->query("DELETE FROM $table;");
         }
@@ -80,14 +85,14 @@ abstract class Agenda {
     }
     
     public function getUserEventsFiltered(string $userid, array $filters_to_apply = array()) {
-        $sql = 'SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM events WHERE ';
+        $sql = "SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM {$this->table_prefix}events WHERE ";
         $sql .= 'Date(datetime_begin) > :datetime_begin ';
         
         $intersect = array();
         if(($key = array_search("my_events", $filters_to_apply)) !== false) {
-            $intersect[] = "SELECT vCalendarFilename FROM events_attendees
-INNER JOIN attendees
-WHERE attendees.email = events_attendees.email and attendees.userid = '$userid'";
+            $intersect[] = "SELECT vCalendarFilename FROM {$this->table_prefix}events_attendees
+INNER JOIN {$this->table_prefix}attendees
+WHERE {$this->table_prefix}attendees.email = {$this->table_prefix}events_attendees.email and {$this->table_prefix}attendees.userid = '$userid'";
             unset($filters_to_apply[$key]);
         }
         
@@ -100,9 +105,9 @@ WHERE attendees.email = events_attendees.email and attendees.userid = '$userid'"
             if(!is_null(is_number_of_attendee_category($filter))) {
                 continue;
             }
-            $intersect[] = "SELECT vCalendarFilename FROM events_categories
-INNER JOIN categories
-WHERE events_categories.category_id = categories.id and categories.name = '$filter'";
+            $intersect[] = "SELECT vCalendarFilename FROM {$this->table_prefix}events_categories
+INNER JOIN {$this->table_prefix}categories
+WHERE {$this->table_prefix}events_categories.category_id = {$this->table_prefix}categories.id and {$this->table_prefix}categories.name = '$filter'";
         }
         if(count($intersect) > 0) {
             $sql .= "AND vCalendarFilename IN (\n";
@@ -124,9 +129,9 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
     public function parseEvent(string $vCalendarFilename, string $userid, array &$result) {
         $result['vCalendar'] = \Sabre\VObject\Reader::read($result['vCalendarRaw']);
         
-        $sql = "SELECT userid FROM attendees
-                INNER JOIN events_attendees
-                WHERE events_attendees.email = attendees.email AND events_attendees.vCalendarFilename = :vCalendarFilename;";
+        $sql = "SELECT userid FROM {$this->table_prefix}attendees
+                INNER JOIN {$this->table_prefix}events_attendees
+                WHERE {$this->table_prefix}events_attendees.email = {$this->table_prefix}attendees.email AND {$this->table_prefix}events_attendees.vCalendarFilename = :vCalendarFilename;";
         $query = $this->pdo->prepare($sql);
         $query->execute(array('vCalendarFilename' => $vCalendarFilename));
         $attendees = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
@@ -139,9 +144,9 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
         $result["attendees"] = array_keys($count);
         $result["is_registered"] = in_array($userid, $result["attendees"]);
         
-        $sql = "SELECT name FROM categories
-                INNER JOIN events_categories
-                WHERE events_categories.category_id = categories.id and events_categories.vCalendarFilename = :vCalendarFilename;";
+        $sql = "SELECT name FROM {$this->table_prefix}categories
+                INNER JOIN {$this->table_prefix}events_categories
+                WHERE {$this->table_prefix}events_categories.category_id = {$this->table_prefix}categories.id and {$this->table_prefix}events_categories.vCalendarFilename = :vCalendarFilename;";
         
         $query = $this->pdo->prepare($sql);
         $query->execute(array('vCalendarFilename' => $vCalendarFilename));
@@ -151,7 +156,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
 
     public function getEvents() {
         $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `vCalendarRaw` 
-                                      FROM events WHERE Date(datetime_begin) > :datetime_begin 
+                                      FROM {$this->table_prefix}events WHERE Date(datetime_begin) > :datetime_begin 
                                       ORDER BY datetime_begin;");
         $query->execute(array('datetime_begin' => (new DateTime('NOW'))->format('Y-m-d H:i:s')));
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
@@ -163,14 +168,14 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
     }
 
     protected function getCTag() {
-        $query = $this->pdo->prepare("SELECT value FROM properties WHERE property = :property");
+        $query = $this->pdo->prepare("SELECT value FROM {$this->table_prefix}properties WHERE property = :property");
         $query->execute(array('property' => 'CTag'));
         $result = $query->fetch();
         return $result['value'];
     }
 
     protected function setCTag(string $CTag) {
-        $query = $this->pdo->prepare("UPDATE properties SET value=:value WHERE property=:property");
+        $query = $this->pdo->prepare("UPDATE {$this->table_prefix}properties SET value=:value WHERE property=:property");
         $result = $query->execute(array(
             'property'         => 'CTag',
             'value'            => $CTag    
@@ -180,7 +185,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
     protected function update(array $ETags) {
         $vCalendarFilename_to_update = [];
         foreach($ETags as $vCalendarFilename => $remote_ETag) {
-            $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `ETag` FROM events WHERE vCalendarFilename = :vCalendarFilename");
+            $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `ETag` FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename");
             $query->execute(array('vCalendarFilename' => $vCalendarFilename));
             $result = $query->fetchAll();
             
@@ -207,7 +212,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
     public function removeDeletedEvents(array $ETags) {
         $server_vCalendarFilenames = array_keys($ETags);
         
-        $query = $this->pdo->prepare("SELECT vCalendarFilename FROM events;");
+        $query = $this->pdo->prepare("SELECT vCalendarFilename FROM {$this->table_prefix}events;");
         $query->execute();
         $local_vCalendarFilenames = array_keys($query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC));
 
@@ -218,7 +223,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
                 $this->log->info("Need to remove ". $local_vCalendarFilename);
                 $this->log->info("Deleting event $local_vCalendarFilename.");
                 
-                $query = $this->pdo->prepare("DELETE FROM `events` WHERE vCalendarFilename = :vCalendarFilename;");
+                $query = $this->pdo->prepare("DELETE FROM `{$this->table_prefix}events` WHERE vCalendarFilename = :vCalendarFilename;");
                 $query->execute(array(
                     "vCalendarFilename" => $local_vCalendarFilename
                 ));
@@ -243,7 +248,7 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
         
         $this->pdo->beginTransaction();
         
-        $query = $this->pdo->prepare("SELECT datetime_begin FROM events WHERE vCalendarFilename=:vCalendarFilename;");
+        $query = $this->pdo->prepare("SELECT datetime_begin FROM {$this->table_prefix}events WHERE vCalendarFilename=:vCalendarFilename;");
         $query->execute(array(
             'vCalendarFilename' =>  $event['vCalendarFilename']
         ));
@@ -261,14 +266,14 @@ WHERE events_categories.category_id = categories.id and categories.name = '$filt
             // can't use REPLACE INTO, because it would delete reminders related to the event (because of ON CASCADE DELETE)
             if($new_event) {
                 $this->log->info("Creating event $event[vCalendarFilename].");
-                $query = $this->pdo->prepare("INSERT INTO events (vCalendarFilename, ETag, datetime_begin, number_volunteers_required, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :datetime_begin, :number_volunteers_required, :vCalendarRaw)");
+                $query = $this->pdo->prepare("INSERT INTO {$this->table_prefix}events (vCalendarFilename, ETag, datetime_begin, number_volunteers_required, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :datetime_begin, :number_volunteers_required, :vCalendarRaw)");
             } else {
                 $this->log->info("Updating event $event[vCalendarFilename].");
-                $query = $this->pdo->prepare("UPDATE events
+                $query = $this->pdo->prepare("UPDATE {$this->table_prefix}events
 SET ETag=:ETag, datetime_begin=:datetime_begin, number_volunteers_required=:number_volunteers_required, vCalendarRaw=:vCalendarRaw
 WHERE vCalendarFilename =:vCalendarFilename;
-DELETE FROM events_categories WHERE vCalendarFilename =:vCalendarFilename;
-DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
+DELETE FROM {$this->table_prefix}events_categories WHERE vCalendarFilename =:vCalendarFilename;
+DELETE FROM {$this->table_prefix}events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
             }
             
             $query->execute(array(
@@ -283,7 +288,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
                 foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
                     $mail = str_replace("mailto:", "", (string)$attendee);
                     
-                    $query = $this->pdo->prepare("SELECT * FROM attendees WHERE email=:email;");
+                    $query = $this->pdo->prepare("SELECT * FROM {$this->table_prefix}attendees WHERE email=:email;");
                     $query->execute(array(
                         'email' => $mail
                     ));
@@ -294,7 +299,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
                     } else {
                         $user = $this->api->users_lookupByEmail($mail);
 
-                        $query = $this->pdo->prepare("REPLACE INTO attendees (email, userid) VALUES (:email, :userid)");
+                        $query = $this->pdo->prepare("REPLACE INTO {$this->table_prefix}attendees (email, userid) VALUES (:email, :userid)");
                         
                         if(!is_null($user)) {
                             $query->bindValue(":userid", $user->id, PDO::PARAM_STR);
@@ -306,7 +311,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
 
                     $query->execute();
                     
-                    $query = $this->pdo->prepare("INSERT INTO events_attendees (vCalendarFilename, email) VALUES (:vCalendarFilename, :email)");
+                    $query = $this->pdo->prepare("INSERT INTO {$this->table_prefix}events_attendees (vCalendarFilename, email) VALUES (:vCalendarFilename, :email)");
                     $query->execute(array(
                         'vCalendarFilename' =>  $event['vCalendarFilename'],
                         'email' =>  $mail
@@ -322,7 +327,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
                         continue;
                     }
                     
-                    $query = $this->pdo->prepare("SELECT * FROM categories WHERE name=:name;");
+                    $query = $this->pdo->prepare("SELECT * FROM {$this->table_prefix}categories WHERE name=:name;");
                     $query->execute(array(
                         'name' => $category
                     ));
@@ -333,7 +338,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
                         $this->log->debug("category: $category already exists.");
                     } else {
                         $this->log->info("adding category: $category.");
-                        $query = $this->pdo->prepare("INSERT INTO categories (name) VALUES (:name);");
+                        $query = $this->pdo->prepare("INSERT INTO {$this->table_prefix}categories (name) VALUES (:name);");
 
                         $query->execute(array(
                             'name' => $category
@@ -341,7 +346,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
                         $id = $this->pdo->lastInsertId();
                     }
                     
-                    $query = $this->pdo->prepare("INSERT INTO events_categories (category_id, vCalendarFilename) VALUES (:category_id, :vCalendarFilename)");
+                    $query = $this->pdo->prepare("INSERT INTO {$this->table_prefix}events_categories (category_id, vCalendarFilename) VALUES (:category_id, :vCalendarFilename)");
                     $query->execute(array(
                         'category_id' => $id,
                         'vCalendarFilename' =>  $event['vCalendarFilename']
@@ -350,11 +355,11 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
             }
             
             if($new_event === false and $previous_datetime != $datetime_begin) {
-                $sql = "SELECT userid FROM attendees
-                        INNER JOIN events_attendees
-                        WHERE events_attendees.email = attendees.email 
-                        AND events_attendees.vCalendarFilename = :vCalendarFilename
-                        AND attendees.userid IS NOT NULL;";
+                $sql = "SELECT userid FROM {$this->table_prefix}attendees
+                        INNER JOIN {$this->table_prefix}events_attendees
+                        WHERE {$this->table_prefix}events_attendees.email = {$this->table_prefix}attendees.email 
+                        AND {$this->table_prefix}events_attendees.vCalendarFilename = :vCalendarFilename
+                        AND {$this->table_prefix}attendees.userid IS NOT NULL;";
                 $query = $this->pdo->prepare($sql);
                 $query->execute(array('vCalendarFilename' => $event['vCalendarFilename']));
                 $attendees_with_reminders = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
@@ -383,7 +388,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
     }
 
     public function getParsedEvent(string $vCalendarFilename, string $userid) {
-        $sql = 'SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM events WHERE vCalendarFilename = :vCalendarFilename';
+        $sql = "SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename";
         $query = $this->pdo->prepare($sql);
         $query->execute(array(
             'vCalendarFilename' => $vCalendarFilename
@@ -395,7 +400,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
     }
     
     protected function saveEvent(string $vCalendarFilename, string $ETag, object $vCalendar) {
-        $query = $this->pdo->prepare("REPLACE INTO events (vCalendarFilename, ETag, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :vCalendarRaw)");
+        $query = $this->pdo->prepare("REPLACE INTO {$this->table_prefix}events (vCalendarFilename, ETag, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :vCalendarRaw)");
         $query->execute(array(
             'vCalendarFilename' =>  $vCalendarFilename,
             'ETag' => $new_ETag,
@@ -404,7 +409,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
     }
     
     public function getEvent(string $vCalendarFilename, bool $parse=false, $with_ETag=false) {
-        $query = $this->pdo->prepare("SELECT * FROM events WHERE vCalendarFilename = :vCalendarFilename");
+        $query = $this->pdo->prepare("SELECT * FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename");
         $query->execute(array('vCalendarFilename' => $vCalendarFilename));
         $result = $query->fetchAll();
 
@@ -544,7 +549,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
             $this->log->debug("Creating slack reminder: {$response->reminder->id} for event $vCalendarFilename");
             if(!is_null($response)) {
                 $this->log->debug("Adding reminder within the database.");
-                $query = $this->pdo->prepare("INSERT INTO reminders (id, vCalendarFilename, userid) VALUES (:id, :vCalendarFilename, :userid)");
+                $query = $this->pdo->prepare("INSERT INTO {$this->table_prefix}reminders (id, vCalendarFilename, userid) VALUES (:id, :vCalendarFilename, :userid)");
                 $query->execute(array(
                     'id' => $response->reminder->id,
                     'vCalendarFilename' =>  $vCalendarFilename,
@@ -557,7 +562,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
     }
 
     public function deleteReminder(string $userid, string $vCalendarFilename) {
-        $query = $this->pdo->prepare("SELECT id FROM reminders WHERE vCalendarFilename= :vCalendarFilename AND userid = :userid;");
+        $query = $this->pdo->prepare("SELECT id FROM {$this->table_prefix}reminders WHERE vCalendarFilename= :vCalendarFilename AND userid = :userid;");
         $query->execute(array(
             'vCalendarFilename' =>  $vCalendarFilename,
             'userid' =>  $userid
@@ -569,7 +574,7 @@ DELETE FROM events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
             return;
         }
 
-        $query = $this->pdo->prepare("DELETE FROM reminders WHERE vCalendarFilename= :vCalendarFilename AND userid = :userid;");
+        $query = $this->pdo->prepare("DELETE FROM {$this->table_prefix}reminders WHERE vCalendarFilename= :vCalendarFilename AND userid = :userid;");
         $query->execute(array(
             'vCalendarFilename' =>  $vCalendarFilename,
             'userid' =>  $userid
