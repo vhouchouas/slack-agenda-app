@@ -114,12 +114,12 @@ This app is architectured as follows:
                                │       │
                                │       │
                                │       │
-                        ┌──────▽───────┴─────┬──────────┐
-                        │     HTTP server    │          │
-                      - │ - - ▽ - - - △ - -  │    File  │
- What this project▷  ╵  │      Slack app  ╵  ◁   System │
- implements          ╵  │   CalDav client ╵  ▷          │
-                     ╵  └──────────┬──────┴──┴──────────┘
+                        ┌──────▽───────┴─────┐    ┌────────────┐
+                        │     HTTP server    │    │            │
+                      - │ - - ▽ - - - △ - -  │    │  Database  │
+ What this project▷  ╵  │      Slack app  ╵  ◁────│            │
+ implements          ╵  │   CalDav client ╵  ────▷│            │
+                     ╵  └──────────┬──────┴──┘    └────────────┘
                      └ - - - - - - │ - - -┘
                                    │
                   CalDAV requests ▷│
