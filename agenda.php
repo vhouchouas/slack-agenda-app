@@ -35,8 +35,8 @@ abstract class Agenda {
     public function clean_orphan_categories($quiet = false) {
         $sql = "FROM {$this->table_prefix}categories WHERE not exists (
                 SELECT 1
-                FROM events_categories
-                WHERE events_categories.category_id = categories.id
+                FROM {$this->table_prefix}events_categories
+                WHERE {$this->table_prefix}events_categories.category_id = {$this->table_prefix}categories.id
         );";
 
         if(!$quiet) {
@@ -56,7 +56,7 @@ abstract class Agenda {
         $sql = "FROM {$this->table_prefix}attendees WHERE not exists (
             SELECT 1
             FROM {$this->table_prefix}events_attendees
-            WHERE events_attendees.email = attendees.email
+            WHERE {$this->table_prefix}events_attendees.email = {$this->table_prefix}attendees.email
         );";
         
         if(!$quiet) {
