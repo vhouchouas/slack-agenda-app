@@ -85,7 +85,13 @@ Create the tables of the database
 
 From the directory where you installed the php files run:
 
-    php clitools.php database create
+    ./clitools database create
+
+(or, if you're on Windows:
+
+     php clitools database create
+
+)
 
 Technical notes for admin
 =========================
@@ -108,12 +114,12 @@ This app is architectured as follows:
                                │       │
                                │       │
                                │       │
-                        ┌──────▽───────┴─────┬──────────┐
-                        │     HTTP server    │          │
-                      - │ - - ▽ - - - △ - -  │    File  │
- What this project▷  ╵  │      Slack app  ╵  ◁   System │
- implements          ╵  │   CalDav client ╵  ▷          │
-                     ╵  └──────────┬──────┴──┴──────────┘
+                        ┌──────▽───────┴─────┐    ┌────────────┐
+                        │     HTTP server    │    │            │
+                      - │ - - ▽ - - - △ - -  │    │  Database  │
+ What this project▷  ╵  │      Slack app  ╵  ◁────│            │
+ implements          ╵  │   CalDav client ╵  ────▷│            │
+                     ╵  └──────────┬──────┴──┘    └────────────┘
                      └ - - - - - - │ - - -┘
                                    │
                   CalDAV requests ▷│
