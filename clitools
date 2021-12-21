@@ -14,35 +14,191 @@ $log = new Logger('CLITOOLS');
 $log->pushHandler(new StreamHandler('php://stdout', Logger::DEBUG));
 $GLOBALS['LOG_HANDLERS'][] = new StreamHandler('php://stdout', Logger::DEBUG);
 
-function reminders_list() {
-    global $log;
-    list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
-    $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
-    $user_infos = $api->auth_test("user");
-    foreach($api->reminders_list() as $id => $reminder) {
-        if($user_infos->user_id === $reminder["creator"]) { // list only reminders that have been created by the app
-            $log->info("Reminder:");
-            foreach($reminder as $key => $val) {
-                if(is_null($val)) {
-                    $log->info("    $key = null");
-                } else {
-                    $log->info("    $key = $val");
+abstract class Command {
+    abstract public function run();
+    abstract public function getHelpMessage();
+}
+
+class RemindersLister extends Command {
+    public function run() {
+        global $log;
+        list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
+        $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
+        $user_infos = $api->auth_test("user");
+        foreach($api->reminders_list() as $id => $reminder) {
+            if($user_infos->user_id === $reminder["creator"]) { // list only reminders that have been created by the app
+                $log->info("Reminder:");
+                foreach($reminder as $key => $val) {
+                    if(is_null($val)) {
+                        $log->info("    $key = null");
+                    } else {
+                        $log->info("    $key = $val");
+                    }
                 }
             }
         }
     }
+
+    public function getHelpMessage() {
+        return "Prints all the future Slack reminders created by this app";
+    }
 }
 
-function reminders_purge() {
-    global $log;
-    list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
-    $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
-    $user_infos = $api->auth_test("user");
-    foreach($api->reminders_list() as $id => $reminder) {
-        if($user_infos->user_id === $reminder["creator"]) { // delete only reminders that have been created by the app
-            $log->info("deleting reminder id: $reminder[id]\n");
-            $api->reminders_delete($reminder["id"]);
+class RemindersPurger extends Command {
+    public function run() {
+        global $log;
+        list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
+        $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
+        $user_infos = $api->auth_test("user");
+        foreach($api->reminders_list() as $id => $reminder) {
+            if($user_infos->user_id === $reminder["creator"]) { // delete only reminders that have been created by the app
+                $log->info("deleting reminder id: $reminder[id]\n");
+                $api->reminders_delete($reminder["id"]);
+            }
         }
+    }
+
+    public function getHelpMessage() {
+        return "Delete all the slack reminders created by this app";
+    }
+}
+
+class AgendaChecker extends Command {
+    public function run() {
+        checkAgenda();
+    }
+
+    public function getHelpMessage() {
+      return "Update the local database so it matches the content of the remote caldav calendar.\n"
+        . "Note that this operation is done regularly by the app so you don't really need to run this command.\n"
+        . "(It may be useful when you just installed the app so the 1st query isn't too slow)";
+    }
+}
+
+class ApiTokensChecker extends Command {
+    public function run() {
+        api_checktokens();
+    }
+
+    public function getHelpMessage() {
+        return "Checks whether the user and bot slack tokens are valid";
+    }
+}
+
+class CaldavClientAuthChecker extends Command {
+    public function run() {
+        caldavclient_checkAuth();
+    }
+
+    public function getHelpMessage() {
+        return "Checks that the caldav credential are valid";
+    }
+}
+
+class ConfigReader extends Command {
+    public function run() {
+        config_read();
+    }
+
+    public function getHelpMessage() {
+        return "Read the config file and run some sanity checks on it";
+    }
+}
+
+class Installer extends Command {
+    public function run() {
+        config_read();
+        caldavclient_checkauth();
+        api_checktokens();
+        database_create();
+        checkAgenda();
+    }
+
+    public function getHelpMessage() {
+        return "Performs some basic checks, creates the table in database, and fill them with the content of the caldav server.\n"
+            . "This command is idempotent (as long as the local config and the remote caldav server states don't change).";
+    }
+}
+
+class DatabaseConnectionChecker extends Command {
+    public function run() {
+        global $log;
+        $log->info("Checking database connection... ");
+        $agenda = open_agenda();
+
+        if (!is_a($agenda, 'Agenda')) {
+            $log->info("could not initiate backend.");
+            return false;
+        }
+
+        $log->info("Checking database connection - ok.");
+        return true;
+    }
+
+    public function getHelpMessage() {
+        return "Checks that the app is able to connect to the database";
+    }
+}
+
+class DatabaseCreator extends Command {
+    public function run() {
+        database_create();
+    }
+
+    public function getHelpMessage() {
+        return "Creates the tables in database. (note that the database itself should already exist)";
+    }
+}
+
+class DatabaseOrphanCategoriesCleaner extends Command {
+    public function run() {
+        database_clean_orphan_categories();
+    }
+
+    public function getHelpMessage() {
+        return "clean the database by removing all the categories that don't exist on any upcoming events.\n"
+          . "(Running this command is safe, in the sense that if an event uses such categories in the future they will"
+          . " be recreated on the fly as needed).";
+    }
+}
+
+class DatabaseOrphanAttendeesCleaner extends Command {
+    public function run() {
+        $agenda = open_agenda();
+        $agenda->clean_orphan_attendees(false);
+    }
+
+    public function getHelpMessage() {
+        return "clean the database by removing all the user that don't attend any upcoming events.\n"
+          . "(Running this command is safe, in the sense that if one of those user register to an event in the future they will"
+          . " be recreated on the fly as needed).";
+    }
+}
+
+class DatabaseOrphansCleaner extends Command {
+    public function run() {
+        $agenda = open_agenda();
+        $agenda->clean_orphan_categories(false);
+        $agenda->clean_orphan_attendees(false);
+    }
+
+    public function getHelpMessage() {
+        return "Delete all orphan categories and attendees";
+    }
+}
+
+class DatabaseTruncator extends Command {
+    public function run() {
+        $agenda = open_agenda();
+        $agenda->truncate_tables();
+        $agenda->createDB(); // to insert CTag
+    }
+
+    public function getHelpMessage() {
+        return "Truncates all sql tables (it does not delete the tables though).\n"
+          . "This command is rather safe in the sense that all the useful data will be recreated with the next agenda check"
+          . " (based on the data of the caldav server).\n"
+          . "However the data related to the existing Slack reminder will be lost.";
     }
 }
 
@@ -61,7 +217,7 @@ function api_checktokens() {
     global $log;
     list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
     $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
-    
+
     $ok = true;
     foreach(["user", "bot"] as $token_type) {
         $log->info("Checking Slack $token_type token...");
@@ -90,27 +246,6 @@ function caldavclient_checkauth() {
     }
 }
 
-function install() {
-    config_read();
-    caldavclient_checkauth();
-    api_checktokens();
-    database_create();
-    checkAgenda();
-}
-
-function database_checkconnection() {
-    $log->info("Checking database connection... ");
-    $agenda = open_agenda();
-    
-    if (!is_a($agenda, 'Agenda')) {
-        $log->info("could not initiate backend.");
-        return false;
-    }
-    
-    $log->info("Checking database connection - ok.");
-    return true;
-}
-
 function open_agenda() {
     global $log;
     list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
@@ -126,23 +261,6 @@ function database_clean_orphan_categories() {
     $agenda->clean_orphan_categories(false);
 }
 
-function database_clean_orphan_attendees() {
-    $agenda = open_agenda();
-    $agenda->clean_orphan_attendees(false);
-}
-
-function database_cleanall() {
-    $agenda = open_agenda();
-    $agenda->clean_orphan_categories(false);
-    $agenda->clean_orphan_attendees(false);
-}
-
-function database_truncate() {
-    $agenda = open_agenda();
-    $agenda->truncate_tables();
-    $agenda->createDB(); // to insert CTag
-}
-
 function database_create() {
     $agenda = open_agenda();
     $agenda->createDB();
@@ -156,56 +274,57 @@ function checkAgenda() {
     $log->info("Checking Agenda - done");
 }
 
+class HelpPrinter extends Command {
+    public function run() {
+        echo $this->getHelpMessage();
+    }
+
+    public function getHelpMessage() {
+        global $cmds;
+        $message = "Existing commands:\n";
+        foreach($cmds as $commandName => $commandInstance){
+            $message .= "- $commandName:\n";
+            if ($commandInstance instanceof HelpPrinter) {
+                $message .= "  Prints this help";
+            } else {
+                $message .= "  " . $commandInstance->getHelpMessage();
+            }
+            $message .= "\n\n";
+        }
+        return $message;
+    }
+}
+
+
 $cmds = [
-    "reminders" => [
-        "check"=> null,
-        "list" => null,
-        "purge" => null
-    ],
-    "checkAgenda" => null,
-    "api" => [
-        "checktokens" => null
-    ],
-    "caldavclient" => [
-        "checkauth" => null
-    ],
-    "config" => [
-        "read" => null
-    ],
-    "install" =>  null,
-    "database" => [
-        "checkconnection" => null,
-        "create" => null,
-        "clean" => [
-            "orphan_categories" => null,
-            "orphan_attendees" => null,
-        ],
-        "cleanall" => null,
-        "truncate" => null,
-    ]
+    "reminders-list" => new RemindersLister(),
+    "reminders-purge" => new RemindersPurger(),
+    "checkAgenda" => new AgendaChecker(),
+    "api-checktokens" => new ApiTokensChecker(),
+    "caldavclient-checkauth" => new CaldavClientAuthChecker(),
+    "config-read" => new ConfigReader(),
+    "install" => new Installer(),
+    "database-checkconnection" => new DatabaseConnectionChecker(),
+    "database-create" => new DatabaseCreator(),
+    "database-clean-orphan_categories" => new DatabaseOrphanCategoriesCleaner(),
+    "database-clean-orphan_attendees" => new DatabaseOrphanAttendeesCleaner(),
+    "database-cleanall" => new DatabaseOrphansCleaner(),
+    "database-truncate" => new DatabaseTruncator(),
+    "help" => new HelpPrinter()
 ];
 
-$func = [];
-foreach($argv as  $i => $arg) {
-    if($i == 0) {
-        continue;
-    }
-
-    if(!array_key_exists($arg, $cmds)) {
-        print("command not found\n");
-        exit();
-    }
-    
-    $cmds = $cmds[$arg];
-    $func[] = $arg;
-
-    if(is_null($cmds)) {
-        break;
-    }
+if (count($argv) != 2) {
+    $log->info("Expecting exactly 1 argument: the name of the command to run");
+    $helper = new HelpPrinter();
+    $helper->run();
+    exit(1);
 }
-if(!is_null($cmds)) {
-    print("command not found\n");
-    exit();
+$cmd = $argv[1];
+if (! array_key_exists($cmd, $cmds) ){
+    $log->info("Unknown command $cmd");
+    $helper = new HelpPrinter();
+    $helper->run();
+    exit(1);
 }
 
-call_user_func(implode("_", $func));
+$cmds[$cmd]->run();
