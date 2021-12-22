@@ -16,7 +16,9 @@ abstract class Agenda {
 
     protected $table_prefix;
 
-    public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api) {
+    public function __construct(string $table_prefix, Logger $log, string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api) {
+        $this->table_prefix = $table_prefix;
+        $this->log = $log;
         setLogHandlers($this->log);
         
         $this->caldav_client = new CalDAVClient($CalDAV_url, $CalDAV_username, $CalDAV_password);
