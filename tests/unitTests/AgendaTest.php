@@ -66,6 +66,39 @@ final class AgendaTest extends TestCase {
         $this->assertFalse($events[$event->id()]["is_registered"]);
         $this->assertEquals(0, count($events[$event->id()]["categories"]));
     }
+
+    public function test_checkAgenda_with_an_event_in_the_past_and_one_in_the_future() {
+        // Setup
+        $caldav_client = $this->createMock(ICalDAVClient::class);
+        $caldav_client->method('getCTag')->willReturn("123456789");
+        $upcomingEvent = new MockEvent("upcaomingEvent", "123", "20211223T113000Z");
+        $pastEvent = new MockEvent("pastEvent", "456", "20191223T113000Z");
+        $caldav_client->method('getETags')->willReturn(array(
+              $upcomingEvent->id() => $upcomingEvent->etag(),
+              $pastEvent->id() => $pastEvent->etag(),
+              ));
+        $caldav_client->method('updateEvents')->willReturn(array(
+           array("vCalendarFilename" => $upcomingEvent->id(), "vCalendarRaw" => $upcomingEvent->raw(), "ETag" => $upcomingEvent->etag()),
+           array("vCalendarFilename" => $pastEvent->id(), "vCalendarRaw" => $pastEvent->raw(), "ETag" => $pastEvent->etag())
+        ));
+        $api = $this->createMock(ISlackAPI::class);
+
+        $sut = AgendaTest::buildSUT($caldav_client, $api);
+
+        // Act
+        $sut->checkAgenda();
+
+        // Assert
+        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
+        $this->assertEquals(1, count($events));
+        $this->assertArrayHasKey($upcomingEvent->id(), $events);
+        $this->assertEquals(NULL, $events[$upcomingEvent->id()]["number_volunteers_required"]);
+        $this->assertEquals($upcomingEvent->raw(), $events[$upcomingEvent->id()]["vCalendarRaw"]);
+        $this->assertEquals(0, $events[$upcomingEvent->id()]["unknown_attendees"]);
+        $this->assertEquals(0, count($events[$upcomingEvent->id()]["attendees"]));
+        $this->assertFalse($events[$upcomingEvent->id()]["is_registered"]);
+        $this->assertEquals(0, count($events[$upcomingEvent->id()]["categories"]));
+    }
 }
 
 
