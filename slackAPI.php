@@ -2,7 +2,18 @@
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 
-class SlackAPI{
+interface ISlackAPI {
+    public function views_publish($data);
+    public function users_info($userid);
+    public function view_open($data, $trigger_id);
+    public function reminders_add($userid, $text, $datetime);
+    public function reminders_list();
+    public function reminders_delete($reminder_id);
+    public function auth_test($token_type);
+    public function chat_postMessage($channel_id, $blocks);
+}
+
+class SlackAPI implements ISlackAPI {
     protected $slack_bot_token;
     protected $slack_user_token;
     protected $log;

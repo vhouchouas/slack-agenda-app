@@ -5,7 +5,51 @@ use Sabre\VObject;
 
 require __DIR__ . '/vendor/autoload.php';
 
-class CalDAVClient {
+interface ICalDAVClient {
+    /**
+     * Fetches all the events matching the parameter
+     */
+    public function updateEvents($vCalendarFilename);
+
+    /**
+     * Queries the caldav server to retrieve the etag of all the events (past and future).
+     *
+     * @return an array of key-value pair "event url => etag"
+     */
+    public function getETags();
+
+    /**
+     * Queries the ctag of the caldav server.
+     * If the ctag in local cache is different it means that at least one event was updated / created / deleted
+     * from the caldav server since the last synchronization and that we need to update the local cache
+     *
+     * @returns ctag of the caldav server
+     */
+    public function getCTag();
+
+    /**
+     * Update an event on the caldav server.
+     * This is useful when a user (un)register through this app, so we can add or remove the user
+     * from the event on the caldav server
+     *
+     * @vCalendarFilename The name of the event to update
+     * @Etag The current etag of the event as we know it
+     *       If the etag on the caldav server is different then the remote event won't be updated. This
+     *       Ensure we don't erase remote changes if our local cache is not up to date
+     * @vCalendarRaw The raw content of the event as it should be updated to the remote server
+     *
+     * @return The new etag of the event after the update if the update was successful. This can be used to
+     *         update the local cache for this event directly (without needing a new call to the caldav server)
+     *         In case of error this function may return:
+     *         - FALSE if an error occured with the query. I likely means that the event was not updated
+     *         - NULL if no etag was returned. It means the call was successful but we can't update the local
+     *           cache directly
+     */
+    public function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw);
+
+}
+
+class CalDAVClient implements ICalDAVClient {
     private $url;
     private $username;
     private $password;
@@ -221,7 +265,6 @@ class CalDAVClient {
         return false;
     }
 
-    // return: false if an error occured, null if no etag returned, or the etag
     function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw) {
         $this->log->debug("will update $vCalendarFilename with ETag $ETag");
         $ch = $this->init_curl_request("{$this->url}/$vCalendarFilename");

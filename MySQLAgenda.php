@@ -9,12 +9,12 @@ class MySQLAgenda extends Agenda {
     private $username;
     private $password;
     
-    public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
+    public function __construct(ICalDAVClient $caldav_client, object $api, array $agenda_args) {
             $this->db_name = $agenda_args["db_name"];
             $this->host = $agenda_args["db_host"];
             $this->username = $agenda_args["db_username"];
             $this->password = $agenda_args["db_password"];
-            parent::__construct($agenda_args["db_table_prefix"], new Logger('MySQLAgenda'), $CalDAV_url, $CalDAV_username, $CalDAV_password, $api);
+            parent::__construct($agenda_args["db_table_prefix"], new Logger('MySQLAgenda'), $caldav_client, $api);
         }
     
     protected function openDB() {

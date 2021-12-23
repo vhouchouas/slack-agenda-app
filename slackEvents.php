@@ -40,7 +40,7 @@ class SlackEvents {
     function app_home_page($userid, $filters_to_apply = array()) {
         $this->log->info('event: app_home_opened received');
         
-        $events = $this->agenda->getUserEventsFiltered($userid, $filters_to_apply);
+        $events = $this->agenda->getUserEventsFiltered(new DateTimeImmutable('NOW'), $userid, $filters_to_apply);
         
         $blocks = [];
         $default_filters = [

@@ -4,6 +4,7 @@ use Monolog\Logger;
 use Sabre\VObject;
 
 require "CalDAVClient.php";
+require_once "utils.php";
 
 class NotImplementedException extends BadMethodCallException {}
 
@@ -16,12 +17,12 @@ abstract class Agenda {
 
     protected $table_prefix;
 
-    public function __construct(string $table_prefix, Logger $log, string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api) {
+    public function __construct(string $table_prefix, Logger $log, ICalDAVClient $caldav_client, object $api) {
         $this->table_prefix = $table_prefix;
         $this->log = $log;
         setLogHandlers($this->log);
-        
-        $this->caldav_client = new CalDAVClient($CalDAV_url, $CalDAV_username, $CalDAV_password);
+
+        $this->caldav_client = $caldav_client;
         $this->api = $api;
 
         $this->pdo = $this->openDB();
@@ -86,7 +87,7 @@ abstract class Agenda {
         $this->log->info("Truncate all tables - done.");
     }
     
-    public function getUserEventsFiltered(string $userid, array $filters_to_apply = array()) {
+    public function getUserEventsFiltered(DateTimeImmutable $now, string $userid, array $filters_to_apply = array()) {
         $sql = "SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM {$this->table_prefix}events WHERE ";
         $sql .= 'Date(datetime_begin) > :datetime_begin ';
         
@@ -118,7 +119,7 @@ WHERE {$this->table_prefix}events_categories.category_id = {$this->table_prefix}
         }
         $sql .= "ORDER BY datetime_begin;";
         $query = $this->pdo->prepare($sql);
-        $query->execute(array('datetime_begin' => (new DateTime('NOW'))->format('Y-m-d H:i:s')));
+        $query->execute(array('datetime_begin' => $now->format('Y-m-d H:i:s')));
 
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         
@@ -605,10 +606,11 @@ function initAgendaFromType(string $CalDAV_url, string $CalDAV_username, string 
         exit();
     }
 
+    $caldav_client = new CalDAVClient($CalDAV_url, $CalDAV_username, $CalDAV_password);
     if($agenda_args["db_type"] === "MySQL") {
-        return new MySQLAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
+        return new MySQLAgenda($caldav_client, $api, $agenda_args);
     } else if($agenda_args["db_type"] === "sqlite") {
-        return new SqliteAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
+        return new SqliteAgenda($caldav_client, $api, $agenda_args);
     } else {
         $log->error("db type $agenda_args[db_type] is unknown (exit).");
         exit();
