@@ -7,10 +7,8 @@ class SqliteAgenda extends Agenda {
     private $path;
 
     public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
-        $this->log = new Logger('sqliteAgenda');
         $this->path = $agenda_args["path"];
-        $this->table_prefix = $agenda_args["db_table_prefix"];
-        parent::__construct($CalDAV_url, $CalDAV_username, $CalDAV_password, $api);
+        parent::__construct($agenda_args["db_table_prefix"], new Logger('sqliteAgenda'), $CalDAV_url, $CalDAV_username, $CalDAV_password, $api);
     }
     
     protected function openDB() {
