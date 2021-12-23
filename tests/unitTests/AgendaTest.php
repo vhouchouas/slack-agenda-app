@@ -99,11 +99,41 @@ final class AgendaTest extends TestCase {
         $this->assertFalse($events[$upcomingEvent->id()]["is_registered"]);
         $this->assertEquals(0, count($events[$upcomingEvent->id()]["categories"]));
     }
+
+    public function test_checkAgenda_with_categories() {
+        // Setup
+        $caldav_client = $this->createMock(ICalDAVClient::class);
+        $caldav_client->method('getCTag')->willReturn("123456789");
+        $event = new MockEvent("event", "123", "20211223T113000Z", array("cat1", "cat2"));
+        $caldav_client->method('getETags')->willReturn(array(
+              $event->id() => $event->etag(),
+              ));
+        $caldav_client->method('updateEvents')->willReturn(array(
+           array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag())
+        ));
+        $api = $this->createMock(ISlackAPI::class);
+
+        $sut = AgendaTest::buildSUT($caldav_client, $api);
+
+        // Act
+        $sut->checkAgenda();
+
+        // Assert
+        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
+        $this->assertEquals(1, count($events));
+        $this->assertArrayHasKey($event->id(), $events);
+        $this->assertEquals(NULL, $events[$event->id()]["number_volunteers_required"]);
+        $this->assertEquals($event->raw(), $events[$event->id()]["vCalendarRaw"]);
+        $this->assertEquals(0, $events[$event->id()]["unknown_attendees"]);
+        $this->assertEquals(0, count($events[$event->id()]["attendees"]));
+        $this->assertFalse($events[$event->id()]["is_registered"]);
+        $this->assertEqualsCanonicalizing($event->categories, $events[$event->id()]["categories"]);
+    }
 }
 
 
 class MockEvent {
-    public function __construct($name, $etag, $dtstart, $categories = ""){
+    public function __construct(string $name, string $etag, string $dtstart, array $categories = array()){
         $this->name = $name;
         $this->etag = $etag;
         $this->dtstart = $dtstart;
@@ -127,8 +157,8 @@ class MockEvent {
           . "DTSTAMP:19850403T172345Z\r\n"
           . "DTSTART:" . $this->dtstart . "\r\n"
           . "SUMMARY:" . $this->name . "\r\n";
-        if ($this->categories !== ""){
-            $raw .= "CATEGORIES: $this->categories\r\n";
+        foreach($this->categories as $cat){
+            $raw .= "CATEGORIES:$cat\r\n";
         }
         $raw .= "END:VEVENT\r\n"
           . "END:VCALENDAR\r\n";
