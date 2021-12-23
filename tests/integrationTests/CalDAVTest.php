@@ -12,7 +12,7 @@ use Monolog\Handler\NativeMailerHandler;
 final class CalDAVTest extends TestCase {
 
     public function setUp(): void {
-        $GLOBALS['LOG_HANDLERS'] = new StreamHandler('php://stdout', Logger::DEBUG);
+        $GLOBALS['LOG_HANDLERS'] = array(new StreamHandler('php://stdout', Logger::DEBUG));
     }
     
     /**
