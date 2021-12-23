@@ -10,4 +10,6 @@ fi
 SCRIPT_DIR="$(dirname "$THIS_FILE")"
 
 # Run tests
-"$SCRIPT_DIR"/../vendor/bin/phpunit  "$SCRIPT_DIR/integrationTests/"
+pushd "$SCRIPT_DIR"
+../vendor/bin/phpunit  ./integrationTests/
+popd
