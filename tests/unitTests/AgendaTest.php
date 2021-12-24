@@ -129,15 +129,48 @@ final class AgendaTest extends TestCase {
         $this->assertFalse($events[$event->id()]["is_registered"]);
         $this->assertEqualsCanonicalizing($event->categories, $events[$event->id()]["categories"]);
     }
+
+    public function test_checkAgendaWithAttendees() {
+        // Setup
+        $caldav_client = $this->createMock(ICalDAVClient::class);
+        $caldav_client->method('getCTag')->willReturn("123456789");
+        $event = new MockEvent("event", "123", "20211223T113000Z", array(), array("member@gmail.com", "unknown@abc.xyz"));
+        $caldav_client->method('getETags')->willReturn(array(
+              $event->id() => $event->etag(),
+              ));
+        $caldav_client->method('updateEvents')->willReturn(array(
+           array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag())
+        ));
+        $api = $this->createMock(ISlackAPI::class);
+        $mapEmailToSlackId = [['member@gmail.com', mockSlackUser('SLACKID')], ['unknown@abc.xyz', NULL]];
+        $api->method('users_lookupByEmail')->will($this->returnValueMap($mapEmailToSlackId));
+
+        $sut = AgendaTest::buildSUT($caldav_client, $api);
+
+        // Act
+        $sut->checkAgenda();
+
+        // Assert
+        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
+        $this->assertEquals(1, count($events));
+        $this->assertArrayHasKey($event->id(), $events);
+        $this->assertEquals(NULL, $events[$event->id()]["number_volunteers_required"]);
+        $this->assertEquals($event->raw(), $events[$event->id()]["vCalendarRaw"]);
+        $this->assertEquals(1, $events[$event->id()]["unknown_attendees"]);
+        $this->assertEquals(array("SLACKID"), $events[$event->id()]["attendees"]);
+        $this->assertFalse($events[$event->id()]["is_registered"]);
+        $this->assertEquals(0, count($events[$event->id()]["categories"]));
+    }
 }
 
 
 class MockEvent {
-    public function __construct(string $name, string $etag, string $dtstart, array $categories = array()){
+    public function __construct(string $name, string $etag, string $dtstart, array $categories = array(), array $attendeesEmail = array()){
         $this->name = $name;
         $this->etag = $etag;
         $this->dtstart = $dtstart;
         $this->categories = $categories;
+        $this->attendeesEmail = $attendeesEmail;
     }
 
     public function id(){
@@ -160,6 +193,12 @@ class MockEvent {
         foreach($this->categories as $cat){
             $raw .= "CATEGORIES:$cat\r\n";
         }
+        foreach($this->attendeesEmail as $email){
+            // Line split because according to RFC5545 a line should not be longer than 75 octets
+            $raw .= "ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;\r\n"
+              ." :mailto:$email\r\n";
+        }
+
         $raw .= "END:VEVENT\r\n"
           . "END:VCALENDAR\r\n";
         return $raw;
@@ -167,3 +206,6 @@ class MockEvent {
     }
 }
 
+function mockSlackUser($slackId){
+    return (object) array('id' => $slackId);
+}

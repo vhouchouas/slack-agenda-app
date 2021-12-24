@@ -11,6 +11,7 @@ interface ISlackAPI {
     public function reminders_delete($reminder_id);
     public function auth_test($token_type);
     public function chat_postMessage($channel_id, $blocks);
+    public function users_lookupByEmail($mail);
 }
 
 class SlackAPI implements ISlackAPI {
