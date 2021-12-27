@@ -87,6 +87,11 @@ abstract class Agenda {
         $this->log->info("Truncate all tables - done.");
     }
     
+    /**
+     * @param $now The current time. Used to retrieve only the events not started yet
+     * @param $userId The slack id of the current user. Used to compute on which events the user is registered
+     * @param $filters_to_apply The filters that the returned events should match.
+     */
     public function getUserEventsFiltered(DateTimeImmutable $now, string $userid, array $filters_to_apply = array()) {
         $sql = "SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM {$this->table_prefix}events WHERE ";
         $sql .= 'Date(datetime_begin) > :datetime_begin ';
