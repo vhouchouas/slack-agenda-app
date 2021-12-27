@@ -11,11 +11,22 @@ use Monolog\Handler\StreamHandler;
 
 final class AgendaTest extends TestCase {
     private const SQLITE_FILE = "sqlite_db_for_tests.sqlite";
+    private $slackApiMock;
 
     public static function setUpBeforeClass() : void {
+        // log level of the code being tested
         $GLOBALS['LOG_HANDLERS'] = array(new StreamHandler('php://stdout', Logger::DEBUG));
+
     }
     public function setUp(): void {
+        // Always use the same mapping for simplicity
+        $mapEmailToSlackId = [
+          ['me@gmail.com', mockSlackUser('MYID')],
+          ['you@gmail.com', mockSlackUser('YOURID')],
+          ['unknown@abc.xyz', NULL]
+        ];
+        $this->slackApiMock = $this->createMock(ISlackAPI::class);
+        $this->slackApiMock->method('users_lookupByEmail')->will($this->returnValueMap($mapEmailToSlackId));
         // It should normally not be needed but it's safer to do it in case there is a leftover from previous tests
         $this->dropDatabase();
     }
@@ -27,9 +38,9 @@ final class AgendaTest extends TestCase {
             unlink(self::SQLITE_FILE);
         }
     }
-    private static function buildSUT(ICalDAVClient $caldav_client, ISlackAPI $api) : Agenda {
+    private function buildSUT(ICalDAVClient $caldav_client) : Agenda {
         $agenda_args = array("path" => self::SQLITE_FILE, "db_table_prefix" => "_");
-        $sut = new SqliteAgenda($caldav_client, $api, $agenda_args);
+        $sut = new SqliteAgenda($caldav_client, $this->slackApiMock, $agenda_args);
         $sut->createDB();
         return $sut;
     }
@@ -48,9 +59,8 @@ final class AgendaTest extends TestCase {
         $caldav_client->method('updateEvents')->willReturn(array(
            array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag())
         ));
-        $api = $this->createMock(ISlackAPI::class);
 
-        $sut = AgendaTest::buildSUT($caldav_client, $api);
+        $sut = AgendaTest::buildSUT($caldav_client);
 
         // Act
         $sut->checkAgenda();
@@ -81,9 +91,8 @@ final class AgendaTest extends TestCase {
            array("vCalendarFilename" => $upcomingEvent->id(), "vCalendarRaw" => $upcomingEvent->raw(), "ETag" => $upcomingEvent->etag()),
            array("vCalendarFilename" => $pastEvent->id(), "vCalendarRaw" => $pastEvent->raw(), "ETag" => $pastEvent->etag())
         ));
-        $api = $this->createMock(ISlackAPI::class);
 
-        $sut = AgendaTest::buildSUT($caldav_client, $api);
+        $sut = AgendaTest::buildSUT($caldav_client);
 
         // Act
         $sut->checkAgenda();
@@ -111,9 +120,8 @@ final class AgendaTest extends TestCase {
         $caldav_client->method('updateEvents')->willReturn(array(
            array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag())
         ));
-        $api = $this->createMock(ISlackAPI::class);
 
-        $sut = AgendaTest::buildSUT($caldav_client, $api);
+        $sut = AgendaTest::buildSUT($caldav_client);
 
         // Act
         $sut->checkAgenda();
@@ -134,18 +142,15 @@ final class AgendaTest extends TestCase {
         // Setup
         $caldav_client = $this->createMock(ICalDAVClient::class);
         $caldav_client->method('getCTag')->willReturn("123456789");
-        $event = new MockEvent("event", "123", "20211223T113000Z", array(), array("member@gmail.com", "unknown@abc.xyz"));
+        $event = new MockEvent("event", "123", "20211223T113000Z", array(), array("me@gmail.com", "unknown@abc.xyz"));
         $caldav_client->method('getETags')->willReturn(array(
               $event->id() => $event->etag(),
               ));
         $caldav_client->method('updateEvents')->willReturn(array(
            array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag())
         ));
-        $api = $this->createMock(ISlackAPI::class);
-        $mapEmailToSlackId = [['member@gmail.com', mockSlackUser('SLACKID')], ['unknown@abc.xyz', NULL]];
-        $api->method('users_lookupByEmail')->will($this->returnValueMap($mapEmailToSlackId));
 
-        $sut = AgendaTest::buildSUT($caldav_client, $api);
+        $sut = AgendaTest::buildSUT($caldav_client);
 
         // Act
         $sut->checkAgenda();
@@ -157,7 +162,7 @@ final class AgendaTest extends TestCase {
         $this->assertEquals(NULL, $events[$event->id()]["number_volunteers_required"]);
         $this->assertEquals($event->raw(), $events[$event->id()]["vCalendarRaw"]);
         $this->assertEquals(1, $events[$event->id()]["unknown_attendees"]);
-        $this->assertEquals(array("SLACKID"), $events[$event->id()]["attendees"]);
+        $this->assertEquals(array("MYID"), $events[$event->id()]["attendees"]);
         $this->assertFalse($events[$event->id()]["is_registered"]);
         $this->assertEquals(0, count($events[$event->id()]["categories"]));
     }
@@ -182,15 +187,8 @@ final class AgendaTest extends TestCase {
            array("vCalendarFilename" => $ourEvent->id(), "vCalendarRaw" => $ourEvent->raw(), "ETag" => $ourEvent->etag()),
            array("vCalendarFilename" => $nobodysEvent->id(), "vCalendarRaw" => $nobodysEvent->raw(), "ETag" => $nobodysEvent->etag()),
         ));
-        $api = $this->createMock(ISlackAPI::class);
-        $mapEmailToSlackId = [
-          ['me@gmail.com', mockSlackUser('MYID')],
-          ['you@gmail.com', mockSlackUser('YOURID')],
-          ['unknown@abc.xyz', NULL]
-        ];
-        $api->method('users_lookupByEmail')->will($this->returnValueMap($mapEmailToSlackId));
 
-        $sut = AgendaTest::buildSUT($caldav_client, $api);
+        $sut = AgendaTest::buildSUT($caldav_client);
 
         // Act
         $sut->checkAgenda();
