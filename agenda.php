@@ -84,6 +84,7 @@ abstract class Agenda {
             $this->log->info("Truncate table $table");
             $this->pdo->query("DELETE FROM $table;");
         }
+        $this->insertMandatoryLinesAfterDbInitialization();
         $this->log->info("Truncate all tables - done.");
     }
     
@@ -600,6 +601,10 @@ DELETE FROM {$this->table_prefix}events_attendees WHERE vCalendarFilename =:vCal
         }
     }
 
+    protected function insertMandatoryLinesAfterDbInitialization(){
+        $query = $this->pdo->prepare("INSERT OR IGNORE INTO {$this->table_prefix}properties (property, value) VALUES ('CTag', 'NULL')");
+        $query->execute();
+    }
 }
 
 require_once "SqliteAgenda.php";

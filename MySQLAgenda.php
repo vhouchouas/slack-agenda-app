@@ -68,15 +68,15 @@ class MySQLAgenda extends Agenda {
     value                           VARCHAR( 256 )
     ) DEFAULT CHARSET=utf8mb4;");
 
-        $query = $this->pdo->prepare("INSERT IGNORE INTO {$this->table_prefix}properties (property, value) VALUES ('CTag', 'NULL')");
-        $query->execute();
-
         $this->pdo->query("CREATE TABLE IF NOT EXISTS {$this->table_prefix}reminders ( 
     id                              VARCHAR( 12 ),
     vCalendarFilename               VARCHAR( 256 ),
     userid                          VARCHAR( 11 ),
     FOREIGN KEY (vCalendarFilename) REFERENCES {$this->table_prefix}events(vCalendarFilename) ON DELETE CASCADE
     ) DEFAULT CHARSET=utf8mb4;");
+
+        $this->insertMandatoryLinesAfterDbInitialization();
+
         $this->log->info("Create database tables - done.");
     }
 }

@@ -11,12 +11,17 @@ use Monolog\Handler\StreamHandler;
 
 final class AgendaTest extends TestCase {
     private const SQLITE_FILE = "sqlite_db_for_tests.sqlite";
-    private $slackApiMock;
+    private ISlackAPI $slackApiMock;
 
     public static function setUpBeforeClass() : void {
         // log level of the code being tested
         $GLOBALS['LOG_HANDLERS'] = array(new StreamHandler('php://stdout', Logger::DEBUG));
 
+        // Ensure there is no leftover from a previous run (it should never occur, but better safe than sorry)
+        self::deleteDatabase();
+    }
+    public static function tearDownAfterClass() : void {
+        self::deleteDatabase();
     }
     public function setUp(): void {
         // Always use the same mapping for simplicity
@@ -27,21 +32,21 @@ final class AgendaTest extends TestCase {
         ];
         $this->slackApiMock = $this->createMock(ISlackAPI::class);
         $this->slackApiMock->method('users_lookupByEmail')->will($this->returnValueMap($mapEmailToSlackId));
-        // It should normally not be needed but it's safer to do it in case there is a leftover from previous tests
-        $this->dropDatabase();
     }
-    public function tearDown() : void {
-        $this->dropDatabase();
-    }
-    private function dropDatabase() : void {
+    private function deleteDatabase(){
         if (file_exists(self::SQLITE_FILE)){
             unlink(self::SQLITE_FILE);
         }
     }
-    private function buildSUT(ICalDAVClient $caldav_client) : Agenda {
+    private function buildSut(ICalDAVClient $caldav_client) : Agenda {
+        $dbAlreadyExists = file_exists(self::SQLITE_FILE);
         $agenda_args = array("path" => self::SQLITE_FILE, "db_table_prefix" => "_");
         $sut = new SqliteAgenda($caldav_client, $this->slackApiMock, $agenda_args);
-        $sut->createDB();
+        if ($dbAlreadyExists){
+            $sut->truncate_tables();
+        } else {
+            $sut->createDB();
+        }
         return $sut;
     }
 

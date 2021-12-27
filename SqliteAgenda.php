@@ -61,15 +61,14 @@ class SqliteAgenda extends Agenda {
     property                        VARCHAR( 256 ) PRIMARY KEY,
     value                           VARCHAR( 256 ));");
 
-        $query = $this->pdo->prepare("INSERT OR IGNORE INTO {$this->table_prefix}properties (property, value) VALUES ('CTag', 'NULL')");
-        $query->execute();
-
         $this->pdo->query("CREATE TABLE IF NOT EXISTS {$this->table_prefix}reminders ( 
     id                              VARCHAR( 12 ) PRIMARY KEY,
     vCalendarFilename               VARCHAR( 256 ),
     userid                          VARCHAR( 11 ),
     FOREIGN KEY (vCalendarFilename) REFERENCES {$this->table_prefix}events(vCalendarFilename) ON DELETE CASCADE
     );");
+
+        $this->insertMandatoryLinesAfterDbInitialization();
 
         $this->log->info("Create database tables - done.");
     }
