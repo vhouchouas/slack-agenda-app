@@ -161,6 +161,52 @@ final class AgendaTest extends TestCase {
         $this->assertFalse($events[$event->id()]["is_registered"]);
         $this->assertEquals(0, count($events[$event->id()]["categories"]));
     }
+
+    public function test_knowOnWhichEventIRegistered() {
+        // Setup
+        $caldav_client = $this->createMock(ICalDAVClient::class);
+        $caldav_client->method('getCTag')->willReturn("123456789");
+        $myEvent = new MockEvent("myEvent", "123", "20211223T113000Z", array(), array("me@gmail.com", "unknown@abc.xyz"));
+        $yourEvent = new MockEvent("yourEvent", "124", "20211223T113000Z", array(), array("you@gmail.com"));
+        $nobodysEvent = new MockEvent("nobodysEvent", "125", "20211223T113000Z", array(), array());
+        $ourEvent = new MockEvent("ourEvent", "126", "20211223T113000Z", array(), array("me@gmail.com", "you@gmail.com", "unknown@abc.xyz"));
+        $caldav_client->method('getETags')->willReturn(array(
+              $myEvent->id() => $myEvent->etag(),
+              $yourEvent->id() => $yourEvent->etag(),
+              $nobodysEvent->id() => $nobodysEvent->etag(),
+              $ourEvent->id() => $ourEvent->etag()
+              ));
+        $caldav_client->method('updateEvents')->willReturn(array(
+           array("vCalendarFilename" => $myEvent->id(), "vCalendarRaw" => $myEvent->raw(), "ETag" => $myEvent->etag()),
+           array("vCalendarFilename" => $yourEvent->id(), "vCalendarRaw" => $yourEvent->raw(), "ETag" => $yourEvent->etag()),
+           array("vCalendarFilename" => $ourEvent->id(), "vCalendarRaw" => $ourEvent->raw(), "ETag" => $ourEvent->etag()),
+           array("vCalendarFilename" => $nobodysEvent->id(), "vCalendarRaw" => $nobodysEvent->raw(), "ETag" => $nobodysEvent->etag()),
+        ));
+        $api = $this->createMock(ISlackAPI::class);
+        $mapEmailToSlackId = [
+          ['me@gmail.com', mockSlackUser('MYID')],
+          ['you@gmail.com', mockSlackUser('YOURID')],
+          ['unknown@abc.xyz', NULL]
+        ];
+        $api->method('users_lookupByEmail')->will($this->returnValueMap($mapEmailToSlackId));
+
+        $sut = AgendaTest::buildSUT($caldav_client, $api);
+
+        // Act
+        $sut->checkAgenda();
+
+        // Assert
+        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "MYID");
+        $this->assertEquals(4, count($events));
+        $this->assertArrayHasKey($myEvent->id(), $events);
+        $this->assertTrue($events[$myEvent->id()]["is_registered"]);
+        $this->assertArrayHasKey($yourEvent->id(), $events);
+        $this->assertFalse($events[$yourEvent->id()]["is_registered"]);
+        $this->assertArrayHasKey($nobodysEvent->id(), $events);
+        $this->assertFalse($events[$nobodysEvent->id()]["is_registered"]);
+        $this->assertArrayHasKey($ourEvent->id(), $events);
+        $this->assertTrue($events[$ourEvent->id()]["is_registered"]);
+    }
 }
 
 
