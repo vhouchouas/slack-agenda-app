@@ -55,7 +55,7 @@ final class AgendaTest extends TestCase {
      */
     public function test_basicCheckAgenda() {
         // Setup
-        $event = new MockEvent("event", "123", "20211223T113000Z");
+        $event = new MockEvent("event", "20211223T113000Z");
         $caldav_client = $this->buildCalDAVClient(array($event));
         $sut = AgendaTest::buildSUT($caldav_client);
 
@@ -76,8 +76,8 @@ final class AgendaTest extends TestCase {
 
     public function test_checkAgenda_with_an_event_in_the_past_and_one_in_the_future() {
         // Setup
-        $upcomingEvent = new MockEvent("upcomingEvent", "123", "20211223T113000Z");
-        $pastEvent = new MockEvent("pastEvent", "456", "20191223T113000Z");
+        $upcomingEvent = new MockEvent("upcomingEvent", "20211223T113000Z");
+        $pastEvent = new MockEvent("pastEvent", "20191223T113000Z");
         $caldav_client = $this->buildCalDAVClient(array($upcomingEvent, $pastEvent));
 
         $sut = AgendaTest::buildSUT($caldav_client);
@@ -99,7 +99,7 @@ final class AgendaTest extends TestCase {
 
     public function test_checkAgenda_with_categories() {
         // Setup
-        $event = new MockEvent("event", "123", "20211223T113000Z", array("cat1", "cat2"));
+        $event = new MockEvent("event", "20211223T113000Z", array("cat1", "cat2"));
         $caldav_client = $this->buildCalDAVClient(array($event));
 
         $sut = AgendaTest::buildSUT($caldav_client);
@@ -121,7 +121,7 @@ final class AgendaTest extends TestCase {
 
     public function test_checkAgendaWithAttendees() {
         // Setup
-        $event = new MockEvent("event", "123", "20211223T113000Z", array(), array("me@gmail.com", "unknown@abc.xyz"));
+        $event = new MockEvent("event", "20211223T113000Z", array(), array("me@gmail.com", "unknown@abc.xyz"));
         $caldav_client = $this->buildCalDAVClient(array($event));
 
         $sut = AgendaTest::buildSUT($caldav_client);
@@ -143,10 +143,10 @@ final class AgendaTest extends TestCase {
 
     public function test_knowOnWhichEventIRegistered() {
         // Setup
-        $myEvent = new MockEvent("myEvent", "123", "20211223T113000Z", array(), array("me@gmail.com", "unknown@abc.xyz"));
-        $yourEvent = new MockEvent("yourEvent", "124", "20211223T113000Z", array(), array("you@gmail.com"));
-        $nobodysEvent = new MockEvent("nobodysEvent", "125", "20211223T113000Z", array(), array());
-        $ourEvent = new MockEvent("ourEvent", "126", "20211223T113000Z", array(), array("me@gmail.com", "you@gmail.com", "unknown@abc.xyz"));
+        $myEvent = new MockEvent("myEvent", "20211223T113000Z", array(), array("me@gmail.com", "unknown@abc.xyz"));
+        $yourEvent = new MockEvent("yourEvent", "20211223T113000Z", array(), array("you@gmail.com"));
+        $nobodysEvent = new MockEvent("nobodysEvent", "20211223T113000Z", array(), array());
+        $ourEvent = new MockEvent("ourEvent", "20211223T113000Z", array(), array("me@gmail.com", "you@gmail.com", "unknown@abc.xyz"));
         $caldav_client = $this->buildCalDAVClient(array($myEvent, $yourEvent, $nobodysEvent, $ourEvent));
 
         $sut = AgendaTest::buildSUT($caldav_client);
@@ -187,12 +187,18 @@ final class AgendaTest extends TestCase {
 
 
 class MockEvent {
-    public function __construct(string $name, string $etag, string $dtstart, array $categories = array(), array $attendeesEmail = array()){
+    // We don't care the actual etag of a mock event, they just need to be unique, so we keep a
+    // counter that we increment
+    private static $lastEventEtag = 0;
+
+    public function __construct(string $name, string $dtstart, array $categories = array(), array $attendeesEmail = array()){
         $this->name = $name;
-        $this->etag = $etag;
         $this->dtstart = $dtstart;
         $this->categories = $categories;
         $this->attendeesEmail = $attendeesEmail;
+
+        self::$lastEventEtag = self::$lastEventEtag + 1;
+        $this->etag = "" . self::$lastEventEtag;
     }
 
     public function id(){
