@@ -55,16 +55,8 @@ final class AgendaTest extends TestCase {
      */
     public function test_basicCheckAgenda() {
         // Setup
-        $caldav_client = $this->createMock(ICalDAVClient::class);
-        $caldav_client->method('getCTag')->willReturn("123456789");
         $event = new MockEvent("event", "123", "20211223T113000Z");
-        $caldav_client->method('getETags')->willReturn(array(
-              $event->id() => $event->etag(),
-              ));
-        $caldav_client->method('updateEvents')->willReturn(array(
-           array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag())
-        ));
-
+        $caldav_client = $this->buildCalDAVClient(array($event));
         $sut = AgendaTest::buildSUT($caldav_client);
 
         // Act
@@ -84,18 +76,9 @@ final class AgendaTest extends TestCase {
 
     public function test_checkAgenda_with_an_event_in_the_past_and_one_in_the_future() {
         // Setup
-        $caldav_client = $this->createMock(ICalDAVClient::class);
-        $caldav_client->method('getCTag')->willReturn("123456789");
-        $upcomingEvent = new MockEvent("upcaomingEvent", "123", "20211223T113000Z");
+        $upcomingEvent = new MockEvent("upcomingEvent", "123", "20211223T113000Z");
         $pastEvent = new MockEvent("pastEvent", "456", "20191223T113000Z");
-        $caldav_client->method('getETags')->willReturn(array(
-              $upcomingEvent->id() => $upcomingEvent->etag(),
-              $pastEvent->id() => $pastEvent->etag(),
-              ));
-        $caldav_client->method('updateEvents')->willReturn(array(
-           array("vCalendarFilename" => $upcomingEvent->id(), "vCalendarRaw" => $upcomingEvent->raw(), "ETag" => $upcomingEvent->etag()),
-           array("vCalendarFilename" => $pastEvent->id(), "vCalendarRaw" => $pastEvent->raw(), "ETag" => $pastEvent->etag())
-        ));
+        $caldav_client = $this->buildCalDAVClient(array($upcomingEvent, $pastEvent));
 
         $sut = AgendaTest::buildSUT($caldav_client);
 
@@ -116,15 +99,8 @@ final class AgendaTest extends TestCase {
 
     public function test_checkAgenda_with_categories() {
         // Setup
-        $caldav_client = $this->createMock(ICalDAVClient::class);
-        $caldav_client->method('getCTag')->willReturn("123456789");
         $event = new MockEvent("event", "123", "20211223T113000Z", array("cat1", "cat2"));
-        $caldav_client->method('getETags')->willReturn(array(
-              $event->id() => $event->etag(),
-              ));
-        $caldav_client->method('updateEvents')->willReturn(array(
-           array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag())
-        ));
+        $caldav_client = $this->buildCalDAVClient(array($event));
 
         $sut = AgendaTest::buildSUT($caldav_client);
 
@@ -145,15 +121,8 @@ final class AgendaTest extends TestCase {
 
     public function test_checkAgendaWithAttendees() {
         // Setup
-        $caldav_client = $this->createMock(ICalDAVClient::class);
-        $caldav_client->method('getCTag')->willReturn("123456789");
         $event = new MockEvent("event", "123", "20211223T113000Z", array(), array("me@gmail.com", "unknown@abc.xyz"));
-        $caldav_client->method('getETags')->willReturn(array(
-              $event->id() => $event->etag(),
-              ));
-        $caldav_client->method('updateEvents')->willReturn(array(
-           array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag())
-        ));
+        $caldav_client = $this->buildCalDAVClient(array($event));
 
         $sut = AgendaTest::buildSUT($caldav_client);
 
@@ -174,24 +143,11 @@ final class AgendaTest extends TestCase {
 
     public function test_knowOnWhichEventIRegistered() {
         // Setup
-        $caldav_client = $this->createMock(ICalDAVClient::class);
-        $caldav_client->method('getCTag')->willReturn("123456789");
         $myEvent = new MockEvent("myEvent", "123", "20211223T113000Z", array(), array("me@gmail.com", "unknown@abc.xyz"));
         $yourEvent = new MockEvent("yourEvent", "124", "20211223T113000Z", array(), array("you@gmail.com"));
         $nobodysEvent = new MockEvent("nobodysEvent", "125", "20211223T113000Z", array(), array());
         $ourEvent = new MockEvent("ourEvent", "126", "20211223T113000Z", array(), array("me@gmail.com", "you@gmail.com", "unknown@abc.xyz"));
-        $caldav_client->method('getETags')->willReturn(array(
-              $myEvent->id() => $myEvent->etag(),
-              $yourEvent->id() => $yourEvent->etag(),
-              $nobodysEvent->id() => $nobodysEvent->etag(),
-              $ourEvent->id() => $ourEvent->etag()
-              ));
-        $caldav_client->method('updateEvents')->willReturn(array(
-           array("vCalendarFilename" => $myEvent->id(), "vCalendarRaw" => $myEvent->raw(), "ETag" => $myEvent->etag()),
-           array("vCalendarFilename" => $yourEvent->id(), "vCalendarRaw" => $yourEvent->raw(), "ETag" => $yourEvent->etag()),
-           array("vCalendarFilename" => $ourEvent->id(), "vCalendarRaw" => $ourEvent->raw(), "ETag" => $ourEvent->etag()),
-           array("vCalendarFilename" => $nobodysEvent->id(), "vCalendarRaw" => $nobodysEvent->raw(), "ETag" => $nobodysEvent->etag()),
-        ));
+        $caldav_client = $this->buildCalDAVClient(array($myEvent, $yourEvent, $nobodysEvent, $ourEvent));
 
         $sut = AgendaTest::buildSUT($caldav_client);
 
@@ -209,6 +165,23 @@ final class AgendaTest extends TestCase {
         $this->assertFalse($events[$nobodysEvent->id()]["is_registered"]);
         $this->assertArrayHasKey($ourEvent->id(), $events);
         $this->assertTrue($events[$ourEvent->id()]["is_registered"]);
+    }
+
+    private function buildCalDAVClient(array $events){
+        $caldav_client = $this->createMock(ICalDAVClient::class);
+
+        $eventsIdToEtag = array();
+        $parsedEvents = array();
+        foreach($events as $event) {
+            $eventsIdToEtag []= array($event->id(), $event->etag());
+            $parsedEvents []= array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag());
+        }
+
+        $caldav_client->method('getETags')->willReturn($eventsIdToEtag);
+        $caldav_client->method('updateEvents')->willReturn($parsedEvents);
+        $caldav_client->method('getCTag')->willReturn("123456789");
+
+        return $caldav_client;
     }
 }
 
