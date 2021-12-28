@@ -6,6 +6,7 @@ require_once "../CalDAVClient.php";
 require_once "../slackAPI.php";
 
 use PHPUnit\Framework\TestCase;
+use function PHPUnit\Framework\assertEquals;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 
@@ -65,13 +66,7 @@ final class AgendaTest extends TestCase {
         // Assert
         $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
         $this->assertEquals(1, count($events));
-        $this->assertArrayHasKey($event->id(), $events);
-        $this->assertEquals(NULL, $events[$event->id()]["number_volunteers_required"]);
-        $this->assertEquals($event->raw(), $events[$event->id()]["vCalendarRaw"]);
-        $this->assertEquals(0, $events[$event->id()]["unknown_attendees"]);
-        $this->assertEquals(0, count($events[$event->id()]["attendees"]));
-        $this->assertFalse($events[$event->id()]["is_registered"]);
-        $this->assertEquals(0, count($events[$event->id()]["categories"]));
+        (new ExpectedParsedEvent($event))->assertEquals($events[$event->id()]);
     }
 
     public function test_checkAgenda_with_an_event_in_the_past_and_one_in_the_future() {
@@ -88,13 +83,7 @@ final class AgendaTest extends TestCase {
         // Assert
         $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
         $this->assertEquals(1, count($events));
-        $this->assertArrayHasKey($upcomingEvent->id(), $events);
-        $this->assertEquals(NULL, $events[$upcomingEvent->id()]["number_volunteers_required"]);
-        $this->assertEquals($upcomingEvent->raw(), $events[$upcomingEvent->id()]["vCalendarRaw"]);
-        $this->assertEquals(0, $events[$upcomingEvent->id()]["unknown_attendees"]);
-        $this->assertEquals(0, count($events[$upcomingEvent->id()]["attendees"]));
-        $this->assertFalse($events[$upcomingEvent->id()]["is_registered"]);
-        $this->assertEquals(0, count($events[$upcomingEvent->id()]["categories"]));
+        (new ExpectedParsedEvent($upcomingEvent))->assertEquals($events[$upcomingEvent->id()]);
     }
 
     public function test_checkAgenda_with_categories() {
@@ -109,14 +98,7 @@ final class AgendaTest extends TestCase {
 
         // Assert
         $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
-        $this->assertEquals(1, count($events));
-        $this->assertArrayHasKey($event->id(), $events);
-        $this->assertEquals(NULL, $events[$event->id()]["number_volunteers_required"]);
-        $this->assertEquals($event->raw(), $events[$event->id()]["vCalendarRaw"]);
-        $this->assertEquals(0, $events[$event->id()]["unknown_attendees"]);
-        $this->assertEquals(0, count($events[$event->id()]["attendees"]));
-        $this->assertFalse($events[$event->id()]["is_registered"]);
-        $this->assertEqualsCanonicalizing($event->categories, $events[$event->id()]["categories"]);
+        (new ExpectedParsedEvent($event))->assertEquals($events[$event->id()]);
     }
 
     public function test_checkAgendaWithAttendees() {
@@ -131,14 +113,10 @@ final class AgendaTest extends TestCase {
 
         // Assert
         $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
-        $this->assertEquals(1, count($events));
-        $this->assertArrayHasKey($event->id(), $events);
-        $this->assertEquals(NULL, $events[$event->id()]["number_volunteers_required"]);
-        $this->assertEquals($event->raw(), $events[$event->id()]["vCalendarRaw"]);
-        $this->assertEquals(1, $events[$event->id()]["unknown_attendees"]);
-        $this->assertEquals(array("MYID"), $events[$event->id()]["attendees"]);
-        $this->assertFalse($events[$event->id()]["is_registered"]);
-        $this->assertEquals(0, count($events[$event->id()]["categories"]));
+        (new ExpectedParsedEvent($event))
+            ->attendees(array('MYID'))
+            ->unknownAttendees(1)
+            ->assertEquals($events[$event->id()]);
     }
 
     public function test_knowOnWhichEventIRegistered() {
@@ -157,14 +135,16 @@ final class AgendaTest extends TestCase {
         // Assert
         $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "MYID");
         $this->assertEquals(4, count($events));
-        $this->assertArrayHasKey($myEvent->id(), $events);
-        $this->assertTrue($events[$myEvent->id()]["is_registered"]);
-        $this->assertArrayHasKey($yourEvent->id(), $events);
-        $this->assertFalse($events[$yourEvent->id()]["is_registered"]);
-        $this->assertArrayHasKey($nobodysEvent->id(), $events);
-        $this->assertFalse($events[$nobodysEvent->id()]["is_registered"]);
-        $this->assertArrayHasKey($ourEvent->id(), $events);
-        $this->assertTrue($events[$ourEvent->id()]["is_registered"]);
+
+        $myParsedEvent = (new ExpectedParsedEvent($myEvent))->isRegistered(true)->attendees(array('MYID'))->unknownAttendees(1);
+        $yourParsedEvent = (new ExpectedParsedEvent($yourEvent))->attendees(array('YOURID'));
+        $nobodysParsedEvent = (new ExpectedParsedEvent($nobodysEvent));
+        $ourParsedEvent = (new ExpectedParsedEvent($ourEvent))->isRegistered(true)->attendees(array('MYID', 'YOURID'))->unknownAttendees(1);
+
+        $myParsedEvent->assertEquals($events[$myEvent->id()]);
+        $yourParsedEvent->assertEquals($events[$yourEvent->id()]);
+        $nobodysParsedEvent->assertEquals($events[$nobodysEvent->id()]);
+        $ourParsedEvent->assertEquals($events[$ourEvent->id()]);
     }
 
     private function buildCalDAVClient(array $events){
@@ -231,6 +211,52 @@ class MockEvent {
           . "END:VCALENDAR\r\n";
         return $raw;
 
+    }
+}
+
+class ExpectedParsedEvent {
+    private string $raw;
+    private ?int $number_volunteers_required;
+    private int $unknown_attendees;
+    private array $attendees;
+    private bool $is_registered;
+    private array $categories;
+
+    function __construct(MockEvent $mockEvent){
+        $this->raw = $mockEvent->raw();
+        $this->categories = $mockEvent->categories;
+
+        // sensible default
+        $this->number_volunteers_required = null;
+        $this->unknown_attendees = 0;
+        $this->attendees = array();
+        $this->is_registered = false;
+    }
+
+    function nbVolunteersRequired(?int $number_volunteers_required): ExpectedParsedEvent {
+        $this->number_volunteers_required = $number_volunteers_required;
+        return $this;
+    }
+    function unknownAttendees(int $unknown_attendees): ExpectedParsedEvent {
+        $this->unknown_attendees = $unknown_attendees;
+        return $this;
+    }
+    function attendees(array $attendees): ExpectedParsedEvent {
+        $this->attendees = $attendees;
+        return $this;
+    }
+    function isRegistered(bool $is_registered): ExpectedParsedEvent {
+        $this->is_registered = $is_registered;
+        return $this;
+    }
+
+    function assertEquals(array $actualParsedEvent) {
+        assertEquals($this->number_volunteers_required, $actualParsedEvent["number_volunteers_required"]);
+        assertEquals($this->raw, $actualParsedEvent["vCalendarRaw"]);
+        assertEquals($this->unknown_attendees, $actualParsedEvent["unknown_attendees"]);
+        assertEquals($this->attendees, $actualParsedEvent["attendees"]);
+        assertEquals($this->is_registered, $actualParsedEvent["is_registered"]);
+        assertEquals($this->categories, $actualParsedEvent["categories"]);
     }
 }
 
