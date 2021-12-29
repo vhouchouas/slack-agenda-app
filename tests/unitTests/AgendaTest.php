@@ -223,6 +223,37 @@ final class AgendaTest extends TestCase {
             ->assertEquals($events[$eventWithEnoughPeopleRegistered->id()]);
     }
 
+    public function test_filterOnCategories() {
+        // Setup
+        $eventABC = new MockEvent(array("A", "B", "C"));
+        $eventACD = new MockEvent(array("A", "C", "D"));
+        $eventABD = new MockEvent(array("A", "B", "D"));
+        $eventBCD = new MockEvent(array("B", "C", "D"));
+        $caldav_client = $this->buildCalDAVClient(array($eventABC, $eventACD, $eventABD, $eventBCD));
+
+        $sut = AgendaTest::buildSUT($caldav_client);
+        $sut->checkAgenda();
+
+        // Act & Assert 1: filter on a single category
+        $events1 = $sut->getUserEventsFiltered($this->now, "MYID", array("A"));
+
+        $this->assertEquals(3, count($events1));
+        $expectedEventABC = (new ExpectedParsedEvent($eventABC))->categories(array("A", "B", "C"));
+        $expectedEventACD = (new ExpectedParsedEvent($eventACD))->categories(array("A", "C", "D"));
+        $expectedEventABD = (new ExpectedParsedEvent($eventABD))->categories(array("A", "B", "D"));
+
+        $expectedEventABC->assertEquals($events1[$eventABC->id()]);
+        $expectedEventACD->assertEquals($events1[$eventACD->id()]);
+        $expectedEventABD->assertEquals($events1[$eventABD->id()]);
+
+        // Act & Assert 2: filter on several categories
+        $events2 = $sut->getUserEventsFiltered($this->now, "MYID", array("A", "B"));
+
+        $this->assertEquals(2, count($events2));
+        $expectedEventABC->assertEquals($events2[$eventABC->id()]);
+        $expectedEventABD->assertEquals($events2[$eventABD->id()]);
+    }
+
     private function buildCalDAVClient(array $events){
         $caldav_client = $this->createMock(ICalDAVClient::class);
 
