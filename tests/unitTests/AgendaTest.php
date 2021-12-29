@@ -191,6 +191,31 @@ final class AgendaTest extends TestCase {
         $ourParsedEvent->assertEquals($events[$ourEvent->id()]);
     }
 
+    public function test_getOnlyEventsThatNeedVolunteers() {
+        // Setup
+        $eventWithPersonsNeeded = new MockEvent("myEvent1", "20211223T113000Z", array("3P"), array("you@gmail.com"));
+        $eventWithNoOneNeeded = new MockEvent("myEvent2", "20211223T113000Z");
+        $eventWithEnoughPeopleRegistered = new MockEvent("myEvent3", "20211223T113000Z", array("1P"), array("you@gmail.com"));
+        $caldav_client = $this->buildCalDAVClient(array($eventWithPersonsNeeded, $eventWithNoOneNeeded, $eventWithEnoughPeopleRegistered));
+
+        $sut = AgendaTest::buildSUT($caldav_client);
+
+        // Act
+        $sut->checkAgenda();
+        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "MYID", array("need_volunteers"));
+
+        // Assert
+        $this->assertEquals(2, count($events));
+        (new ExpectedParsedEvent($eventWithPersonsNeeded))
+            ->attendees(array('YOURID'))
+            ->nbVolunteersRequired(3)
+            ->assertEquals($events[$eventWithPersonsNeeded->id()]);
+        (new ExpectedParsedEvent($eventWithEnoughPeopleRegistered))
+            ->attendees(array('YOURID'))
+            ->nbVolunteersRequired(1)
+            ->assertEquals($events[$eventWithEnoughPeopleRegistered->id()]);
+    }
+
     private function buildCalDAVClient(array $events){
         $caldav_client = $this->createMock(ICalDAVClient::class);
 
