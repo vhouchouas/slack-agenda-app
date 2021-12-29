@@ -14,6 +14,11 @@ final class AgendaTest extends TestCase {
     private const SQLITE_FILE = "sqlite_db_for_tests.sqlite";
     private ISlackAPI $slackApiMock;
 
+    const NOW_STR = '20211201';
+    private DateTimeImmutable $now; // We initialize it in a setUp afterward because we can't set dynamic values inline
+    const DATE_IN_THE_FUTURE = "20211223T113000Z";
+    const DATE_IN_THE_PAST = "20191223T113000Z";
+
     public static function setUpBeforeClass() : void {
         // log level of the code being tested
         $GLOBALS['LOG_HANDLERS'] = array(new StreamHandler('php://stdout', Logger::DEBUG));
@@ -25,6 +30,8 @@ final class AgendaTest extends TestCase {
         self::deleteDatabase();
     }
     public function setUp(): void {
+        $this->now = new DateTimeImmutable(self::NOW_STR);
+
         // Always use the same mapping for simplicity
         $mapEmailToSlackId = [
           ['me@gmail.com', mockSlackUser('MYID')],
@@ -56,7 +63,7 @@ final class AgendaTest extends TestCase {
      */
     public function test_basicCheckAgenda() {
         // Setup
-        $event = new MockEvent("event", "20211223T113000Z");
+        $event = new MockEvent();
         $caldav_client = $this->buildCalDAVClient(array($event));
         $sut = AgendaTest::buildSUT($caldav_client);
 
@@ -64,15 +71,15 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
+        $events = $sut->getUserEventsFiltered($this->now, "someone");
         $this->assertEquals(1, count($events));
         (new ExpectedParsedEvent($event))->assertEquals($events[$event->id()]);
     }
 
     public function test_checkAgenda_with_an_event_in_the_past_and_one_in_the_future() {
         // Setup
-        $upcomingEvent = new MockEvent("upcomingEvent", "20211223T113000Z");
-        $pastEvent = new MockEvent("pastEvent", "20191223T113000Z");
+        $upcomingEvent = new MockEvent();
+        $pastEvent = (new MockEvent())->overrideDtstart(self::DATE_IN_THE_PAST);
         $caldav_client = $this->buildCalDAVClient(array($upcomingEvent, $pastEvent));
 
         $sut = AgendaTest::buildSUT($caldav_client);
@@ -81,14 +88,14 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
+        $events = $sut->getUserEventsFiltered($this->now, "someone");
         $this->assertEquals(1, count($events));
         (new ExpectedParsedEvent($upcomingEvent))->assertEquals($events[$upcomingEvent->id()]);
     }
 
     public function test_checkAgenda_with_categories() {
         // Setup
-        $event = new MockEvent("event", "20211223T113000Z", array("cat1", "cat2"));
+        $event = new MockEvent(array("cat1", "cat2"));
         $caldav_client = $this->buildCalDAVClient(array($event));
 
         $sut = AgendaTest::buildSUT($caldav_client);
@@ -97,15 +104,15 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
+        $events = $sut->getUserEventsFiltered($this->now, "someone");
         (new ExpectedParsedEvent($event))->categories(array("cat1", "cat2"))
             ->assertEquals($events[$event->id()]);
     }
 
     public function test_checkAgenda_with_number_of_volunteer_required() {
         // Setup
-        $eventWithNoRegistration = new MockEvent("event1", "20211223T113000Z", array("4P"));
-        $eventWithARegistration = new MockEvent("event2", "20211223T113000Z", array("4P"), array("you@gmail.com"));
+        $eventWithNoRegistration = new MockEvent(array("4P"));
+        $eventWithARegistration = new MockEvent(array("4P"), array("you@gmail.com"));
         $caldav_client = $this->buildCalDAVClient(array($eventWithNoRegistration, $eventWithARegistration));
 
         $sut = AgendaTest::buildSUT($caldav_client);
@@ -114,7 +121,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
+        $events = $sut->getUserEventsFiltered($this->now, "someone");
         (new ExpectedParsedEvent($eventWithNoRegistration))->nbVolunteersRequired(4)
             ->assertEquals($events[$eventWithNoRegistration->id()]);
         (new ExpectedParsedEvent($eventWithARegistration))->nbVolunteersRequired(4)->attendees(array('YOURID'))
@@ -123,7 +130,7 @@ final class AgendaTest extends TestCase {
 
     public function test_checkAgendaWithAttendees() {
         // Setup
-        $event = new MockEvent("event", "20211223T113000Z", array(), array("me@gmail.com", "unknown@abc.xyz"));
+        $event = new MockEvent(array(), array("me@gmail.com", "unknown@abc.xyz"));
         $caldav_client = $this->buildCalDAVClient(array($event));
 
         $sut = AgendaTest::buildSUT($caldav_client);
@@ -132,7 +139,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
+        $events = $sut->getUserEventsFiltered($this->now, "someone");
         (new ExpectedParsedEvent($event))
             ->attendees(array('MYID'))
             ->unknownAttendees(1)
@@ -141,10 +148,10 @@ final class AgendaTest extends TestCase {
 
     public function test_knowOnWhichEventIRegistered() {
         // Setup
-        $myEvent = new MockEvent("myEvent", "20211223T113000Z", array(), array("me@gmail.com", "unknown@abc.xyz"));
-        $yourEvent = new MockEvent("yourEvent", "20211223T113000Z", array(), array("you@gmail.com"));
-        $nobodysEvent = new MockEvent("nobodysEvent", "20211223T113000Z", array(), array());
-        $ourEvent = new MockEvent("ourEvent", "20211223T113000Z", array(), array("me@gmail.com", "you@gmail.com", "unknown@abc.xyz"));
+        $myEvent = new MockEvent(array(), array("me@gmail.com", "unknown@abc.xyz"));
+        $yourEvent = new MockEvent(array(), array("you@gmail.com"));
+        $nobodysEvent = new MockEvent(array(), array());
+        $ourEvent = new MockEvent(array(), array("me@gmail.com", "you@gmail.com", "unknown@abc.xyz"));
         $caldav_client = $this->buildCalDAVClient(array($myEvent, $yourEvent, $nobodysEvent, $ourEvent));
 
         $sut = AgendaTest::buildSUT($caldav_client);
@@ -153,7 +160,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "MYID");
+        $events = $sut->getUserEventsFiltered($this->now, "MYID");
         $this->assertEquals(4, count($events));
 
         $myParsedEvent = (new ExpectedParsedEvent($myEvent))->isRegistered(true)->attendees(array('MYID'))->unknownAttendees(1);
@@ -169,17 +176,17 @@ final class AgendaTest extends TestCase {
 
     public function test_getOnlyMyEvents() {
         // Setup
-        $myEvent = new MockEvent("myEvent", "20211223T113000Z", array(), array("me@gmail.com", "unknown@abc.xyz"));
-        $yourEvent = new MockEvent("yourEvent", "20211223T113000Z", array(), array("you@gmail.com"));
-        $nobodysEvent = new MockEvent("nobodysEvent", "20211223T113000Z", array(), array());
-        $ourEvent = new MockEvent("ourEvent", "20211223T113000Z", array(), array("me@gmail.com", "you@gmail.com", "unknown@abc.xyz"));
+        $myEvent = new MockEvent(array(), array("me@gmail.com", "unknown@abc.xyz"));
+        $yourEvent = new MockEvent(array(), array("you@gmail.com"));
+        $nobodysEvent = new MockEvent(array(), array());
+        $ourEvent = new MockEvent(array(), array("me@gmail.com", "you@gmail.com", "unknown@abc.xyz"));
         $caldav_client = $this->buildCalDAVClient(array($myEvent, $yourEvent, $nobodysEvent, $ourEvent));
 
         $sut = AgendaTest::buildSUT($caldav_client);
 
         // Act
         $sut->checkAgenda();
-        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "MYID", array(Agenda::MY_EVENTS_FILTER));
+        $events = $sut->getUserEventsFiltered($this->now, "MYID", array(Agenda::MY_EVENTS_FILTER));
 
         // Assert
         $this->assertEquals(2, count($events));
@@ -193,16 +200,16 @@ final class AgendaTest extends TestCase {
 
     public function test_getOnlyEventsThatNeedVolunteers() {
         // Setup
-        $eventWithPersonsNeeded = new MockEvent("myEvent1", "20211223T113000Z", array("3P"), array("you@gmail.com"));
-        $eventWithNoOneNeeded = new MockEvent("myEvent2", "20211223T113000Z");
-        $eventWithEnoughPeopleRegistered = new MockEvent("myEvent3", "20211223T113000Z", array("1P"), array("you@gmail.com"));
+        $eventWithPersonsNeeded = new MockEvent(array("3P"), array("you@gmail.com"));
+        $eventWithNoOneNeeded = new MockEvent();
+        $eventWithEnoughPeopleRegistered = new MockEvent(array("1P"), array("you@gmail.com"));
         $caldav_client = $this->buildCalDAVClient(array($eventWithPersonsNeeded, $eventWithNoOneNeeded, $eventWithEnoughPeopleRegistered));
 
         $sut = AgendaTest::buildSUT($caldav_client);
 
         // Act
         $sut->checkAgenda();
-        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "MYID", array(Agenda::NEED_VOLUNTEERS_FILTER));
+        $events = $sut->getUserEventsFiltered($this->now, "MYID", array(Agenda::NEED_VOLUNTEERS_FILTER));
 
         // Assert
         $this->assertEquals(2, count($events));
@@ -240,14 +247,24 @@ class MockEvent {
     // counter that we increment
     private static $lastEventEtag = 0;
 
-    public function __construct(string $name, string $dtstart, array $categories = array(), array $attendeesEmail = array()){
-        $this->name = $name;
-        $this->dtstart = $dtstart;
+    public function __construct(array $categories = array(), array $attendeesEmail = array()){
+        $this->name = self::generateUniqName();
+        $this->dtstart = AgendaTest::DATE_IN_THE_FUTURE;
         $this->categories = $categories;
         $this->attendeesEmail = $attendeesEmail;
 
         self::$lastEventEtag = self::$lastEventEtag + 1;
         $this->etag = "" . self::$lastEventEtag;
+    }
+
+    public function overrideDtstart(string $dtstart) : MockEvent {
+        $this->dtstart = $dtstart;
+        return $this;
+    }
+
+    private static function generateUniqName() {
+        // We know that $this->lastEventTag is unique so we rely on it to generate a unique name
+        return "eventName" . self::$lastEventEtag;
     }
 
     public function id(){
