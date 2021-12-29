@@ -159,7 +159,7 @@ final class AgendaTest extends TestCase {
 
         // Act
         $sut->checkAgenda();
-        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "MYID", array("my_events"));
+        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "MYID", array(Agenda::MY_EVENTS_FILTER));
 
         // Assert
         $this->assertEquals(2, count($events));

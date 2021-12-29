@@ -49,7 +49,7 @@ class SlackEvents {
                     "type" => "plain_text",
                     "text" => "Mes évènements"
                 ],
-                "value" => "my_events"
+                "value" => Agenda::MY_EVENTS_FILTER
             ],
             [
                 "text" => [

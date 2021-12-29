@@ -11,6 +11,8 @@ class NotImplementedException extends BadMethodCallException {}
 require __DIR__ . '/vendor/autoload.php';
 
 abstract class Agenda {
+    public const MY_EVENTS_FILTER = "my_events";
+
     protected $caldav_client;
     protected $api;
     protected $pdo;
@@ -98,7 +100,7 @@ abstract class Agenda {
         $sql .= 'Date(datetime_begin) > :datetime_begin ';
         
         $intersect = array();
-        if(($key = array_search("my_events", $filters_to_apply)) !== false) {
+        if(($key = array_search(Agenda::MY_EVENTS_FILTER, $filters_to_apply)) !== false) {
             $intersect[] = "SELECT vCalendarFilename FROM {$this->table_prefix}events_attendees
 INNER JOIN {$this->table_prefix}attendees
 WHERE {$this->table_prefix}attendees.email = {$this->table_prefix}events_attendees.email and {$this->table_prefix}attendees.userid = '$userid'";
