@@ -12,6 +12,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 abstract class Agenda {
     public const MY_EVENTS_FILTER = "my_events";
+    public const NEED_VOLUNTEERS_FILTER = "need_volunteers";
 
     protected $caldav_client;
     protected $api;
@@ -107,7 +108,7 @@ WHERE {$this->table_prefix}attendees.email = {$this->table_prefix}events_attende
             unset($filters_to_apply[$key]);
         }
         
-        if(($key = array_search("need_volunteers", $filters_to_apply)) !== false) {
+        if(($key = array_search(Agenda::NEED_VOLUNTEERS_FILTER, $filters_to_apply)) !== false) {
             $sql .= "AND number_volunteers_required is not NULL ";
             unset($filters_to_apply[$key]);
         }

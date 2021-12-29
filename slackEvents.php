@@ -56,7 +56,7 @@ class SlackEvents {
                     "type" => "plain_text",
                     "text" => "Besoin de bénévoles"
                 ],
-                "value" => "need_volunteers"
+                "value" => Agenda::NEED_VOLUNTEERS_FILTER
             ]
         ];
                 
