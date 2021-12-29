@@ -4,3 +4,6 @@ vendor
 *~
 .*.sw*
 composer.phar
+coverage
+.phpunit.result.cache
+*.bak

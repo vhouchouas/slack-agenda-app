@@ -11,5 +11,5 @@ SCRIPT_DIR="$(dirname "$THIS_FILE")"
 
 # Run tests
 pushd "$SCRIPT_DIR"
-../vendor/bin/phpunit  ./unitTests/
+../vendor/bin/phpunit --coverage-html coverage  ./unitTests/
 popd
