@@ -254,6 +254,25 @@ final class AgendaTest extends TestCase {
         $expectedEventABD->assertEquals($events2[$eventABD->id()]);
     }
 
+    public function test_getEvents(){
+        // Setup
+        $event1 = new MockEvent();
+        $event2 = new MockEvent();
+
+        $caldav_client = $this->buildCalDAVClient(array($event1, $event2));
+        $sut = AgendaTest::buildSUT($caldav_client);
+        $sut->checkAgenda();
+
+        // Act
+        $events = $sut->getEvents($this->now);
+
+        // Assert
+        $this->assertEquals(2, count($events));
+        $this->assertArrayHasKey($event1->id(), $events);
+        $this->assertArrayHasKey($event2->id(), $events);
+    }
+
+
     private function buildCalDAVClient(array $events){
         $caldav_client = $this->createMock(ICalDAVClient::class);
 
@@ -290,6 +309,11 @@ class MockEvent {
 
     public function overrideDtstart(string $dtstart) : MockEvent {
         $this->dtstart = $dtstart;
+        return $this;
+    }
+
+    public function overrideName(string $name){
+        $this->name = $name;
         return $this;
     }
 

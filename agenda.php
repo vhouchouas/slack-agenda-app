@@ -166,11 +166,11 @@ WHERE {$this->table_prefix}events_categories.category_id = {$this->table_prefix}
         $result["categories"] = array_keys($categories);
     }
 
-    public function getEvents() {
+    public function getEvents(DateTimeImmutable $now): array {
         $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `vCalendarRaw` 
                                       FROM {$this->table_prefix}events WHERE Date(datetime_begin) > :datetime_begin 
                                       ORDER BY datetime_begin;");
-        $query->execute(array('datetime_begin' => (new DateTime('NOW'))->format('Y-m-d H:i:s')));
+        $query->execute(array('datetime_begin' => $now->format('Y-m-d H:i:s')));
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         $events = array();
         foreach($results as $vCalendarFilename => $result) {

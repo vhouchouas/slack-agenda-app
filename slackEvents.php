@@ -385,7 +385,7 @@ class SlackEvents {
 
     public function event_selection($channel_id, $trigger_id) {
         $options = [];
-        foreach($this->agenda->getEvents() as $vCalendarFilename => $vCalendar) {
+        foreach($this->agenda->getEvents(new DateTimeImmutable('NOW')) as $vCalendarFilename => $vCalendar) {
             $options[] = [
                 "text"=> [
                     "type"  => "plain_text",
