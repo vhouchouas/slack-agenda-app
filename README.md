@@ -98,6 +98,7 @@ Technical notes for admin
 
 * Unless you are a really big organization the slack [rate limits](https://api.slack.com/changelog/2018-03-great-rate-limits) should be really more than enough
 * The content of the CalDav server is cached on the web hosting (currently on the filesystem) so the number of requests to this backend should be limited
+* To create an event that requires X participants you should the category "PX". For instance for an event that requires 2 participants, set the category "P2" on the caldav server.
 * TODO: how to get the logs
 
 Technical notes for  for developers

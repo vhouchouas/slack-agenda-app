@@ -98,7 +98,27 @@ final class AgendaTest extends TestCase {
 
         // Assert
         $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
-        (new ExpectedParsedEvent($event))->assertEquals($events[$event->id()]);
+        (new ExpectedParsedEvent($event))->categories(array("cat1", "cat2"))
+            ->assertEquals($events[$event->id()]);
+    }
+
+    public function test_checkAgenda_with_number_of_volunteer_required() {
+        // Setup
+        $eventWithNoRegistration = new MockEvent("event1", "20211223T113000Z", array("4P"));
+        $eventWithARegistration = new MockEvent("event2", "20211223T113000Z", array("4P"), array("you@gmail.com"));
+        $caldav_client = $this->buildCalDAVClient(array($eventWithNoRegistration, $eventWithARegistration));
+
+        $sut = AgendaTest::buildSUT($caldav_client);
+
+        // Act
+        $sut->checkAgenda();
+
+        // Assert
+        $events = $sut->getUserEventsFiltered(new DateTimeImmutable('20211201'), "someone");
+        (new ExpectedParsedEvent($eventWithNoRegistration))->nbVolunteersRequired(4)
+            ->assertEquals($events[$eventWithNoRegistration->id()]);
+        (new ExpectedParsedEvent($eventWithARegistration))->nbVolunteersRequired(4)->attendees(array('YOURID'))
+            ->assertEquals($events[$eventWithARegistration->id()]);
     }
 
     public function test_checkAgendaWithAttendees() {
@@ -248,13 +268,16 @@ class ExpectedParsedEvent {
 
     function __construct(MockEvent $mockEvent){
         $this->raw = $mockEvent->raw();
-        $this->categories = $mockEvent->categories;
 
         // sensible default
         $this->number_volunteers_required = null;
         $this->unknown_attendees = 0;
         $this->attendees = array();
         $this->is_registered = false;
+        // // Don't rely on $mockEvent->categories because in some cases (number of volunteer needed) a category set on a caldav event
+        // // isn't considered as a category on which we can filter.
+        // // Also it makes explicit what a given test is looking for
+        $this->categories = array();
     }
 
     function nbVolunteersRequired(?int $number_volunteers_required): ExpectedParsedEvent {
@@ -271,6 +294,10 @@ class ExpectedParsedEvent {
     }
     function isRegistered(bool $is_registered): ExpectedParsedEvent {
         $this->is_registered = $is_registered;
+        return $this;
+    }
+    function categories(array $categories): ExpectedParsedEvent {
+        $this->categories = $categories;
         return $this;
     }
 
