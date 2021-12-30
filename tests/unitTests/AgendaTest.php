@@ -276,12 +276,8 @@ final class AgendaTest extends TestCase {
     private function buildCalDAVClient(array $events){
         $caldav_client = $this->createMock(ICalDAVClient::class);
 
-        $eventsIdToEtag = array();
-        $parsedEvents = array();
-        foreach($events as $event) {
-            $eventsIdToEtag []= array($event->id(), $event->etag());
-            $parsedEvents []= array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag());
-        }
+        $eventsIdToEtag = array_map(fn($event) => array($event->id(), $event->etag()), $events);
+        $parsedEvents = array_map(fn($event) => array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag()), $events);
 
         $caldav_client->method('getETags')->willReturn($eventsIdToEtag);
         $caldav_client->method('updateEvents')->willReturn($parsedEvents);
