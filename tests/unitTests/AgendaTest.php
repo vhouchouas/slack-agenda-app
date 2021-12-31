@@ -334,6 +334,23 @@ final class AgendaTest extends TestCase {
               , $sut->getUserEventsFiltered($this->now, "someone"));
     }
 
+    public function test_changeAttendees() {
+        // Setup
+        $event = new MockEvent(array(), array("me@gmail.com"));
+        $caldav_client = $this->buildCalDAVClient(array($event));
+        $sut = AgendaTest::buildSUT($caldav_client);
+
+        // Act & Assert
+        $sut->checkAgenda();
+
+        $event->overrideAttendeesEmail(array("you@gmail.com", "unknown@abc.xyz"));
+        $caldav_client->setNewEvents(array($event));
+
+        $this->assertTrue($sut->checkAgenda());
+        $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->unknownAttendees(1)->attendees(array("YOURID")))
+            , $sut->getUserEventsFiltered($this->now, "someone"));
+    }
+
     private function buildCalDAVClient(array $events){
         return new MockCalDAVClient($events);
     }
@@ -375,6 +392,12 @@ class MockEvent {
 
     public function overrideCategories(array $categories) : MockEvent {
         $this->categories = $categories;
+        $this->updateEtag();
+        return $this;
+    }
+
+    public function overrideAttendeesEmail(array $attendeesEmail) : MockEvent {
+        $this->attendeesEmail = $attendeesEmail;
         $this->updateEtag();
         return $this;
     }
