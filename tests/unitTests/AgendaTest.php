@@ -72,8 +72,7 @@ final class AgendaTest extends TestCase {
 
         // Assert
         $events = $sut->getUserEventsFiltered($this->now, "someone");
-        $this->assertEquals(1, count($events));
-        (new ExpectedParsedEvent($event))->assertEquals($events[$event->id()]);
+        $this->assertEqualEvents(array(new ExpectedParsedEvent($event)), $events);
     }
 
     public function test_checkAgenda_with_an_event_in_the_past_and_one_in_the_future() {
@@ -89,8 +88,7 @@ final class AgendaTest extends TestCase {
 
         // Assert
         $events = $sut->getUserEventsFiltered($this->now, "someone");
-        $this->assertEquals(1, count($events));
-        (new ExpectedParsedEvent($upcomingEvent))->assertEquals($events[$upcomingEvent->id()]);
+        $this->assertEqualEvents(array(new ExpectedParsedEvent($upcomingEvent)), $events);
     }
 
     public function test_checkAgenda_with_categories() {
@@ -105,8 +103,7 @@ final class AgendaTest extends TestCase {
 
         // Assert
         $events = $sut->getUserEventsFiltered($this->now, "someone");
-        (new ExpectedParsedEvent($event))->categories(array("cat1", "cat2"))
-            ->assertEquals($events[$event->id()]);
+        $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->categories(array("cat1", "cat2"))), $events);
     }
 
     public function test_checkAgenda_with_number_of_volunteer_required() {
@@ -122,10 +119,10 @@ final class AgendaTest extends TestCase {
 
         // Assert
         $events = $sut->getUserEventsFiltered($this->now, "someone");
-        (new ExpectedParsedEvent($eventWithNoRegistration))->nbVolunteersRequired(4)
-            ->assertEquals($events[$eventWithNoRegistration->id()]);
-        (new ExpectedParsedEvent($eventWithARegistration))->nbVolunteersRequired(4)->attendees(array('YOURID'))
-            ->assertEquals($events[$eventWithARegistration->id()]);
+        $this->assertEqualEvents(array(
+            (new ExpectedParsedEvent($eventWithNoRegistration))->nbVolunteersRequired(4),
+            (new ExpectedParsedEvent($eventWithARegistration))->nbVolunteersRequired(4)->attendees(array('YOURID'))),
+            $events);
     }
 
     public function test_checkAgendaWithAttendees() {
@@ -140,10 +137,11 @@ final class AgendaTest extends TestCase {
 
         // Assert
         $events = $sut->getUserEventsFiltered($this->now, "someone");
-        (new ExpectedParsedEvent($event))
-            ->attendees(array('MYID'))
-            ->unknownAttendees(1)
-            ->assertEquals($events[$event->id()]);
+        $this->assertEqualEvents(array(
+            (new ExpectedParsedEvent($event))
+               ->attendees(array('MYID'))
+               ->unknownAttendees(1)
+            ), $events);
     }
 
     public function test_knowOnWhichEventIRegistered() {
@@ -161,17 +159,12 @@ final class AgendaTest extends TestCase {
 
         // Assert
         $events = $sut->getUserEventsFiltered($this->now, "MYID");
-        $this->assertEquals(4, count($events));
-
-        $myParsedEvent = (new ExpectedParsedEvent($myEvent))->isRegistered(true)->attendees(array('MYID'))->unknownAttendees(1);
-        $yourParsedEvent = (new ExpectedParsedEvent($yourEvent))->attendees(array('YOURID'));
-        $nobodysParsedEvent = (new ExpectedParsedEvent($nobodysEvent));
-        $ourParsedEvent = (new ExpectedParsedEvent($ourEvent))->isRegistered(true)->attendees(array('MYID', 'YOURID'))->unknownAttendees(1);
-
-        $myParsedEvent->assertEquals($events[$myEvent->id()]);
-        $yourParsedEvent->assertEquals($events[$yourEvent->id()]);
-        $nobodysParsedEvent->assertEquals($events[$nobodysEvent->id()]);
-        $ourParsedEvent->assertEquals($events[$ourEvent->id()]);
+        $this->assertEqualEvents(array(
+            (new ExpectedParsedEvent($myEvent))->isRegistered(true)->attendees(array('MYID'))->unknownAttendees(1),
+            (new ExpectedParsedEvent($yourEvent))->attendees(array('YOURID')),
+            (new ExpectedParsedEvent($nobodysEvent)),
+            (new ExpectedParsedEvent($ourEvent))->isRegistered(true)->attendees(array('MYID', 'YOURID'))->unknownAttendees(1)
+            ), $events);
     }
 
     public function test_getOnlyMyEvents() {
@@ -189,13 +182,10 @@ final class AgendaTest extends TestCase {
         $events = $sut->getUserEventsFiltered($this->now, "MYID", array(Agenda::MY_EVENTS_FILTER));
 
         // Assert
-        $this->assertEquals(2, count($events));
-
-        $myParsedEvent = (new ExpectedParsedEvent($myEvent))->isRegistered(true)->attendees(array('MYID'))->unknownAttendees(1);
-        $ourParsedEvent = (new ExpectedParsedEvent($ourEvent))->isRegistered(true)->attendees(array('MYID', 'YOURID'))->unknownAttendees(1);
-
-        $myParsedEvent->assertEquals($events[$myEvent->id()]);
-        $ourParsedEvent->assertEquals($events[$ourEvent->id()]);
+        $this->assertEqualEvents(array(
+                (new ExpectedParsedEvent($myEvent))->isRegistered(true)->attendees(array('MYID'))->unknownAttendees(1),
+                (new ExpectedParsedEvent($ourEvent))->isRegistered(true)->attendees(array('MYID', 'YOURID'))->unknownAttendees(1)
+            ), $events);
     }
 
     public function test_getOnlyEventsThatNeedVolunteers() {
@@ -212,15 +202,10 @@ final class AgendaTest extends TestCase {
         $events = $sut->getUserEventsFiltered($this->now, "MYID", array(Agenda::NEED_VOLUNTEERS_FILTER));
 
         // Assert
-        $this->assertEquals(2, count($events));
-        (new ExpectedParsedEvent($eventWithPersonsNeeded))
-            ->attendees(array('YOURID'))
-            ->nbVolunteersRequired(3)
-            ->assertEquals($events[$eventWithPersonsNeeded->id()]);
-        (new ExpectedParsedEvent($eventWithEnoughPeopleRegistered))
-            ->attendees(array('YOURID'))
-            ->nbVolunteersRequired(1)
-            ->assertEquals($events[$eventWithEnoughPeopleRegistered->id()]);
+        $this->assertEqualEvents(array(
+                (new ExpectedParsedEvent($eventWithPersonsNeeded))->attendees(array('YOURID'))->nbVolunteersRequired(3),
+                (new ExpectedParsedEvent($eventWithEnoughPeopleRegistered))->attendees(array('YOURID'))->nbVolunteersRequired(1)
+            ), $events);
     }
 
     public function test_filterOnCategories() {
@@ -242,16 +227,12 @@ final class AgendaTest extends TestCase {
         $expectedEventACD = (new ExpectedParsedEvent($eventACD))->categories(array("A", "C", "D"));
         $expectedEventABD = (new ExpectedParsedEvent($eventABD))->categories(array("A", "B", "D"));
 
-        $expectedEventABC->assertEquals($events1[$eventABC->id()]);
-        $expectedEventACD->assertEquals($events1[$eventACD->id()]);
-        $expectedEventABD->assertEquals($events1[$eventABD->id()]);
+        $this->assertEqualEvents(array($expectedEventABC, $expectedEventACD, $expectedEventABD), $events1);
 
         // Act & Assert 2: filter on several categories
         $events2 = $sut->getUserEventsFiltered($this->now, "MYID", array("A", "B"));
 
-        $this->assertEquals(2, count($events2));
-        $expectedEventABC->assertEquals($events2[$eventABC->id()]);
-        $expectedEventABD->assertEquals($events2[$eventABD->id()]);
+        $this->assertEqualEvents(array($expectedEventABC, $expectedEventABD), $events2);
     }
 
     public function test_getEvents(){
@@ -300,6 +281,13 @@ final class AgendaTest extends TestCase {
         $caldav_client->method('getCTag')->willReturn("123456789");
 
         return $caldav_client;
+    }
+
+    private function assertEqualEvents(array $expectedParsedEvents, array $actualEvents) {
+        $this->assertEquals(count($expectedParsedEvents), count($actualEvents));
+        foreach($expectedParsedEvents as $expectedParsedEvent) {
+            $expectedParsedEvent->assertEquals($actualEvents[$expectedParsedEvent->getId()]);
+        }
     }
 }
 
@@ -368,6 +356,7 @@ class MockEvent {
 }
 
 class ExpectedParsedEvent {
+    private string $id;
     private string $raw;
     private ?int $number_volunteers_required;
     private int $unknown_attendees;
@@ -376,6 +365,7 @@ class ExpectedParsedEvent {
     private array $categories;
 
     function __construct(MockEvent $mockEvent){
+        $this->id = $mockEvent->id();
         $this->raw = $mockEvent->raw();
 
         // sensible default
@@ -387,6 +377,10 @@ class ExpectedParsedEvent {
         // // isn't considered as a category on which we can filter.
         // // Also it makes explicit what a given test is looking for
         $this->categories = array();
+    }
+
+    function getId(): string {
+        return $this->id;
     }
 
     function nbVolunteersRequired(?int $number_volunteers_required): ExpectedParsedEvent {
