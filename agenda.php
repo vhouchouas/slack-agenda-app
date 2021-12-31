@@ -279,22 +279,33 @@ WHERE {$this->table_prefix}events_categories.category_id = {$this->table_prefix}
             if($new_event) {
                 $this->log->info("Creating event $event[vCalendarFilename].");
                 $query = $this->pdo->prepare("INSERT INTO {$this->table_prefix}events (vCalendarFilename, ETag, datetime_begin, number_volunteers_required, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :datetime_begin, :number_volunteers_required, :vCalendarRaw)");
+                $query->execute(array(
+                    'vCalendarFilename' =>  $event['vCalendarFilename'],
+                    'ETag' => $event['ETag'],
+                    'datetime_begin' => $datetime_begin->format('Y-m-d H:i:s'),
+                    'number_volunteers_required' => $number_volunteers_required,
+                    'vCalendarRaw' => $event['vCalendarRaw']
+                ));
             } else {
+                // It would probably be more efficient to run all queries with a single pdo statement but it is not supported with sqlite
+                // (the 1st query runs but the other are silently discarded)
                 $this->log->info("Updating event $event[vCalendarFilename].");
                 $query = $this->pdo->prepare("UPDATE {$this->table_prefix}events
 SET ETag=:ETag, datetime_begin=:datetime_begin, number_volunteers_required=:number_volunteers_required, vCalendarRaw=:vCalendarRaw
-WHERE vCalendarFilename =:vCalendarFilename;
-DELETE FROM {$this->table_prefix}events_categories WHERE vCalendarFilename =:vCalendarFilename;
-DELETE FROM {$this->table_prefix}events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
+WHERE vCalendarFilename =:vCalendarFilename;");
+                $query->execute(array(
+                    'vCalendarFilename' =>  $event['vCalendarFilename'],
+                    'ETag' => $event['ETag'],
+                    'datetime_begin' => $datetime_begin->format('Y-m-d H:i:s'),
+                    'number_volunteers_required' => $number_volunteers_required,
+                    'vCalendarRaw' => $event['vCalendarRaw']
+                ));
+                $query = $this->pdo->prepare("DELETE FROM {$this->table_prefix}events_categories WHERE vCalendarFilename =:vCalendarFilename;");
+                $query->execute(array('vCalendarFilename' => $event['vCalendarFilename']));
+                $query = $this->pdo->prepare("DELETE FROM {$this->table_prefix}events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
+                $query->execute(array('vCalendarFilename' => $event['vCalendarFilename']));
             }
             
-            $query->execute(array(
-                'vCalendarFilename' =>  $event['vCalendarFilename'],
-                'ETag' => $event['ETag'],
-                'datetime_begin' => $datetime_begin->format('Y-m-d H:i:s'),
-                'number_volunteers_required' => $number_volunteers_required,
-                'vCalendarRaw' => $event['vCalendarRaw']
-            ));
 
             if(isset($vCalendar->VEVENT->ATTENDEE)) {
                 foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {

@@ -297,6 +297,22 @@ final class AgendaTest extends TestCase {
         $this->assertEqualEvents(array($parsedEvent1, $parsedEvent3), $sut->getUserEventsFiltered($this->now, "someone"));
     }
 
+    public function test_addAndRemoveCategories() {
+        $event = new MockEvent(array("cat1", "cat2"));
+        $caldav_client = $this->buildCalDAVClient(array($event));
+        $sut = AgendaTest::buildSUT($caldav_client);
+
+        // Act & Assert
+        $sut->checkAgenda();
+
+        $event->overrideCategories(array("cat1", "cat3")); // Remove a category and add another one
+        $caldav_client->setNewEvents(array($event));
+
+        $this->assertTrue($sut->checkAgenda());
+        $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->categories(array("cat1", "cat3")))
+            , $sut->getUserEventsFiltered($this->now, "someone"));
+    }
+
 
     private function buildCalDAVClient(array $events){
         return new MockCalDAVClient($events);
@@ -322,17 +338,24 @@ class MockEvent {
         $this->categories = $categories;
         $this->attendeesEmail = $attendeesEmail;
 
-        self::$lastEventEtag = self::$lastEventEtag + 1;
-        $this->etag = "" . self::$lastEventEtag;
+        $this->updateEtag();
     }
 
     public function overrideDtstart(string $dtstart) : MockEvent {
         $this->dtstart = $dtstart;
+        $this->updateETag();
         return $this;
     }
 
     public function overrideName(string $name){
         $this->name = $name;
+        $this->updateETag();
+        return $this;
+    }
+
+    public function overrideCategories(array $categories) : MockEvent {
+        $this->categories = $categories;
+        $this->updateEtag();
         return $this;
     }
 
@@ -347,6 +370,11 @@ class MockEvent {
 
     public function etag(){
         return $this->etag;
+    }
+
+    private function updateEtag() {
+        self::$lastEventEtag = self::$lastEventEtag + 1;
+        $this->etag = "" . self::$lastEventEtag;
     }
 
     public function raw(){
