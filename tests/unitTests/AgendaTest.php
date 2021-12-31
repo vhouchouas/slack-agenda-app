@@ -384,12 +384,6 @@ class MockEvent {
         return $this;
     }
 
-    public function overrideName(string $name){
-        $this->name = $name;
-        $this->updateETag();
-        return $this;
-    }
-
     public function overrideCategories(array $categories) : MockEvent {
         $this->categories = $categories;
         $this->updateEtag();
