@@ -351,6 +351,23 @@ final class AgendaTest extends TestCase {
             , $sut->getUserEventsFiltered($this->now, "someone"));
     }
 
+    public function test_changeNumberOfParticipantRequired() {
+        // Setup
+        $event = new MockEvent(array("4P"));
+        $caldav_client = $this->buildCalDAVClient(array($event));
+        $sut = AgendaTest::buildSUT($caldav_client);
+
+        // Act & Assert
+        $sut->checkAgenda();
+
+        $event->overrideCategories(array("2P"));
+        $caldav_client->setNewEvents(array($event));
+
+        $this->assertTrue($sut->checkAgenda());
+        $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->nbVolunteersRequired(2))
+            , $sut->getUserEventsFiltered($this->now, "someone"));
+    }
+
     private function buildCalDAVClient(array $events){
         return new MockCalDAVClient($events);
     }
