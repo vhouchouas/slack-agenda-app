@@ -368,6 +368,23 @@ final class AgendaTest extends TestCase {
             , $sut->getUserEventsFiltered($this->now, "someone"));
     }
 
+    public function test_getParsedEvent() {
+        $event = new MockEvent(array(), array("me@gmail.com"));
+        $caldav_client = $this->buildCalDAVClient(array($event));
+        $sut = AgendaTest::buildSUT($caldav_client);
+        $sut->checkAgenda();
+
+        // Act & Assert
+        // // test when "userid" isn't registered on the event
+        (new ExpectedParsedEvent($event))->attendees(array("MYID"))
+          ->assertEquals($sut->getParsedEvent($event->id(), "someone"));
+
+        // // test when "userid" is registered on the event
+        (new ExpectedParsedEvent($event))->attendees(array("MYID"))->isRegistered(true)
+          ->assertEquals($sut->getParsedEvent($event->id(), "MYID"));
+
+    }
+
     private function buildCalDAVClient(array $events){
         return new MockCalDAVClient($events);
     }
