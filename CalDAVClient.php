@@ -9,7 +9,7 @@ interface ICalDAVClient {
     /**
      * Fetches all the events matching the parameter
      */
-    public function updateEvents($vCalendarFilename);
+    public function updateEvents($vCalendarFilenames);
 
     /**
      * Queries the caldav server to retrieve the etag of all the events (past and future).

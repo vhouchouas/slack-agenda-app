@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once "../SqliteAgenda.php";
 require_once "../CalDAVClient.php";
 require_once "../slackAPI.php";
+require_once "MockCalDAVClient.php";
 
 use PHPUnit\Framework\TestCase;
 use function PHPUnit\Framework\assertEquals;
@@ -269,18 +270,36 @@ final class AgendaTest extends TestCase {
         $this->assertFalse($sut->checkAgenda());
     }
 
+    public function test_addAndRemoveEvent() {
+        // Setup
+        $event1 = new MockEvent();
+        $event2 = new MockEvent();
+        $event3 = new MockEvent();
+        $parsedEvent1 = new ExpectedParsedEvent($event1);
+        $parsedEvent2 = new ExpectedParsedEvent($event2);
+        $parsedEvent3 = new ExpectedParsedEvent($event3);
+
+        $caldav_client = $this->buildCalDAVClient(array()); // We start with an empty caldav server
+        $sut = AgendaTest::buildSUT($caldav_client);
+
+        // Act & Assert
+        $this->assertTrue($sut->checkAgenda());
+        $this->assertEquals(0, count($sut->getUserEventsFiltered($this->now, "someone")));
+
+        // // Now we create 2 events on the caldav server
+        $caldav_client->setNewEvents(array($event1, $event2));
+        $this->assertTrue($sut->checkAgenda());
+        $this->assertEqualEvents(array($parsedEvent1, $parsedEvent2), $sut->getUserEventsFiltered($this->now, "someone"));
+
+        // // Now we delete event2 from the caldav server and create event3
+        $caldav_client->setNewEvents(array($event1, $event3));
+        $this->assertTrue($sut->checkAgenda());
+        $this->assertEqualEvents(array($parsedEvent1, $parsedEvent3), $sut->getUserEventsFiltered($this->now, "someone"));
+    }
+
 
     private function buildCalDAVClient(array $events){
-        $caldav_client = $this->createMock(ICalDAVClient::class);
-
-        $eventsIdToEtag = array_map(fn($event) => array($event->id(), $event->etag()), $events);
-        $parsedEvents = array_map(fn($event) => array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag()), $events);
-
-        $caldav_client->method('getETags')->willReturn($eventsIdToEtag);
-        $caldav_client->method('updateEvents')->willReturn($parsedEvents);
-        $caldav_client->method('getCTag')->willReturn("123456789");
-
-        return $caldav_client;
+        return new MockCalDAVClient($events);
     }
 
     private function assertEqualEvents(array $expectedParsedEvents, array $actualEvents) {
