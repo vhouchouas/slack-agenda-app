@@ -18,6 +18,7 @@ final class AgendaTest extends TestCase {
     const NOW_STR = '20211201';
     private DateTimeImmutable $now; // We initialize it in a setUp afterward because we can't set dynamic values inline
     const DATE_IN_THE_FUTURE = "20211223T113000Z";
+    const DATE_EVEN_MORE_IN_THE_FUTURE = "20211230T113000Z";
     const DATE_IN_THE_PAST = "20191223T113000Z";
 
     public static function setUpBeforeClass() : void {
@@ -313,6 +314,25 @@ final class AgendaTest extends TestCase {
             , $sut->getUserEventsFiltered($this->now, "someone"));
     }
 
+    public function test_changeStartTime() {
+        // Setup
+        $event1 = new MockEvent();
+        $event2 = new MockEvent();
+        $caldav_client = $this->buildCalDAVClient(array($event1, $event2));
+        $sut = AgendaTest::buildSUT($caldav_client);
+
+        // Act & Assert
+        $sut->checkAgenda();
+
+        $event1->overrideDtstart(self::DATE_IN_THE_PAST);
+        $event2->overrideDtstart(self::DATE_EVEN_MORE_IN_THE_FUTURE);
+        $caldav_client->setNewEvents(array($event1, $event2));
+
+        $this->assertTrue($sut->checkAgenda());
+        // // We expect only event2 because event1 is now in the past
+        $this->assertEqualEvents(array(new ExpectedParsedEvent($event2))
+              , $sut->getUserEventsFiltered($this->now, "someone"));
+    }
 
     private function buildCalDAVClient(array $events){
         return new MockCalDAVClient($events);
