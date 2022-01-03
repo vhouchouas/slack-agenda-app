@@ -1,12 +1,15 @@
 <?php
 
 use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
+use Monolog\Handler\RotatingFileHandler;
 use Monolog\Handler\NativeMailerHandler;
 
+$MAX_LOG_FILES = 10;
+
 function read_config_file() {
+    global $MAX_LOG_FILES;
     $log = new Logger('ConfigReader');
-    $handler = new StreamHandler('app.log', Logger::ERROR);
+    $handler = new RotatingFileHandler('app.log', $MAX_LOG_FILES, Logger::ERROR);
     $log->pushHandler($handler);
 
     if(!file_exists('config.json')) {
@@ -196,12 +199,13 @@ function error_handler($severity, $message, $filename, $lineno) {
 
 // handle errors (because of throw new ErrorException) and exceptions
 function exception_handler($throwable) {
+    global $MAX_LOG_FILES;
     $log = new Logger('ExceptionHandler');
-    $log->pushHandler(new StreamHandler('./app.log', Logger::DEBUG));
+    $log->pushHandler(new RotatingFileHandler('app.log', $MAX_LOG_FILES, Logger::DEBUG));
     
     $log->error("Exception: {$throwable->getMessage()} (type={$throwable->getCode()}, at {$throwable->getFile()}:{$throwable->getLine()})");
     
-    $config = json_decode(file_get_contents('./config.json'));
+    $config = json_decode(file_get_contents('config.json'));
     
     if(is_null($config)) {
         $log->error("Can't contact the user about this error (file parsing error).");
