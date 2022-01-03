@@ -168,7 +168,7 @@ class CalDAVClient implements ICalDAVClient {
     }
 
     // get event etags from the server
-    function getETags() {
+    function getETags(?DateTimeImmutable $not_before_datetime = NULL, ?DateTimeImmutable $not_after_datetime = NULL) {
         $ch = $this->init_curl_request();
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "REPORT");
         
@@ -179,13 +179,27 @@ class CalDAVClient implements ICalDAVClient {
             
         ));
         
+        $filters = "";
+        if(!is_null($not_before_datetime) || !is_null($not_after_datetime)) {
+            $filters  ='<c:comp-filter name="VEVENT"><c:time-range';
+            if(!is_null($not_before_datetime)) {
+                $filters .=' start="'.$not_before_datetime->format('Ymd\THis\Z').'"';
+            }
+            if(!is_null($not_after_datetime)) {
+                $filters .=' end="'.$not_after_datetime->format('Ymd\THis\Z').'"';
+            }            
+            $filters .='/></c:comp-filter>';
+        }
+        
         curl_setopt($ch, CURLOPT_POSTFIELDS,'
 <c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
     <d:prop>
         <d:getetag />
     </d:prop>
     <c:filter>
-        <c:comp-filter name="VCALENDAR" />
+        <c:comp-filter name="VCALENDAR">
+'.$filters.'
+       </c:comp-filter>
     </c:filter>
 </c:calendar-query>');
 

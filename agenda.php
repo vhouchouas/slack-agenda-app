@@ -460,7 +460,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         if (is_null($local_CTag) || $local_CTag != $remote_CTag){
             $this->log->debug("Agenda update needed");
             
-            $remote_ETags = $this->caldav_client->getETags();
+            $remote_ETags = $this->caldav_client->getETags(new DateTimeImmutable("today"));
             if($remote_CTag === false || is_null($remote_CTag)) {
                 $this->log->error("Fail to get CTag from the remote server");
                 return null;
