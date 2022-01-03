@@ -43,7 +43,7 @@ final class AgendaTest extends TestCase {
         $this->slackApiMock = $this->createMock(ISlackAPI::class);
         $this->slackApiMock->method('users_lookupByEmail')->will($this->returnValueMap($mapEmailToSlackId));
     }
-    private function deleteDatabase(){
+    private static function deleteDatabase(){
         if (file_exists(self::SQLITE_FILE)){
             unlink(self::SQLITE_FILE);
         }
