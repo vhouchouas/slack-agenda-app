@@ -9,12 +9,12 @@ class MySQLAgenda extends Agenda {
     private $username;
     private $password;
     
-    public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
+    public function __construct(ICalDAVClient $caldav_client, object $api, array $agenda_args) {
             $this->db_name = $agenda_args["db_name"];
             $this->host = $agenda_args["db_host"];
             $this->username = $agenda_args["db_username"];
             $this->password = $agenda_args["db_password"];
-            parent::__construct($agenda_args["db_table_prefix"], new Logger('MySQLAgenda'), $CalDAV_url, $CalDAV_username, $CalDAV_password, $api);
+            parent::__construct($agenda_args["db_table_prefix"], new Logger('MySQLAgenda'), $caldav_client, $api);
         }
     
     protected function openDB() {
@@ -68,15 +68,15 @@ class MySQLAgenda extends Agenda {
     value                           VARCHAR( 256 )
     ) DEFAULT CHARSET=utf8mb4;");
 
-        $query = $this->pdo->prepare("INSERT IGNORE INTO {$this->table_prefix}properties (property, value) VALUES ('CTag', 'NULL')");
-        $query->execute();
-
         $this->pdo->query("CREATE TABLE IF NOT EXISTS {$this->table_prefix}reminders ( 
     id                              VARCHAR( 12 ),
     vCalendarFilename               VARCHAR( 256 ),
     userid                          VARCHAR( 11 ),
     FOREIGN KEY (vCalendarFilename) REFERENCES {$this->table_prefix}events(vCalendarFilename) ON DELETE CASCADE
     ) DEFAULT CHARSET=utf8mb4;");
+
+        $this->insertMandatoryLinesAfterDbInitialization();
+
         $this->log->info("Create database tables - done.");
     }
 }

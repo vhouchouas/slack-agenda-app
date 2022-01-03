@@ -4,24 +4,28 @@ use Monolog\Logger;
 use Sabre\VObject;
 
 require "CalDAVClient.php";
+require_once "utils.php";
 
 class NotImplementedException extends BadMethodCallException {}
 
 require __DIR__ . '/vendor/autoload.php';
 
 abstract class Agenda {
+    public const MY_EVENTS_FILTER = "my_events";
+    public const NEED_VOLUNTEERS_FILTER = "need_volunteers";
+
     protected $caldav_client;
     protected $api;
     protected $pdo;
 
     protected $table_prefix;
 
-    public function __construct(string $table_prefix, Logger $log, string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api) {
+    public function __construct(string $table_prefix, Logger $log, ICalDAVClient $caldav_client, object $api) {
         $this->table_prefix = $table_prefix;
         $this->log = $log;
         setLogHandlers($this->log);
-        
-        $this->caldav_client = new CalDAVClient($CalDAV_url, $CalDAV_username, $CalDAV_password);
+
+        $this->caldav_client = $caldav_client;
         $this->api = $api;
 
         $this->pdo = $this->openDB();
@@ -83,22 +87,28 @@ abstract class Agenda {
             $this->log->info("Truncate table $table");
             $this->pdo->query("DELETE FROM $table;");
         }
+        $this->insertMandatoryLinesAfterDbInitialization();
         $this->log->info("Truncate all tables - done.");
     }
     
-    public function getUserEventsFiltered(string $userid, array $filters_to_apply = array()) {
+    /**
+     * @param $now The current time. Used to retrieve only the events not started yet
+     * @param $userId The slack id of the current user. Used to compute on which events the user is registered
+     * @param $filters_to_apply The filters that the returned events should match.
+     */
+    public function getUserEventsFiltered(DateTimeImmutable $now, string $userid, array $filters_to_apply = array()) {
         $sql = "SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM {$this->table_prefix}events WHERE ";
         $sql .= 'Date(datetime_begin) > :datetime_begin ';
         
         $intersect = array();
-        if(($key = array_search("my_events", $filters_to_apply)) !== false) {
+        if(($key = array_search(Agenda::MY_EVENTS_FILTER, $filters_to_apply)) !== false) {
             $intersect[] = "SELECT vCalendarFilename FROM {$this->table_prefix}events_attendees
 INNER JOIN {$this->table_prefix}attendees
 WHERE {$this->table_prefix}attendees.email = {$this->table_prefix}events_attendees.email and {$this->table_prefix}attendees.userid = '$userid'";
             unset($filters_to_apply[$key]);
         }
         
-        if(($key = array_search("need_volunteers", $filters_to_apply)) !== false) {
+        if(($key = array_search(Agenda::NEED_VOLUNTEERS_FILTER, $filters_to_apply)) !== false) {
             $sql .= "AND number_volunteers_required is not NULL ";
             unset($filters_to_apply[$key]);
         }
@@ -118,7 +128,7 @@ WHERE {$this->table_prefix}events_categories.category_id = {$this->table_prefix}
         }
         $sql .= "ORDER BY datetime_begin;";
         $query = $this->pdo->prepare($sql);
-        $query->execute(array('datetime_begin' => (new DateTime('NOW'))->format('Y-m-d H:i:s')));
+        $query->execute(array('datetime_begin' => $now->format('Y-m-d H:i:s')));
 
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         
@@ -156,11 +166,11 @@ WHERE {$this->table_prefix}events_categories.category_id = {$this->table_prefix}
         $result["categories"] = array_keys($categories);
     }
 
-    public function getEvents() {
+    public function getEvents(DateTimeImmutable $now): array {
         $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `vCalendarRaw` 
                                       FROM {$this->table_prefix}events WHERE Date(datetime_begin) > :datetime_begin 
                                       ORDER BY datetime_begin;");
-        $query->execute(array('datetime_begin' => (new DateTime('NOW'))->format('Y-m-d H:i:s')));
+        $query->execute(array('datetime_begin' => $now->format('Y-m-d H:i:s')));
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         $events = array();
         foreach($results as $vCalendarFilename => $result) {
@@ -269,22 +279,33 @@ WHERE {$this->table_prefix}events_categories.category_id = {$this->table_prefix}
             if($new_event) {
                 $this->log->info("Creating event $event[vCalendarFilename].");
                 $query = $this->pdo->prepare("INSERT INTO {$this->table_prefix}events (vCalendarFilename, ETag, datetime_begin, number_volunteers_required, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :datetime_begin, :number_volunteers_required, :vCalendarRaw)");
+                $query->execute(array(
+                    'vCalendarFilename' =>  $event['vCalendarFilename'],
+                    'ETag' => $event['ETag'],
+                    'datetime_begin' => $datetime_begin->format('Y-m-d H:i:s'),
+                    'number_volunteers_required' => $number_volunteers_required,
+                    'vCalendarRaw' => $event['vCalendarRaw']
+                ));
             } else {
+                // It would probably be more efficient to run all queries with a single pdo statement but it is not supported with sqlite
+                // (the 1st query runs but the other are silently discarded)
                 $this->log->info("Updating event $event[vCalendarFilename].");
                 $query = $this->pdo->prepare("UPDATE {$this->table_prefix}events
 SET ETag=:ETag, datetime_begin=:datetime_begin, number_volunteers_required=:number_volunteers_required, vCalendarRaw=:vCalendarRaw
-WHERE vCalendarFilename =:vCalendarFilename;
-DELETE FROM {$this->table_prefix}events_categories WHERE vCalendarFilename =:vCalendarFilename;
-DELETE FROM {$this->table_prefix}events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
+WHERE vCalendarFilename =:vCalendarFilename;");
+                $query->execute(array(
+                    'vCalendarFilename' =>  $event['vCalendarFilename'],
+                    'ETag' => $event['ETag'],
+                    'datetime_begin' => $datetime_begin->format('Y-m-d H:i:s'),
+                    'number_volunteers_required' => $number_volunteers_required,
+                    'vCalendarRaw' => $event['vCalendarRaw']
+                ));
+                $query = $this->pdo->prepare("DELETE FROM {$this->table_prefix}events_categories WHERE vCalendarFilename =:vCalendarFilename;");
+                $query->execute(array('vCalendarFilename' => $event['vCalendarFilename']));
+                $query = $this->pdo->prepare("DELETE FROM {$this->table_prefix}events_attendees WHERE vCalendarFilename =:vCalendarFilename;");
+                $query->execute(array('vCalendarFilename' => $event['vCalendarFilename']));
             }
             
-            $query->execute(array(
-                'vCalendarFilename' =>  $event['vCalendarFilename'],
-                'ETag' => $event['ETag'],
-                'datetime_begin' => $datetime_begin->format('Y-m-d H:i:s'),
-                'number_volunteers_required' => $number_volunteers_required,
-                'vCalendarRaw' => $event['vCalendarRaw']
-            ));
 
             if(isset($vCalendar->VEVENT->ATTENDEE)) {
                 foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
@@ -594,6 +615,10 @@ DELETE FROM {$this->table_prefix}events_attendees WHERE vCalendarFilename =:vCal
         }
     }
 
+    protected function insertMandatoryLinesAfterDbInitialization(){
+        $query = $this->pdo->prepare("INSERT OR IGNORE INTO {$this->table_prefix}properties (property, value) VALUES ('CTag', 'NULL')");
+        $query->execute();
+    }
 }
 
 require_once "SqliteAgenda.php";
@@ -605,10 +630,11 @@ function initAgendaFromType(string $CalDAV_url, string $CalDAV_username, string 
         exit();
     }
 
+    $caldav_client = new CalDAVClient($CalDAV_url, $CalDAV_username, $CalDAV_password);
     if($agenda_args["db_type"] === "MySQL") {
-        return new MySQLAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
+        return new MySQLAgenda($caldav_client, $api, $agenda_args);
     } else if($agenda_args["db_type"] === "sqlite") {
-        return new SqliteAgenda($CalDAV_url, $CalDAV_username, $CalDAV_password, $api, $agenda_args);
+        return new SqliteAgenda($caldav_client, $api, $agenda_args);
     } else {
         $log->error("db type $agenda_args[db_type] is unknown (exit).");
         exit();

@@ -1,14 +1,16 @@
 <?php
 
+require_once "agenda.php";
 use Monolog\Logger;
 use Sabre\VObject;
+
 
 class SqliteAgenda extends Agenda {
     private $path;
 
-    public function __construct(string $CalDAV_url, string $CalDAV_username, string $CalDAV_password, object $api, array $agenda_args) {
+    public function __construct(ICalDAVClient $caldav_client, object $api, array $agenda_args) {
         $this->path = $agenda_args["path"];
-        parent::__construct($agenda_args["db_table_prefix"], new Logger('sqliteAgenda'), $CalDAV_url, $CalDAV_username, $CalDAV_password, $api);
+        parent::__construct($agenda_args["db_table_prefix"], new Logger('sqliteAgenda'), $caldav_client, $api);
     }
     
     protected function openDB() {
@@ -59,15 +61,14 @@ class SqliteAgenda extends Agenda {
     property                        VARCHAR( 256 ) PRIMARY KEY,
     value                           VARCHAR( 256 ));");
 
-        $query = $this->pdo->prepare("INSERT OR IGNORE INTO {$this->table_prefix}properties (property, value) VALUES ('CTag', 'NULL')");
-        $query->execute();
-
         $this->pdo->query("CREATE TABLE IF NOT EXISTS {$this->table_prefix}reminders ( 
     id                              VARCHAR( 12 ) PRIMARY KEY,
     vCalendarFilename               VARCHAR( 256 ),
     userid                          VARCHAR( 11 ),
     FOREIGN KEY (vCalendarFilename) REFERENCES {$this->table_prefix}events(vCalendarFilename) ON DELETE CASCADE
     );");
+
+        $this->insertMandatoryLinesAfterDbInitialization();
 
         $this->log->info("Create database tables - done.");
     }

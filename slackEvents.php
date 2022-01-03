@@ -40,7 +40,7 @@ class SlackEvents {
     function app_home_page($userid, $filters_to_apply = array()) {
         $this->log->info('event: app_home_opened received');
         
-        $events = $this->agenda->getUserEventsFiltered($userid, $filters_to_apply);
+        $events = $this->agenda->getUserEventsFiltered(new DateTimeImmutable('NOW'), $userid, $filters_to_apply);
         
         $blocks = [];
         $default_filters = [
@@ -49,14 +49,14 @@ class SlackEvents {
                     "type" => "plain_text",
                     "text" => "Mes évènements"
                 ],
-                "value" => "my_events"
+                "value" => Agenda::MY_EVENTS_FILTER
             ],
             [
                 "text" => [
                     "type" => "plain_text",
                     "text" => "Besoin de bénévoles"
                 ],
-                "value" => "need_volunteers"
+                "value" => Agenda::NEED_VOLUNTEERS_FILTER
             ]
         ];
                 
@@ -385,7 +385,7 @@ class SlackEvents {
 
     public function event_selection($channel_id, $trigger_id) {
         $options = [];
-        foreach($this->agenda->getEvents() as $vCalendarFilename => $vCalendar) {
+        foreach($this->agenda->getEvents(new DateTimeImmutable('NOW')) as $vCalendarFilename => $vCalendar) {
             $options[] = [
                 "text"=> [
                     "type"  => "plain_text",
