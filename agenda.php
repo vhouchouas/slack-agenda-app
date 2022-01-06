@@ -550,7 +550,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
     }
     
     protected function updateEvents(array $vCalendarFilenames) {
-        $events = $this->caldav_client->updateEvents($vCalendarFilenames);
+        $events = $this->caldav_client->fetchEvents($vCalendarFilenames);
         
         if(is_null($events) || $events === false) {
             $this->log->error("Fail to update events ");

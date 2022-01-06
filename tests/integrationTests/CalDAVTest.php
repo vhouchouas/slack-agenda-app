@@ -27,7 +27,7 @@ final class CalDAVTest extends TestCase {
     /**
      * @dataProvider credentialsProvider
      */
-    public function testGetETagAndUpdateEvents($username, $password, $url) {
+    public function testGetETagAndFetchEvents($username, $password, $url) {
         $client = new CalDAVClient($url, $username, $password);
         
         $ETags = $client->getETags();
@@ -38,7 +38,7 @@ final class CalDAVTest extends TestCase {
             $vCalendarFilenames[] = basename($vCalendarFilename);
         }
         
-        $events = $client->updateEvents($vCalendarFilenames);
+        $events = $client->fetchEvents($vCalendarFilenames);
         
         $this->assertNotNull($events);
         foreach($events as $event) {
@@ -57,7 +57,7 @@ final class CalDAVTest extends TestCase {
         
         $this->assertNotNull($ETags);
         foreach($ETags as $vCalendarFilename => $ETag) {
-            $events = $client->updateEvents(array(basename($vCalendarFilename)));
+            $events = $client->fetchEvents(array(basename($vCalendarFilename)));
             $this->assertCount(1, $events);
             $event = $events[0];
             
