@@ -19,7 +19,7 @@ class MockCalDAVClient implements ICalDAVClient {
     }
 
 
-    public function updateEvents($vCalendarFilenames) {
+    public function fetchEvents($vCalendarFilenames) {
         return array_map(fn($event) => array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag()), 
             array_filter($this->events, fn($event) => in_array($event->id(), $vCalendarFilenames))
         );

@@ -431,7 +431,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         ));
     }
     
-    public function getEvent(string $vCalendarFilename, bool $parse=false, $with_ETag=false) {
+    private function getEvent(string $vCalendarFilename) {
         $query = $this->pdo->prepare("SELECT * FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename");
         $query->execute(array('vCalendarFilename' => $vCalendarFilename));
         $result = $query->fetchAll();
@@ -550,7 +550,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
     }
     
     protected function updateEvents(array $vCalendarFilenames) {
-        $events = $this->caldav_client->updateEvents($vCalendarFilenames);
+        $events = $this->caldav_client->fetchEvents($vCalendarFilenames);
         
         if(is_null($events) || $events === false) {
             $this->log->error("Fail to update events ");

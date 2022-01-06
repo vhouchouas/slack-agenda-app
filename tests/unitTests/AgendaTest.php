@@ -261,7 +261,7 @@ final class AgendaTest extends TestCase {
 
         $caldav_client = $this->createMock(ICalDAVClient::class);
         $caldav_client->expects($this->once())->method('getETags')->willReturn(array(array($event->id(), $event->etag())));
-        $caldav_client->expects($this->once())->method('updateEvents')->willReturn(array(array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag())));
+        $caldav_client->expects($this->once())->method('fetchEvents')->willReturn(array(array("vCalendarFilename" => $event->id(), "vCalendarRaw" => $event->raw(), "ETag" => $event->etag())));
         $caldav_client->expects($this->exactly(2))->method('getCTag')->willReturn("123456789");
 
         $sut = $this->buildSut($caldav_client);
