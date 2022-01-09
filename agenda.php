@@ -573,7 +573,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         return true;
     }
     
-    protected function updateEvents(array $vCalendarFilenames) {
+    private function updateEvents(array $vCalendarFilenames) {
         $events = $this->caldav_client->fetchEvents($vCalendarFilenames);
         
         if(is_null($events) || $events === false) {
@@ -587,7 +587,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         return true;
     }
     
-    public function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $datetime) {
+    private function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $datetime) {
         $now = new DateTimeImmutable();
         if ($datetime < $now){
             $this->log->debug("not creating the reminder for $userid because " . $datetime->format('Y-m-dTH:i:s') . " is in the past");
