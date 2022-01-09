@@ -8,6 +8,7 @@ require_once "MockCalDAVClient.php";
 
 use PHPUnit\Framework\TestCase;
 use function PHPUnit\Framework\assertEquals;
+use function PHPUnit\Framework\assertStringContainsString;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 
@@ -383,6 +384,24 @@ final class AgendaTest extends TestCase {
         (new ExpectedParsedEvent($event))->attendees(array("MYID"))->isRegistered(true)
           ->assertEquals($sut->getParsedEvent($event->id(), "MYID"));
 
+    }
+
+    public function test_updateAttendee_register() {
+        // Setup
+        $event = new MockEvent();
+        $caldav_client = $this->buildCalDAVClient(array($event));
+        $sut = AgendaTest::buildSUT($caldav_client);
+        $sut->checkAgenda();
+
+        // Act
+        $sut->updateAttendee($event->id(), "you@gmail.com", true, "Your Name");
+
+        // Assert
+        // // Assert that the remote caldav server has been updated with correct parameters
+        $this->assertEquals($event->id(), $caldav_client->updatedEvents[0][0]);
+        $this->assertEquals($event->etag(), $caldav_client->updatedEvents[0][1]);
+        $this->assertStringContainsString("mailto:you@gmail.com", $caldav_client->updatedEvents[0][2]);
+        $this->assertStringContainsString("Your Name", $caldav_client->updatedEvents[0][2]);
     }
 
     private function buildCalDAVClient(array $events){

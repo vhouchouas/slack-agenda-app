@@ -11,6 +11,10 @@ class MockCalDAVClient implements ICalDAVClient {
     private array $events;
     private string $ctag = "a";
 
+
+    // Keep track of the parameters passed to updateEvent to be able to assert on it
+    public array $updatedEvents = array();
+
     /**
      * @param array of MockEvent
      */
@@ -37,8 +41,11 @@ class MockCalDAVClient implements ICalDAVClient {
         return $this->ctag;
     }
 
+
     public function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw) {
-        // Not used in tests (for now)
+        // To keep the mock simple we don't bother trying to update $this->events (we don't need it in tests anyway)
+        $this->updatedEvents []= array($vCalendarFilename, $ETag, $vCalendarRaw);
+        return true;
     }
 
     public function setNewEvents(array $events){
