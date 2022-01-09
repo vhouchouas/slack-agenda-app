@@ -38,12 +38,7 @@ interface ICalDAVClient {
      *       Ensure we don't erase remote changes if our local cache is not up to date
      * @vCalendarRaw The raw content of the event as it should be updated to the remote server
      *
-     * @return The new etag of the event after the update if the update was successful. This can be used to
-     *         update the local cache for this event directly (without needing a new call to the caldav server)
-     *         In case of error this function may return:
-     *         - FALSE if an error occured with the query. I likely means that the event was not updated
-     *         - NULL if no etag was returned. It means the call was successful but we can't update the local
-     *           cache directly
+     * @return TRUE if the caldav server was successfully updated, FALSE otherwise
      */
     public function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw);
 
@@ -296,26 +291,6 @@ class CalDAVClient implements ICalDAVClient {
         curl_setopt($ch, CURLOPT_POSTFIELDS, $vCalendarRaw);
         
         $response = $this->process_curl_request($ch);
-        if(is_null($response) || $response === false) {
-            return $response;
-        }
-        
-        $response = rtrim($response);
-        $data = explode("\n",$response);
-        array_shift($data); //for ... HTTP/1.1 204 No Content
-        
-        foreach($data as $part) {
-            if(strpos($part, "ETag") == false) {
-                continue;
-            }
-            
-            $ETag_header = explode(":",$part,2);
-            if (isset($ETag_header[1])) {
-                return trim($ETag_header[1], ' "');
-            } else {
-                return null;
-            }
-        }
-        return null;
+        return $response !== false;
     }
 }

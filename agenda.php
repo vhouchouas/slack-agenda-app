@@ -446,15 +446,6 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         return $result;
     }
     
-    protected function saveEvent(string $vCalendarFilename, string $ETag, object $vCalendar) {
-        $query = $this->pdo->prepare("REPLACE INTO {$this->table_prefix}events (vCalendarFilename, ETag, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :vCalendarRaw)");
-        $query->execute(array(
-            'vCalendarFilename' =>  $vCalendarFilename,
-            'ETag' => $new_ETag,
-            'vCalendar' => $vCalendar->serialize()
-        ));
-    }
-    
     private function getEvent(string $vCalendarFilename) {
         $query = $this->pdo->prepare("SELECT * FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename");
         $query->execute(array('vCalendarFilename' => $vCalendarFilename));
@@ -559,16 +550,14 @@ WHERE vCalendarFilename =:vCalendarFilename;");
             }
         }
         
-        $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize());
-        if($new_ETag === false) {
+        $success = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize());
+        if($success === false) {
             $this->log->error("Fails to update the event");
             return false; // the event has not been updated
-        } else if(is_null($new_ETag)) {
-            $this->log->info("The server did not answer a new ETag after an event update, need to update the local calendar");
+        } else {
+            $this->log->info("The caldav server has been updated, we now update the local calendar");
             $this->updateEvents(array($vCalendarFilename));
             return true;// the event has been updated
-        } else {
-            $this->saveEvent($vCalendarFilename, $new_ETag, $vCalendar->serialize());
         }
         return true;
     }
