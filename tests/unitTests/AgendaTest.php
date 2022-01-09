@@ -419,6 +419,24 @@ final class AgendaTest extends TestCase {
         $this->assertEquals(0, count($caldav_client->updatedEvents));
     }
 
+    public function test_updateAttendee_unregister() {
+        // Setup
+        $event = new MockEvent(array(), array("you@gmail.com"));
+        $caldav_client = $this->buildCalDAVClient(array($event));
+        $sut = AgendaTest::buildSUT($caldav_client);
+        $sut->checkAgenda();
+
+        // Act & Assert
+        // // Assert that the function considers it was successfully executed
+        $this->assertTrue($sut->updateAttendee($event->id(), "you@gmail.com", false, "Your Name"));
+
+        // // Assert that the remote caldav server has been updated with correct parameters
+        $this->assertEquals($event->id(), $caldav_client->updatedEvents[0][0]);
+        $this->assertEquals($event->etag(), $caldav_client->updatedEvents[0][1]);
+        $this->assertStringNotContainsString("mailto:you@gmail.com", $caldav_client->updatedEvents[0][2]);
+        $this->assertStringNotContainsString("Your Name", $caldav_client->updatedEvents[0][2]);
+    }
+
     private function buildCalDAVClient(array $events){
         return new MockCalDAVClient($events);
     }
