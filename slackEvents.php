@@ -187,7 +187,7 @@ class SlackEvents {
             'action_id'=> (!$in) ? 'getin' : 'getout',
             'text'=> array(
                 'type'=> 'plain_text',
-                'text'=> (!$in) ? 'Je  viens !' : 'Me déinscrire',
+                'text'=> (!$in) ? 'Je  viens !' : 'Me désinscrire',
                 'emoji'=> true
             ),
             'style'=> 'primary',
@@ -258,7 +258,7 @@ class SlackEvents {
             ],
             "submit" =>  [
                 "type" =>  "plain_text",
-                "text"=> (!$register) ? 'Je  viens !' : 'Me déinscrire',
+                "text"=> (!$register) ? 'Je  viens !' : 'Me désinscrire',
             ],
             "blocks" => [$block],
             "private_metadata" => $vCalendarFilename,
