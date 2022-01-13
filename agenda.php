@@ -97,39 +97,63 @@ abstract class Agenda {
      * @param $filters_to_apply The filters that the returned events should match.
      */
     public function getUserEventsFiltered(DateTimeImmutable $now, string $userid, array $filters_to_apply = array()) {
-        $sql = "SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM {$this->table_prefix}events WHERE ";
-        $sql .= 'Date(datetime_begin) > :datetime_begin ';
-        
-        $intersect = array();
+        $sql = "SELECT event.vCalendarFilename, event.number_volunteers_required, event.vCalendarRaw FROM {$this->table_prefix}events event ";
+
+        $my_events = false;
         if(($key = array_search(Agenda::MY_EVENTS_FILTER, $filters_to_apply)) !== false) {
-            $intersect[] = "SELECT vCalendarFilename FROM {$this->table_prefix}events_attendees
-INNER JOIN {$this->table_prefix}attendees
-WHERE {$this->table_prefix}attendees.email = {$this->table_prefix}events_attendees.email and {$this->table_prefix}attendees.userid = '$userid'";
+            $my_events = true;
             unset($filters_to_apply[$key]);
         }
         
+        $volunteers_required = false;
         if(($key = array_search(Agenda::NEED_VOLUNTEERS_FILTER, $filters_to_apply)) !== false) {
-            $sql .= "AND number_volunteers_required is not NULL ";
+            $volunteers_required = true;
             unset($filters_to_apply[$key]);
         }
+
+        array_filter($filters_to_apply, function ($filter) {
+            return is_null(is_number_of_attendee_category($filter));
+        });
         
-        foreach($filters_to_apply as $filter) {
-            if(!is_null(is_number_of_attendee_category($filter))) {
-                continue;
-            }
-            $intersect[] = "SELECT vCalendarFilename FROM {$this->table_prefix}events_categories
-INNER JOIN {$this->table_prefix}categories
-WHERE {$this->table_prefix}events_categories.category_id = {$this->table_prefix}categories.id and {$this->table_prefix}categories.name = '$filter'";
+        array_walk($filters_to_apply, function (&$filter) {
+            $filter  = "'$filter'";
+        });
+        
+        if(count($filters_to_apply) > 0) {
+            $sql .="
+  INNER JOIN {$this->table_prefix}events_categories ON {$this->table_prefix}events_categories.vCalendarFilename = event.vCalendarFilename
+  INNER JOIN {$this->table_prefix}categories ON {$this->table_prefix}events_categories.category_id = {$this->table_prefix}categories.id ";
         }
-        if(count($intersect) > 0) {
-            $sql .= "AND vCalendarFilename IN (\n";
-            $sql .= implode("\nintersect\n", $intersect);
-            $sql .= ")\n";
+        
+        if($my_events) {
+            $sql .="
+  INNER JOIN {$this->table_prefix}events_attendees ON event.vCalendarFilename = {$this->table_prefix}events_attendees.vCalendarFilename
+  INNER JOIN {$this->table_prefix}attendees ON {$this->table_prefix}events_attendees.email = {$this->table_prefix}attendees.email ";
         }
-        $sql .= "ORDER BY datetime_begin;";
+        
+        $sql .= 'WHERE Date(event.datetime_begin) > :datetime_begin ';
+
+        if($volunteers_required) {
+            $sql .= "AND number_volunteers_required is not NULL ";
+        }
+        
+        if($my_events) {
+            $sql .= "AND {$this->table_prefix}attendees.userid = '$userid' ";
+        }
+
+        if(count($filters_to_apply) > 0) {
+            $sql .= "
+   AND
+    {$this->table_prefix}categories.name IN (" . implode(",", $filters_to_apply) . ")
+   GROUP BY
+    event.vCalendarFilename
+  HAVING
+    COUNT(distinct {$this->table_prefix}categories.id) = " . count($filters_to_apply);
+        }
+
+        $sql .= " ORDER BY event.datetime_begin;";
         $query = $this->pdo->prepare($sql);
         $query->execute(array('datetime_begin' => $now->format('Y-m-d H:i:s')));
-
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         
         foreach($results as $vCalendarFilename => &$result) {
