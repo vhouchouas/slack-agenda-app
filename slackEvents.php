@@ -4,7 +4,8 @@ class SlackEvents {
     protected $agenda;
     protected $log;
     protected $api;
-    
+    const URL_REGEX = '/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&\/=]*)/m';
+            
     function __construct($agenda, $api, $log) {
         $this->agenda = $agenda;
         $this->log = $log;
@@ -12,12 +13,18 @@ class SlackEvents {
     }
 
     protected function render_event($parsed_event, $description=false, $with_attendees=true) {
-
         $infos  = '*' . (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY . '* ' . format_emoji($parsed_event) . PHP_EOL;
         $infos .= '*Quand:* ' . format_date($parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime(), $parsed_event["vCalendar"]->VEVENT->DTEND->getDateTime()) . PHP_EOL;
         if(isset($parsed_event["vCalendar"]->VEVENT->LOCATION) and strlen((string)$parsed_event["vCalendar"]->VEVENT->LOCATION) > 0) {
-            $infos .= '*Ou:* ' . (string)$parsed_event["vCalendar"]->VEVENT->LOCATION . " (<https://www.openstreetmap.org/search?query=".(string)$parsed_event["vCalendar"]->VEVENT->LOCATION."|voir>)" . PHP_EOL;
+            $infos .= '*Ou:* ' . (string)$parsed_event["vCalendar"]->VEVENT->LOCATION;
+            
+            preg_match_all(SlackEvents::URL_REGEX, (string)$parsed_event["vCalendar"]->VEVENT->LOCATION, $matches, PREG_SET_ORDER, 0);
+            if(count($matches) === 0) {
+                $infos .= " (<https://www.openstreetmap.org/search?query=".(string)$parsed_event["vCalendar"]->VEVENT->LOCATION."|voir>)";
+            }
+            $infos .= PHP_EOL;
         }
+        
         if($with_attendees) {
             $infos .= "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["number_volunteers_required"])."*: " . format_userids($parsed_event["attendees"], $parsed_event["unknown_attendees"]);
         }
