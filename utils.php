@@ -239,3 +239,15 @@ function exception_handler($throwable) {
     $api->views_publish($data);
     exit();
 }
+
+# @see https://api.slack.com/methods/users.info
+function getUserNameFromSlackProfile($profile) {
+    if(property_exists($profile, "first_name") and property_exists($profile, "last_name")) {
+        return $profile->first_name . ' ' . $profile->last_name;
+    } else if(property_exists($profile, "real_name")) {
+        return $profile->real_name;
+    } else if(property_exists($profile, "display_name")) {
+        return $profile->display_name;
+    }
+    return "";
+}

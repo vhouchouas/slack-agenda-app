@@ -234,12 +234,12 @@ class SlackEvents {
             $register = $parsed_event['is_registered'];
         } else {
             $user = $this->api->users_info($userid);
-            if(is_null($user)) {
+            $profile = $user->profile;
+            if(is_null($user) || !property_exists($profile, "email")) {
                 $this->log->error("Can't determine user mail from the Slack API");
                 exit(); // @TODO maybe throw something here
             }
-            $profile = $user->profile;
-            $this->log->debug("register from channel mail $profile->email $profile->first_name $profile->last_name");
+            $this->log->debug("register from channel mail $profile->email " . getUserNameFromSlackProfile($profile));
             if($register) {
                 $parsed_event["attendees"][] = $userid;
             } else {
@@ -286,7 +286,7 @@ class SlackEvents {
             $response = $this->agenda->updateAttendee($vCalendarFilename,
                                                       $profile->email,
                                                       $register,
-                                                      $profile->first_name . ' ' . $profile->last_name);
+                                                      getUserNameFromSlackProfile($profile));
         }
     }
     
@@ -330,12 +330,12 @@ class SlackEvents {
             exit(); // @TODO maybe throw something here
         }
         $profile = $user->profile;
-        $this->log->debug("register mail $profile->email $profile->first_name $profile->last_name");
+        $this->log->debug("register mail $profile->email " . getUserNameFromSlackProfile($profile));
         $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
         slackEvents::ack();
         $this->register_fast_rendering($vCalendarFilename, $userid, $profile->email, $register, $request, $parsed_event);
         
-        $response = $this->agenda->updateAttendee($vCalendarFilename, $profile->email, $register, $profile->first_name . ' ' . $profile->last_name);
+        $response = $this->agenda->updateAttendee($vCalendarFilename, $profile->email, $register, getUserNameFromSlackProfile($profile));
 
         if(is_null($response)) { //nothing to do
             return;
