@@ -234,11 +234,11 @@ class SlackEvents {
             $register = $parsed_event['is_registered'];
         } else {
             $user = $this->api->users_info($userid);
-            $profile = $user->profile;
-            if(is_null($user) || !property_exists($profile, "email")) {
+            if(is_null($user) || !property_exists($user->profile, "email")) {
                 $this->log->error("Can't determine user mail from the Slack API");
                 exit(); // @TODO maybe throw something here
             }
+            $profile = $user->profile;
             $this->log->debug("register from channel mail $profile->email " . getUserNameFromSlackProfile($profile));
             if($register) {
                 $parsed_event["attendees"][] = $userid;
