@@ -17,6 +17,7 @@ final class AgendaTest extends TestCase {
     private ISlackAPI $slackApiMock;
     private static bool $usingMysql;
     private static array $agenda_args = array();
+    private static bool $dbTablesHaveBeenCreated = false;
 
     const NOW_STR = '20211201';
     private DateTimeImmutable $now; // We initialize it in a setUp afterward because we can't set dynamic values inline
@@ -73,17 +74,16 @@ final class AgendaTest extends TestCase {
     private function buildSut(ICalDAVClient $caldav_client) : Agenda {
         if (self::$usingMysql){
             $sut = new MySQLAgenda($caldav_client, $this->slackApiMock, self::$agenda_args);
-            $sut->createDB();
-            $sut->truncate_tables();
         } else {
-            $dbAlreadyExists = file_exists(self::SQLITE_FILE);
             $sut = new SqliteAgenda($caldav_client, $this->slackApiMock, self::$agenda_args);
-            if ($dbAlreadyExists){
-                $sut->truncate_tables();
-            } else {
-                $sut->createDB();
-            }
         }
+
+        if (!self::$dbTablesHaveBeenCreated){
+            $sut->createDB();
+            self::$dbTablesHaveBeenCreated = true;
+        }
+
+        $sut->truncate_tables();
         return $sut;
     }
 
