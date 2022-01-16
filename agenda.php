@@ -445,7 +445,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         $this->parseEvent($result['vCalendarFilename'], $userid, $result);
         return $result;
     }
-    
+        
     private function getEvent(string $vCalendarFilename) {
         $query = $this->pdo->prepare("SELECT * FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename");
         $query->execute(array('vCalendarFilename' => $vCalendarFilename));
@@ -550,14 +550,22 @@ WHERE vCalendarFilename =:vCalendarFilename;");
             }
         }
         
-        $success = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize());
-        if($success === false) {
+        $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize());
+        if($new_ETag === false) {
             $this->log->error("Fails to update the event");
             return false; // the event has not been updated
-        } else {
-            $this->log->info("The caldav server has been updated, we now update the local calendar");
+        } else if(is_null($new_ETag)) {
+            $this->log->info("The CalDAV server did not answer a new ETag after an event update, need to update the local calendar");
             $this->updateEvents(array($vCalendarFilename));
             return true;// the event has been updated
+        } else {
+            $this->log->info("The CalDAV server did answer a new ETag after an event update, no need to update the local calendar");
+            $event = array(
+                "vCalendarFilename" => $vCalendarFilename,
+                "vCalendarRaw" => $vCalendar->serialize(),
+                "ETag" => trim($new_ETag, '"')
+            );
+            $this->updateEvent($event);
         }
         return true;
     }
