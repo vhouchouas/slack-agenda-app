@@ -629,9 +629,11 @@ WHERE vCalendarFilename =:vCalendarFilename;");
     }
 
     protected function insertMandatoryLinesAfterDbInitialization(){
-        $query = $this->pdo->prepare("INSERT OR IGNORE INTO {$this->table_prefix}properties (property, value) VALUES ('CTag', 'NULL')");
+        $query = $this->pdo->prepare($this->insertIgnorePrefix() ." INTO {$this->table_prefix}properties (property, value) VALUES ('CTag', 'NULL')");
         $query->execute();
     }
+
+    protected abstract function insertIgnorePrefix();
 }
 
 require_once "SqliteAgenda.php";

@@ -15,6 +15,8 @@ use Monolog\Handler\StreamHandler;
 final class AgendaTest extends TestCase {
     private const SQLITE_FILE = "sqlite_db_for_tests.sqlite";
     private ISlackAPI $slackApiMock;
+    private static bool $usingMysql;
+    private static array $agenda_args = array();
 
     const NOW_STR = '20211201';
     private DateTimeImmutable $now; // We initialize it in a setUp afterward because we can't set dynamic values inline
@@ -26,11 +28,30 @@ final class AgendaTest extends TestCase {
         // log level of the code being tested
         $GLOBALS['LOG_HANDLERS'] = array(new StreamHandler('php://stdout', Logger::DEBUG));
 
-        // Ensure there is no leftover from a previous run (it should never occur, but better safe than sorry)
-        self::deleteDatabase();
+        if (getenv("DB_TYPE") === "mysql"){
+            echo "Using db of type mysql\n";
+            self::$usingMysql = true;
+            self::$agenda_args["db_name"] = getenv("MYSQL_DATABASE");
+            self::$agenda_args["db_host"] = getenv("MYSQL_HOST");
+            self::$agenda_args["db_username"] = getenv("MYSQL_USER");
+            self::$agenda_args["db_password"] = getenv("MYSQL_PASSWORD");
+        } else {
+            echo "Using db of type sqlite\n";
+            self::$usingMysql = false;
+            self::$agenda_args["path"] = self::SQLITE_FILE;
+            // Ensure there is no leftover from a previous run (it should never occur, but better safe than sorry)
+            self::deleteSqliteDatabase();
+        }
+        self::$agenda_args["db_table_prefix"] = "_";
+
     }
     public static function tearDownAfterClass() : void {
-        self::deleteDatabase();
+        if (!self::$usingMysql) {
+            self::deleteSqliteDatabase();
+        } else {
+            // We don't bother with completely deleting the database with mysql so we don't have to bother with
+          // root credentials. It's not such a big deal since we still truncate the tables anyway
+        }
     }
     public function setUp(): void {
         $this->now = new DateTimeImmutable(self::NOW_STR);
@@ -44,19 +65,24 @@ final class AgendaTest extends TestCase {
         $this->slackApiMock = $this->createMock(ISlackAPI::class);
         $this->slackApiMock->method('users_lookupByEmail')->will($this->returnValueMap($mapEmailToSlackId));
     }
-    private static function deleteDatabase(){
+    private static function deleteSqliteDatabase(){
         if (file_exists(self::SQLITE_FILE)){
             unlink(self::SQLITE_FILE);
         }
     }
     private function buildSut(ICalDAVClient $caldav_client) : Agenda {
-        $dbAlreadyExists = file_exists(self::SQLITE_FILE);
-        $agenda_args = array("path" => self::SQLITE_FILE, "db_table_prefix" => "_");
-        $sut = new SqliteAgenda($caldav_client, $this->slackApiMock, $agenda_args);
-        if ($dbAlreadyExists){
+        if (self::$usingMysql){
+            $sut = new MySQLAgenda($caldav_client, $this->slackApiMock, self::$agenda_args);
+            $sut->createDB();
             $sut->truncate_tables();
         } else {
-            $sut->createDB();
+            $dbAlreadyExists = file_exists(self::SQLITE_FILE);
+            $sut = new SqliteAgenda($caldav_client, $this->slackApiMock, self::$agenda_args);
+            if ($dbAlreadyExists){
+                $sut->truncate_tables();
+            } else {
+                $sut->createDB();
+            }
         }
         return $sut;
     }
@@ -601,4 +627,8 @@ class ExpectedParsedEvent {
 
 function mockSlackUser($slackId){
     return (object) array('id' => $slackId);
+}
+
+function getEnvOrDie(string $varname){
+    return getenv($varname) or die("Environment variable $varname should be defined");
 }

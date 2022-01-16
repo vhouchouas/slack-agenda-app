@@ -72,4 +72,8 @@ class SqliteAgenda extends Agenda {
 
         $this->log->info("Create database tables - done.");
     }
+
+    protected function insertIgnorePrefix() {
+        return "INSERT OR IGNORE";
+    }
 }
