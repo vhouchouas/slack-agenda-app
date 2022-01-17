@@ -445,16 +445,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         $this->parseEvent($result['vCalendarFilename'], $userid, $result);
         return $result;
     }
-    
-    protected function saveEvent(string $vCalendarFilename, string $ETag, object $vCalendar) {
-        $query = $this->pdo->prepare("REPLACE INTO {$this->table_prefix}events (vCalendarFilename, ETag, vCalendarRaw) VALUES (:vCalendarFilename, :ETag, :vCalendarRaw)");
-        $query->execute(array(
-            'vCalendarFilename' =>  $vCalendarFilename,
-            'ETag' => $new_ETag,
-            'vCalendar' => $vCalendar->serialize()
-        ));
-    }
-    
+        
     private function getEvent(string $vCalendarFilename) {
         $query = $this->pdo->prepare("SELECT * FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename");
         $query->execute(array('vCalendarFilename' => $vCalendarFilename));
@@ -564,16 +555,22 @@ WHERE vCalendarFilename =:vCalendarFilename;");
             $this->log->error("Fails to update the event");
             return false; // the event has not been updated
         } else if(is_null($new_ETag)) {
-            $this->log->info("The server did not answer a new ETag after an event update, need to update the local calendar");
+            $this->log->info("The CalDAV server did not answer a new ETag after an event update, need to update the local calendar");
             $this->updateEvents(array($vCalendarFilename));
             return true;// the event has been updated
         } else {
-            $this->saveEvent($vCalendarFilename, $new_ETag, $vCalendar->serialize());
+            $this->log->info("The CalDAV server did answer a new ETag after an event update, no need to update the local calendar");
+            $event = array(
+                "vCalendarFilename" => $vCalendarFilename,
+                "vCalendarRaw" => $vCalendar->serialize(),
+                "ETag" => trim($new_ETag, '"')
+            );
+            $this->updateEvent($event);
         }
         return true;
     }
     
-    protected function updateEvents(array $vCalendarFilenames) {
+    private function updateEvents(array $vCalendarFilenames) {
         $events = $this->caldav_client->fetchEvents($vCalendarFilenames);
         
         if(is_null($events) || $events === false) {
@@ -587,7 +584,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         return true;
     }
     
-    public function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $datetime) {
+    private function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $datetime) {
         $now = new DateTimeImmutable();
         if ($datetime < $now){
             $this->log->debug("not creating the reminder for $userid because " . $datetime->format('Y-m-dTH:i:s') . " is in the past");
@@ -640,9 +637,11 @@ WHERE vCalendarFilename =:vCalendarFilename;");
     }
 
     protected function insertMandatoryLinesAfterDbInitialization(){
-        $query = $this->pdo->prepare("INSERT OR IGNORE INTO {$this->table_prefix}properties (property, value) VALUES ('CTag', 'NULL')");
+        $query = $this->pdo->prepare($this->insertIgnorePrefix() ." INTO {$this->table_prefix}properties (property, value) VALUES ('CTag', 'NULL')");
         $query->execute();
     }
+
+    protected abstract function insertIgnorePrefix();
 }
 
 require_once "SqliteAgenda.php";

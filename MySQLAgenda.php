@@ -79,4 +79,8 @@ class MySQLAgenda extends Agenda {
 
         $this->log->info("Create database tables - done.");
     }
+
+    protected function insertIgnorePrefix() {
+        return "INSERT IGNORE";
+    }
 }
