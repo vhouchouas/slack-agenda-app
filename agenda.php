@@ -131,7 +131,7 @@ abstract class Agenda {
   INNER JOIN {$this->table_prefix}attendees ON {$this->table_prefix}events_attendees.email = {$this->table_prefix}attendees.email ";
         }
         
-        $sql .= 'WHERE Date(event.datetime_begin) > :datetime_begin ';
+        $sql .= 'WHERE event.datetime_begin > :datetime_begin ';
 
         if($volunteers_required) {
             $sql .= "AND number_volunteers_required is not NULL ";
@@ -192,7 +192,7 @@ abstract class Agenda {
 
     public function getEvents(DateTimeImmutable $now): array {
         $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `vCalendarRaw` 
-                                      FROM {$this->table_prefix}events WHERE Date(datetime_begin) > :datetime_begin 
+                                      FROM {$this->table_prefix}events WHERE datetime_begin > :datetime_begin 
                                       ORDER BY datetime_begin;");
         $query->execute(array('datetime_begin' => $now->format('Y-m-d H:i:s')));
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
