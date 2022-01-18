@@ -20,7 +20,7 @@ class SqliteAgenda extends Agenda {
             return $pdo;
         } catch(Exception $e) {
             echo "Can't reach SQLite database: ".$e->getMessage();
-            die();
+            die(1);
         }
     }
     

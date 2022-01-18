@@ -417,7 +417,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
             $this->log->error($e->getMessage());
-            die($e->getMessage());
+            die(1);
         }
 
         if($new_event === false and $previous_datetime != $datetime_begin) {
