@@ -638,5 +638,10 @@ function mockSlackUser($slackId){
 }
 
 function getEnvOrDie(string $varname){
-    return getenv($varname) or die("Environment variable $varname should be defined");
+    $value = getenv($varname);
+    if ($value === false){
+        echo "Environment variable $varname should be defined\n";
+        die(1);
+    }
+    return $value;
 }

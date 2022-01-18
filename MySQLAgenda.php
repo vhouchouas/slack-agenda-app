@@ -24,7 +24,7 @@ class MySQLAgenda extends Agenda {
                            $this->password);
         } catch(Exception $e) {
             echo "Can't reach MySQL like database: ".$e->getMessage();
-            die();
+            die(1);
         }
     }
     
