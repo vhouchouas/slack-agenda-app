@@ -396,7 +396,7 @@ class SlackEvents {
             $options[] = [
                 "text"=> [
                     "type"  => "plain_text",
-                    "text"  => $vCalendar->VEVENT->DTSTART->getDateTime()->format('Y-m-d H:i:s') . " " .(string)$vCalendar->VEVENT->SUMMARY,
+                    "text"  => forceStringLength($vCalendar->VEVENT->DTSTART->getDateTime()->format('Y-m-d H:i:s') . " " .(string)$vCalendar->VEVENT->SUMMARY, 75),
                     "emoji" => true
                 ],
                 "value" => $vCalendarFilename

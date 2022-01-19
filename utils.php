@@ -251,3 +251,11 @@ function getUserNameFromSlackProfile($profile) {
     }
     return "";
 }
+
+function forceStringLength(string $str, int $max_length) {
+    if(strlen($str) > $max_length) {
+        return substr($str, 0, $max_length - 3) . "...";
+    } else {
+        return $str;
+    }
+}
