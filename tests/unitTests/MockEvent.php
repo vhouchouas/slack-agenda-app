@@ -8,8 +8,8 @@ class MockEvent {
     // counter that we increment
     private static $lastEventEtag = 0;
 
-    public function __construct(array $categories = array(), array $attendeesEmail = array()){
-        $this->name = self::generateUniqName();
+    public function __construct(array $categories = array(), array $attendeesEmail = array(), $name = ""){
+        $this->name = $name === "" ? self::generateUniqName() : $name;
         $this->dtstart = DATE_IN_THE_FUTURE;
         $this->categories = $categories;
         $this->attendeesEmail = $attendeesEmail;
@@ -74,6 +74,9 @@ class MockEvent {
         $raw .= "END:VEVENT\r\n"
           . "END:VCALENDAR\r\n";
         return $raw;
+    }
 
+    public function getSabreObject() {
+        return \Sabre\VObject\Reader::read($this->raw());
     }
 }

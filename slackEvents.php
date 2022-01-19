@@ -6,7 +6,7 @@ class SlackEvents {
     protected $api;
     const URL_REGEX = '/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&\/=]*)/m';
             
-    function __construct($agenda, $api, $log) {
+    function __construct(Agenda $agenda, ISlackAPI  $api, Monolog\Logger $log) {
         $this->agenda = $agenda;
         $this->log = $log;
         $this->api = $api;
