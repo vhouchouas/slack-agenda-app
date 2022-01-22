@@ -589,7 +589,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         if ($datetime < $now){
             $this->log->debug("not creating the reminder for $userid because " . $datetime->format('Y-m-dTH:i:s') . " is in the past");
         } else {
-            $response = $this->api->reminders_add($userid, "Rappel pour l'événement: $message", $datetime);
+            $response = $this->api->reminders_add($userid, "Rappel pour l'événement qui aura lieu dans 24h : $message", $datetime);
             $this->log->debug("Creating slack reminder: {$response->reminder->id} for event $vCalendarFilename");
             if(!is_null($response)) {
                 $this->log->debug("Adding reminder within the database.");
