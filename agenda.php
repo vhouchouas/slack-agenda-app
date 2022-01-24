@@ -584,7 +584,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         return true;
     }
     
-    private function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $datetime) {
+    public function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $datetime) {
         $now = new DateTimeImmutable();
         if ($datetime < $now){
             $this->log->debug("not creating the reminder for $userid because " . $datetime->format('Y-m-dTH:i:s') . " is in the past");
