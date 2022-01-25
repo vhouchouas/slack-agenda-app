@@ -1,0 +1,7 @@
+<?php
+declare(strict_types=1);
+
+define("NOW_STR", "20211201");
+define("DATE_IN_THE_FUTURE", "20211223T113000Z");
+define("DATE_EVEN_MORE_IN_THE_FUTURE", "20211230T113000Z");
+define("DATE_IN_THE_PAST", "20191223T113000Z");

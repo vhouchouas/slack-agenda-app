@@ -5,6 +5,8 @@ require_once "../SqliteAgenda.php";
 require_once "../CalDAVClient.php";
 require_once "../slackAPI.php";
 require_once "MockCalDAVClient.php";
+require_once "testUtils.php";
+require_once "MockEvent.php";
 
 use PHPUnit\Framework\TestCase;
 use function PHPUnit\Framework\assertEquals;
@@ -19,11 +21,7 @@ final class AgendaTest extends TestCase {
     private static array $agenda_args = array();
     private static bool $dbTablesHaveBeenCreated = false;
 
-    const NOW_STR = '20211201';
     private DateTimeImmutable $now; // We initialize it in a setUp afterward because we can't set dynamic values inline
-    const DATE_IN_THE_FUTURE = "20211223T113000Z";
-    const DATE_EVEN_MORE_IN_THE_FUTURE = "20211230T113000Z";
-    const DATE_IN_THE_PAST = "20191223T113000Z";
 
     public static function setUpBeforeClass() : void {
         // log level of the code being tested
@@ -55,7 +53,7 @@ final class AgendaTest extends TestCase {
         }
     }
     public function setUp(): void {
-        $this->now = new DateTimeImmutable(self::NOW_STR);
+        $this->now = new DateTimeImmutable(NOW_STR);
 
         // Always use the same mapping for simplicity
         $mapEmailToSlackId = [
@@ -107,7 +105,7 @@ final class AgendaTest extends TestCase {
     public function test_checkAgenda_with_an_event_in_the_past_and_one_in_the_future() {
         // Setup
         $upcomingEvent = new MockEvent();
-        $pastEvent = (new MockEvent())->overrideDtstart(self::DATE_IN_THE_PAST);
+        $pastEvent = (new MockEvent())->overrideDtstart(DATE_IN_THE_PAST);
         $caldav_client = $this->buildCalDAVClient(array($upcomingEvent, $pastEvent));
 
         $sut = AgendaTest::buildSUT($caldav_client);
@@ -351,8 +349,8 @@ final class AgendaTest extends TestCase {
         // Act & Assert
         $sut->checkAgenda();
 
-        $event1->overrideDtstart(self::DATE_IN_THE_PAST);
-        $event2->overrideDtstart(self::DATE_EVEN_MORE_IN_THE_FUTURE);
+        $event1->overrideDtstart(DATE_IN_THE_PAST);
+        $event2->overrideDtstart(DATE_EVEN_MORE_IN_THE_FUTURE);
         $caldav_client->setNewEvents(array($event1, $event2));
 
         $this->assertTrue($sut->checkAgenda());
@@ -495,82 +493,6 @@ final class AgendaTest extends TestCase {
         foreach($expectedParsedEvents as $expectedParsedEvent) {
             $expectedParsedEvent->assertEquals($actualEvents[$expectedParsedEvent->getId()]);
         }
-    }
-}
-
-
-class MockEvent {
-    // We don't care the actual etag of a mock event, they just need to be unique, so we keep a
-    // counter that we increment
-    private static $lastEventEtag = 0;
-
-    public function __construct(array $categories = array(), array $attendeesEmail = array()){
-        $this->name = self::generateUniqName();
-        $this->dtstart = AgendaTest::DATE_IN_THE_FUTURE;
-        $this->categories = $categories;
-        $this->attendeesEmail = $attendeesEmail;
-
-        $this->updateEtag();
-    }
-
-    public function overrideDtstart(string $dtstart) : MockEvent {
-        $this->dtstart = $dtstart;
-        $this->updateETag();
-        return $this;
-    }
-
-    public function overrideCategories(array $categories) : MockEvent {
-        $this->categories = $categories;
-        $this->updateEtag();
-        return $this;
-    }
-
-    public function overrideAttendeesEmail(array $attendeesEmail) : MockEvent {
-        $this->attendeesEmail = $attendeesEmail;
-        $this->updateEtag();
-        return $this;
-    }
-
-    private static function generateUniqName() {
-        // We know that $this->lastEventTag is unique so we rely on it to generate a unique name
-        return "eventName" . self::$lastEventEtag;
-    }
-
-    public function id(){
-        return $this->name . ".ics";
-    }
-
-    public function etag(){
-        return $this->etag;
-    }
-
-    private function updateEtag() {
-        self::$lastEventEtag = self::$lastEventEtag + 1;
-        $this->etag = "" . self::$lastEventEtag;
-    }
-
-    public function raw(){
-        $raw= "BEGIN:VCALENDAR\r\n"
-          . "VERSION:2.0\r\n"
-          . "PRODID: mock builder\r\n"
-          . "BEGIN:VEVENT\r\n"
-          . "UID:" . $this->name . ".ics\r\n"
-          . "DTSTAMP:19850403T172345Z\r\n"
-          . "DTSTART:" . $this->dtstart . "\r\n"
-          . "SUMMARY:" . $this->name . "\r\n";
-        foreach($this->categories as $cat){
-            $raw .= "CATEGORIES:$cat\r\n";
-        }
-        foreach($this->attendeesEmail as $email){
-            // Line split because according to RFC5545 a line should not be longer than 75 octets
-            $raw .= "ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;\r\n"
-              ." :mailto:$email\r\n";
-        }
-
-        $raw .= "END:VEVENT\r\n"
-          . "END:VCALENDAR\r\n";
-        return $raw;
-
     }
 }
 
