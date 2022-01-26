@@ -20,6 +20,6 @@ $slack_events = new SlackEvents($agenda, $api, $log);
 
 SlackEvents::ack();
 
-if($command === "/remindEvent") {
+if($command === "/$slash_command") {
     $slack_events->event_selection($_POST["channel_id"], $_POST["trigger_id"]);
 }
