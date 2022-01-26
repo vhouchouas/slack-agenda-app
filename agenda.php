@@ -495,6 +495,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
      * @param string $usermail the user email
      * @param boolean $register true: register, false: unregister
      * @param string $attendee_CN the attendee commun name
+     * @param string $userid the Slack id of the user
      *
      * @return boolean|null
      *    return null if the attendee is already registered and $register === true (i.e. nothing to do);
@@ -502,7 +503,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
      *    return true if no error occured;
      *    return false if the event has not been updated on the CalDAV server (i.e. the registration has failed).
      */    
-    public function updateAttendee(string $vCalendarFilename, string $usermail, bool $register, ?string $attendee_CN) {
+    public function updateAttendee(string $vCalendarFilename, string $usermail, bool $register, ?string $attendee_CN, string $userid) {
         $this->log->info("updating $vCalendarFilename");
         list($vCalendar, $ETag) = $this->getEvent($vCalendarFilename);
 
@@ -554,22 +555,33 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         if($new_ETag === false) {
             $this->log->error("Fails to update the event");
             return false; // the event has not been updated
-        } else if(is_null($new_ETag)) {
-            $this->log->info("The CalDAV server did not answer a new ETag after an event update, need to update the local calendar");
-            $this->updateEvents(array($vCalendarFilename));
-            return true;// the event has been updated
         } else {
-            $this->log->info("The CalDAV server did answer a new ETag after an event update, no need to update the local calendar");
-            $event = array(
-                "vCalendarFilename" => $vCalendarFilename,
-                "vCalendarRaw" => $vCalendar->serialize(),
-                "ETag" => trim($new_ETag, '"')
-            );
-            $this->updateEvent($event);
+            if ($register) {
+                $eventStartDate = $vCalendar->VEVENT->DTSTART->getDateTime();
+                $reminderDate = $eventStartDate->modify("-1 day");
+                $summary = (string)$vCalendar->SUMMARY;
+                $this->addReminder($userid, $vCalendarFilename, $summary, $reminderDate);
+            } else {
+                $this->deleteReminder($userid, $vCalendarFilename);
+            }
+
+            if(is_null($new_ETag)) {
+                $this->log->info("The CalDAV server did not answer a new ETag after an event update, need to update the local calendar");
+                $this->updateEvents(array($vCalendarFilename));
+                return true;// the event has been updated
+            } else {
+                $this->log->info("The CalDAV server did answer a new ETag after an event update, no need to update the local calendar");
+                $event = array(
+                    "vCalendarFilename" => $vCalendarFilename,
+                    "vCalendarRaw" => $vCalendar->serialize(),
+                    "ETag" => trim($new_ETag, '"')
+                );
+                $this->updateEvent($event);
+                return true;
+            }
         }
-        return true;
     }
-    
+
     private function updateEvents(array $vCalendarFilenames) {
         $events = $this->caldav_client->fetchEvents($vCalendarFilenames);
         
@@ -584,7 +596,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         return true;
     }
     
-    public function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $datetime) {
+    private function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $datetime) {
         $now = new DateTimeImmutable();
         if ($datetime < $now){
             $this->log->debug("not creating the reminder for $userid because " . $datetime->format('Y-m-dTH:i:s') . " is in the past");
@@ -605,7 +617,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         }
     }
 
-    public function deleteReminder(string $userid, string $vCalendarFilename) {
+    private function deleteReminder(string $userid, string $vCalendarFilename) {
         $query = $this->pdo->prepare("SELECT id FROM {$this->table_prefix}reminders WHERE vCalendarFilename= :vCalendarFilename AND userid = :userid;");
         $query->execute(array(
             'vCalendarFilename' =>  $vCalendarFilename,

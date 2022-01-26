@@ -426,7 +426,7 @@ final class AgendaTest extends TestCase {
 
         // Act & Assert
         // // Assert that the function considers it was successfully executed
-        $this->assertTrue($sut->updateAttendee($event->id(), "you@gmail.com", true, "Your Name"));
+        $this->assertTrue($sut->updateAttendee($event->id(), "you@gmail.com", true, "Your Name", "You"));
 
         // // Assert that the remote caldav server has been updated with correct parameters
         $this->assertEquals($event->id(), $caldav_client->updatedEvents[0][0]);
@@ -443,7 +443,7 @@ final class AgendaTest extends TestCase {
 
         // Act & Assert
         // // Assert that the function noticed that nothing was done
-        $this->isNull($sut->updateAttendee($event->id(), "you@gmail.com", true, "Your Name"));
+        $this->isNull($sut->updateAttendee($event->id(), "you@gmail.com", true, "Your Name", "You"));
 
         // // Assert that we did not try to update the caldav server
         $this->assertEquals(0, count($caldav_client->updatedEvents));
@@ -461,7 +461,7 @@ final class AgendaTest extends TestCase {
 
         // Act & Assert
         // // Assert that the function considers it was successfully executed
-        $this->assertTrue($sut->updateAttendee($event->id(), "you@gmail.com", false, "Your Name"));
+        $this->assertTrue($sut->updateAttendee($event->id(), "you@gmail.com", false, "Your Name", "You"));
 
         // // Assert that the remote caldav server has been updated with correct parameters
         $this->assertEquals($event->id(), $caldav_client->updatedEvents[0][0]);
@@ -478,7 +478,7 @@ final class AgendaTest extends TestCase {
 
         // Act & Assert
         // // Assert that the function noticed that nothing was done
-        $this->isNull($sut->updateAttendee($event->id(), "you@gmail.com", false, "Your Name"));
+        $this->isNull($sut->updateAttendee($event->id(), "you@gmail.com", false, "Your Name", "You"));
 
         // // Assert that we did not try to update the caldav server
         $this->assertEquals(0, count($caldav_client->updatedEvents));
