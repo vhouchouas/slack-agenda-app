@@ -71,9 +71,9 @@ final class AgendaTest extends TestCase {
     }
     private function buildSut(ICalDAVClient $caldav_client) : Agenda {
         if (self::$usingMysql){
-            $sut = new MySQLAgenda($caldav_client, $this->slackApiMock, self::$agenda_args);
+            $sut = new MySQLAgenda($caldav_client, $this->slackApiMock, self::$agenda_args, $this->now);
         } else {
-            $sut = new SqliteAgenda($caldav_client, $this->slackApiMock, self::$agenda_args);
+            $sut = new SqliteAgenda($caldav_client, $this->slackApiMock, self::$agenda_args, $this->now);
         }
 
         if (!self::$dbTablesHaveBeenCreated){
@@ -98,7 +98,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered($this->now, "someone");
+        $events = $sut->getUserEventsFiltered("someone");
         $this->assertEqualEvents(array(new ExpectedParsedEvent($event)), $events);
     }
 
@@ -114,7 +114,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered($this->now, "someone");
+        $events = $sut->getUserEventsFiltered("someone");
         $this->assertEqualEvents(array(new ExpectedParsedEvent($upcomingEvent)), $events);
     }
 
@@ -129,7 +129,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered($this->now, "someone");
+        $events = $sut->getUserEventsFiltered( "someone");
         $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->categories(array("cat1", "cat2"))), $events);
     }
 
@@ -145,7 +145,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered($this->now, "someone");
+        $events = $sut->getUserEventsFiltered("someone");
         $this->assertEqualEvents(array(
             (new ExpectedParsedEvent($eventWithNoRegistration))->nbVolunteersRequired(4),
             (new ExpectedParsedEvent($eventWithARegistration))->nbVolunteersRequired(4)->attendees(array('YOURID'))),
@@ -163,7 +163,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered($this->now, "someone");
+        $events = $sut->getUserEventsFiltered("someone");
         $this->assertEqualEvents(array(
             (new ExpectedParsedEvent($event))
                ->attendees(array('MYID'))
@@ -185,7 +185,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered($this->now, "MYID");
+        $events = $sut->getUserEventsFiltered("MYID");
         $this->assertEqualEvents(array(
             (new ExpectedParsedEvent($myEvent))->isRegistered(true)->attendees(array('MYID'))->unknownAttendees(1),
             (new ExpectedParsedEvent($yourEvent))->attendees(array('YOURID')),
@@ -206,7 +206,7 @@ final class AgendaTest extends TestCase {
 
         // Act
         $sut->checkAgenda();
-        $events = $sut->getUserEventsFiltered($this->now, "MYID", array(Agenda::MY_EVENTS_FILTER));
+        $events = $sut->getUserEventsFiltered("MYID", array(Agenda::MY_EVENTS_FILTER));
 
         // Assert
         $this->assertEqualEvents(array(
@@ -226,7 +226,7 @@ final class AgendaTest extends TestCase {
 
         // Act
         $sut->checkAgenda();
-        $events = $sut->getUserEventsFiltered($this->now, "MYID", array(Agenda::NEED_VOLUNTEERS_FILTER));
+        $events = $sut->getUserEventsFiltered("MYID", array(Agenda::NEED_VOLUNTEERS_FILTER));
 
         // Assert
         $this->assertEqualEvents(array(
@@ -247,7 +247,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Act & Assert 1: filter on a single category
-        $events1 = $sut->getUserEventsFiltered($this->now, "MYID", array("A"));
+        $events1 = $sut->getUserEventsFiltered("MYID", array("A"));
 
         $this->assertEquals(3, count($events1));
         $expectedEventABC = (new ExpectedParsedEvent($eventABC))->categories(array("A", "B", "C"));
@@ -257,7 +257,7 @@ final class AgendaTest extends TestCase {
         $this->assertEqualEvents(array($expectedEventABC, $expectedEventACD, $expectedEventABD), $events1);
 
         // Act & Assert 2: filter on several categories
-        $events2 = $sut->getUserEventsFiltered($this->now, "MYID", array("A", "B"));
+        $events2 = $sut->getUserEventsFiltered("MYID", array("A", "B"));
 
         $this->assertEqualEvents(array($expectedEventABC, $expectedEventABD), $events2);
     }
@@ -272,7 +272,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Act
-        $events = $sut->getEvents($this->now);
+        $events = $sut->getEvents();
 
         // Assert
         $this->assertEquals(2, count($events));
@@ -310,17 +310,17 @@ final class AgendaTest extends TestCase {
 
         // Act & Assert
         $this->assertTrue($sut->checkAgenda());
-        $this->assertEquals(0, count($sut->getUserEventsFiltered($this->now, "someone")));
+        $this->assertEquals(0, count($sut->getUserEventsFiltered("someone")));
 
         // // Now we create 2 events on the caldav server
         $caldav_client->setNewEvents(array($event1, $event2));
         $this->assertTrue($sut->checkAgenda());
-        $this->assertEqualEvents(array($parsedEvent1, $parsedEvent2), $sut->getUserEventsFiltered($this->now, "someone"));
+        $this->assertEqualEvents(array($parsedEvent1, $parsedEvent2), $sut->getUserEventsFiltered("someone"));
 
         // // Now we delete event2 from the caldav server and create event3
         $caldav_client->setNewEvents(array($event1, $event3));
         $this->assertTrue($sut->checkAgenda());
-        $this->assertEqualEvents(array($parsedEvent1, $parsedEvent3), $sut->getUserEventsFiltered($this->now, "someone"));
+        $this->assertEqualEvents(array($parsedEvent1, $parsedEvent3), $sut->getUserEventsFiltered("someone"));
     }
 
     public function test_addAndRemoveCategories() {
@@ -336,7 +336,7 @@ final class AgendaTest extends TestCase {
 
         $this->assertTrue($sut->checkAgenda());
         $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->categories(array("cat1", "cat3")))
-            , $sut->getUserEventsFiltered($this->now, "someone"));
+            , $sut->getUserEventsFiltered("someone"));
     }
 
     public function test_changeStartTime() {
@@ -356,7 +356,7 @@ final class AgendaTest extends TestCase {
         $this->assertTrue($sut->checkAgenda());
         // // We expect only event2 because event1 is now in the past
         $this->assertEqualEvents(array(new ExpectedParsedEvent($event2))
-              , $sut->getUserEventsFiltered($this->now, "someone"));
+              , $sut->getUserEventsFiltered("someone"));
     }
 
     public function test_changeAttendees() {
@@ -373,7 +373,7 @@ final class AgendaTest extends TestCase {
 
         $this->assertTrue($sut->checkAgenda());
         $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->unknownAttendees(1)->attendees(array("YOURID")))
-            , $sut->getUserEventsFiltered($this->now, "someone"));
+            , $sut->getUserEventsFiltered("someone"));
     }
 
     public function test_changeNumberOfParticipantRequired() {
@@ -390,7 +390,7 @@ final class AgendaTest extends TestCase {
 
         $this->assertTrue($sut->checkAgenda());
         $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->nbVolunteersRequired(2))
-            , $sut->getUserEventsFiltered($this->now, "someone"));
+            , $sut->getUserEventsFiltered("someone"));
     }
 
     public function test_getParsedEvent() {
@@ -421,6 +421,8 @@ final class AgendaTest extends TestCase {
         // Setup
         $event = new MockEvent();
         $caldav_client = $this->buildCalDAVClient(array($event), $returnETagAfterUpdate);
+        // // Assert we will query the slack api to register the reminder
+        $this->slackApiMock->expects($this->once())->method('reminders_add')->willReturn(json_decode('{"reminder": {"id": "abc"}}'));
         $sut = AgendaTest::buildSUT($caldav_client);
         $sut->checkAgenda();
 
@@ -438,6 +440,8 @@ final class AgendaTest extends TestCase {
         // Setup
         $event = new MockEvent(array(), array("you@gmail.com"));
         $caldav_client = $this->buildCalDAVClient(array($event));
+        // // Assert we will NOT query the slack api to register the reminder
+        $this->slackApiMock->expects($this->never())->method('reminders_add');
         $sut = AgendaTest::buildSUT($caldav_client);
         $sut->checkAgenda();
 

@@ -47,7 +47,7 @@ class SlackEvents {
     function app_home_page($userid, $filters_to_apply = array()) {
         $this->log->info('event: app_home_opened received');
         
-        $events = $this->agenda->getUserEventsFiltered(new DateTimeImmutable('TODAY'), $userid, $filters_to_apply);
+        $events = $this->agenda->getUserEventsFiltered($userid, $filters_to_apply);
         
         $blocks = [];
         $default_filters = [
@@ -382,7 +382,7 @@ class SlackEvents {
 
     public function event_selection($channel_id, $trigger_id) {
         $options = [];
-        foreach($this->agenda->getEvents(new DateTimeImmutable('TODAY')) as $vCalendarFilename => $vCalendar) {
+        foreach($this->agenda->getEvents() as $vCalendarFilename => $vCalendar) {
             $options[] = [
                 "text"=> [
                     "type"  => "plain_text",

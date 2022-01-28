@@ -8,9 +8,9 @@ use Sabre\VObject;
 class SqliteAgenda extends Agenda {
     private $path;
 
-    public function __construct(ICalDAVClient $caldav_client, object $api, array $agenda_args) {
+    public function __construct(ICalDAVClient $caldav_client, object $api, array $agenda_args, DateTimeImmutable $now) {
         $this->path = $agenda_args["path"];
-        parent::__construct($agenda_args["db_table_prefix"], new Logger('sqliteAgenda'), $caldav_client, $api);
+        parent::__construct($agenda_args["db_table_prefix"], new Logger('sqliteAgenda'), $caldav_client, $api, $now);
     }
     
     protected function openDB() {
