@@ -458,9 +458,19 @@ final class AgendaTest extends TestCase {
      */
     public function test_updateAttendee_unregister(bool $returnETagAfterUpdate) {
         // Setup
-        $event = new MockEvent(array(), array("you@gmail.com"));
+        // // We start with an event with no participant because we'll let the agenda register it.
+        // // this ensures that the database will be in a consistent state when we act
+        $event = new MockEvent();
         $caldav_client = $this->buildCalDAVClient(array($event), $returnETagAfterUpdate);
+        $this->slackApiMock->method('reminders_add')->willReturn(json_decode('{"reminder": {"id": "abc"}}'));
+        // // Assert we will query the slack api to delete the reminder
+        $this->slackApiMock->expects($this->once())->method('reminders_delete');
         $sut = AgendaTest::buildSUT($caldav_client);
+        $sut->checkAgenda();
+        $sut->updateAttendee($event->id(), "you@gmail.com", true, "Your Name", "You");
+        // // now that the db is in a state which knows about the reminder to delete, ensure the caldav mock als knows that a user was added on the event
+        $event->overrideAttendeesEmail(array("you@gmail.com"));
+        $caldav_client->setNewEvents(array($event));
         $sut->checkAgenda();
 
         // Act & Assert
@@ -469,14 +479,16 @@ final class AgendaTest extends TestCase {
 
         // // Assert that the remote caldav server has been updated with correct parameters
         $this->assertEquals($event->id(), $caldav_client->updatedEvents[0][0]);
-        $this->assertStringNotContainsString("mailto:you@gmail.com", $caldav_client->updatedEvents[0][2]);
-        $this->assertStringNotContainsString("Your Name", $caldav_client->updatedEvents[0][2]);
+        $this->assertStringNotContainsString("mailto:you@gmail.com", $caldav_client->updatedEvents[1][2]);
+        $this->assertStringNotContainsString("Your Name", $caldav_client->updatedEvents[1][2]);
     }
 
     public function test_updateAttendee_unregisterAUserWhichIsNotRegistered() {
         // Setup
         $event = new MockEvent();
         $caldav_client = $this->buildCalDAVClient(array($event));
+        // // Assert we will not query the slack api to delete a reminder
+        $this->slackApiMock->expects($this->never())->method('reminders_delete');
         $sut = AgendaTest::buildSUT($caldav_client);
         $sut->checkAgenda();
 
