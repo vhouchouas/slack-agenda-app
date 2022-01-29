@@ -86,15 +86,16 @@ function read_config_file() {
         $GLOBALS['CATEGORIES'] = $config['categories'];
     }
 
-    if (!isset($config['slash_command'])) {
-        $log->error('No slach command specified (exit).');
+    if (isset($config['slash_command'])) {
+        $GLOBALS['SLASH_COMMAND'] = $config['slash_command'];
+    } else {
+        $log->error('No slash command specified (exit).');
         exit();
     }
     
     return [$slack_credentials,
             $caldav_credentials,
-            $config['agenda'],
-            $config['slash_command']
+            $config['agenda']
     ];
 }
 

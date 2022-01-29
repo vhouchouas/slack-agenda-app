@@ -20,7 +20,7 @@ require "security.php";
 require "slackAPI.php";
 require "slackEvents.php";
 
-list($slack_credentials, $caldav_credentials, $agenda_args, $slash_command) = read_config_file();
+list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
 
 $log = new Logger('SlackApp');
 setLogHandlers($log);
