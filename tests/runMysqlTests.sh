@@ -14,7 +14,7 @@ SCRIPT_DIR="$(dirname "$THIS_FILE")"
 
 # Setup the environment variables to use mysql
 export DB_TYPE=mysql
-export MYSQL_HOST=localhost
+export MYSQL_HOST=127.0.0.1 # giving ip instead of string "localhost" to use tcp so it work even when mysql is in a docker container (where socket is not available)
 export MYSQL_DATABASE=test_slack_db
 export MYSQL_USER=slack-app-test-user
 export MYSQL_PASSWORD=slack-app-test-pass
