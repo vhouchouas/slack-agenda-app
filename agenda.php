@@ -20,7 +20,10 @@ abstract class Agenda {
 
     protected $table_prefix;
 
-    public function __construct(string $table_prefix, Logger $log, ICalDAVClient $caldav_client, object $api) {
+    private DateTimeImmutable $now;
+    private DateTimeImmutable $beginningOfToday;
+
+    public function __construct(string $table_prefix, Logger $log, ICalDAVClient $caldav_client, object $api, DateTimeImmutable $now) {
         $this->table_prefix = $table_prefix;
         $this->log = $log;
         setLogHandlers($this->log);
@@ -32,6 +35,9 @@ abstract class Agenda {
         
         $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); // ERRMODE_WARNING | ERRMODE_EXCEPTION | ERRMODE_SILENT
+
+        $this->now = $now;
+        $this->beginningOfToday = $now->setTime(0, 0, 0, 0);
 
     }
     
@@ -92,11 +98,10 @@ abstract class Agenda {
     }
     
     /**
-     * @param $now The current time. Used to retrieve only the events not started yet
      * @param $userId The slack id of the current user. Used to compute on which events the user is registered
      * @param $filters_to_apply The filters that the returned events should match.
      */
-    public function getUserEventsFiltered(DateTimeImmutable $now, string $userid, array $filters_to_apply = array()) {
+    public function getUserEventsFiltered(string $userid, array $filters_to_apply = array()) {
         $sql = "SELECT event.vCalendarFilename, event.number_volunteers_required, event.vCalendarRaw FROM {$this->table_prefix}events event ";
 
         $my_events = false;
@@ -153,7 +158,7 @@ abstract class Agenda {
 
         $sql .= " ORDER BY event.datetime_begin;";
         $query = $this->pdo->prepare($sql);
-        $query->execute(array('datetime_begin' => $now->format('Y-m-d H:i:s')));
+        $query->execute(array('datetime_begin' => $this->beginningOfToday->format('Y-m-d H:i:s')));
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         
         foreach($results as $vCalendarFilename => &$result) {
@@ -190,11 +195,11 @@ abstract class Agenda {
         $result["categories"] = array_keys($categories);
     }
 
-    public function getEvents(DateTimeImmutable $now): array {
+    public function getEvents(): array {
         $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `vCalendarRaw` 
                                       FROM {$this->table_prefix}events WHERE datetime_begin > :datetime_begin 
                                       ORDER BY datetime_begin;");
-        $query->execute(array('datetime_begin' => $now->format('Y-m-d H:i:s')));
+        $query->execute(array('datetime_begin' => $this->beginningOfToday->format('Y-m-d H:i:s')));
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         $events = array();
         foreach($results as $vCalendarFilename => $result) {
@@ -475,7 +480,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         if (is_null($local_CTag) || $local_CTag != $remote_CTag){
             $this->log->debug("Agenda update needed");
             
-            $remote_ETags = $this->caldav_client->getETags(new DateTimeImmutable("today"));
+            $remote_ETags = $this->caldav_client->getETags($this->beginningOfToday);
             if($remote_CTag === false || is_null($remote_CTag)) {
                 $this->log->error("Fail to get CTag from the remote server");
                 return null;
@@ -495,6 +500,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
      * @param string $usermail the user email
      * @param boolean $register true: register, false: unregister
      * @param string $attendee_CN the attendee commun name
+     * @param string $userid the Slack id of the user
      *
      * @return boolean|null
      *    return null if the attendee is already registered and $register === true (i.e. nothing to do);
@@ -502,7 +508,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
      *    return true if no error occured;
      *    return false if the event has not been updated on the CalDAV server (i.e. the registration has failed).
      */    
-    public function updateAttendee(string $vCalendarFilename, string $usermail, bool $register, ?string $attendee_CN) {
+    public function updateAttendee(string $vCalendarFilename, string $usermail, bool $register, ?string $attendee_CN, string $userid) {
         $this->log->info("updating $vCalendarFilename");
         list($vCalendar, $ETag) = $this->getEvent($vCalendarFilename);
 
@@ -554,22 +560,33 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         if($new_ETag === false) {
             $this->log->error("Fails to update the event");
             return false; // the event has not been updated
-        } else if(is_null($new_ETag)) {
-            $this->log->info("The CalDAV server did not answer a new ETag after an event update, need to update the local calendar");
-            $this->updateEvents(array($vCalendarFilename));
-            return true;// the event has been updated
         } else {
-            $this->log->info("The CalDAV server did answer a new ETag after an event update, no need to update the local calendar");
-            $event = array(
-                "vCalendarFilename" => $vCalendarFilename,
-                "vCalendarRaw" => $vCalendar->serialize(),
-                "ETag" => trim($new_ETag, '"')
-            );
-            $this->updateEvent($event);
+            if ($register) {
+                $eventStartDate = $vCalendar->VEVENT->DTSTART->getDateTime();
+                $reminderDate = $eventStartDate->modify("-1 day");
+                $summary = (string)$vCalendar->SUMMARY;
+                $this->addReminder($userid, $vCalendarFilename, $summary, $reminderDate);
+            } else {
+                $this->deleteReminder($userid, $vCalendarFilename);
+            }
+
+            if(is_null($new_ETag)) {
+                $this->log->info("The CalDAV server did not answer a new ETag after an event update, need to update the local calendar");
+                $this->updateEvents(array($vCalendarFilename));
+                return true;// the event has been updated
+            } else {
+                $this->log->info("The CalDAV server did answer a new ETag after an event update, no need to update the local calendar");
+                $event = array(
+                    "vCalendarFilename" => $vCalendarFilename,
+                    "vCalendarRaw" => $vCalendar->serialize(),
+                    "ETag" => trim($new_ETag, '"')
+                );
+                $this->updateEvent($event);
+                return true;
+            }
         }
-        return true;
     }
-    
+
     private function updateEvents(array $vCalendarFilenames) {
         $events = $this->caldav_client->fetchEvents($vCalendarFilenames);
         
@@ -584,12 +601,11 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         return true;
     }
     
-    public function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $datetime) {
-        $now = new DateTimeImmutable();
-        if ($datetime < $now){
-            $this->log->debug("not creating the reminder for $userid because " . $datetime->format('Y-m-dTH:i:s') . " is in the past");
+    private function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $reminderTime) {
+        if ($reminderTime < $this->now){
+            $this->log->debug("not creating the reminder for $userid because " . $reminderTime->format('Y-m-dTH:i:s') . " is in the past");
         } else {
-            $response = $this->api->reminders_add($userid, "Rappel pour l'événement qui aura lieu dans 24h : $message", $datetime);
+            $response = $this->api->reminders_add($userid, "Rappel pour l'événement qui aura lieu dans 24h : $message", $reminderTime);
             $this->log->debug("Creating slack reminder: {$response->reminder->id} for event $vCalendarFilename");
             if(!is_null($response)) {
                 $this->log->debug("Adding reminder within the database.");
@@ -605,7 +621,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         }
     }
 
-    public function deleteReminder(string $userid, string $vCalendarFilename) {
+    private function deleteReminder(string $userid, string $vCalendarFilename) {
         $query = $this->pdo->prepare("SELECT id FROM {$this->table_prefix}reminders WHERE vCalendarFilename= :vCalendarFilename AND userid = :userid;");
         $query->execute(array(
             'vCalendarFilename' =>  $vCalendarFilename,
@@ -654,10 +670,11 @@ function initAgendaFromType(string $CalDAV_url, string $CalDAV_username, string 
     }
 
     $caldav_client = new CalDAVClient($CalDAV_url, $CalDAV_username, $CalDAV_password);
+    $now = new DateTimeImmutable();
     if($agenda_args["db_type"] === "MySQL") {
-        return new MySQLAgenda($caldav_client, $api, $agenda_args);
+        return new MySQLAgenda($caldav_client, $api, $agenda_args, $now);
     } else if($agenda_args["db_type"] === "sqlite") {
-        return new SqliteAgenda($caldav_client, $api, $agenda_args);
+        return new SqliteAgenda($caldav_client, $api, $agenda_args, $now);
     } else {
         $log->error("db type $agenda_args[db_type] is unknown (exit).");
         exit();

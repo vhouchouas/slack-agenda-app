@@ -47,7 +47,7 @@ class SlackEvents {
     function app_home_page($userid, $filters_to_apply = array()) {
         $this->log->info('event: app_home_opened received');
         
-        $events = $this->agenda->getUserEventsFiltered(new DateTimeImmutable('TODAY'), $userid, $filters_to_apply);
+        $events = $this->agenda->getUserEventsFiltered($userid, $filters_to_apply);
         
         $blocks = [];
         $default_filters = [
@@ -286,7 +286,8 @@ class SlackEvents {
             $response = $this->agenda->updateAttendee($vCalendarFilename,
                                                       $profile->email,
                                                       $register,
-                                                      getUserNameFromSlackProfile($profile));
+                                                      getUserNameFromSlackProfile($profile),
+                                                      $userid);
         }
     }
     
@@ -335,7 +336,7 @@ class SlackEvents {
         slackEvents::ack();
         $this->register_fast_rendering($vCalendarFilename, $userid, $profile->email, $register, $request, $parsed_event);
         
-        $response = $this->agenda->updateAttendee($vCalendarFilename, $profile->email, $register, getUserNameFromSlackProfile($profile));
+        $response = $this->agenda->updateAttendee($vCalendarFilename, $profile->email, $register, getUserNameFromSlackProfile($profile), $userid);
 
         if(is_null($response)) { //nothing to do
             return;
@@ -344,19 +345,8 @@ class SlackEvents {
         if($response === false) {
             trigger_error("Event update failed", E_USER_ERROR); // it will: call error_handler, inform user and exit.
         }
-
-        $vCalendar = $parsed_event['vCalendar']->VEVENT;
-        $datetime = $vCalendar->DTSTART->getDateTime();
-        $datetime = $datetime->modify("-1 day");
-        
-        if($register) {
-            $summary = (string)$vCalendar->SUMMARY;
-            $this->agenda->AddReminder($userid, $vCalendarFilename, $summary, $datetime);
-        } else {
-            $this->agenda->DeleteReminder($userid, $vCalendarFilename);
-        }
     }
-    
+
     function filters_has_changed($action, $userid) {
         $filters_to_apply = array();
         foreach($action->selected_options as $filter) {
@@ -392,7 +382,7 @@ class SlackEvents {
 
     public function event_selection($channel_id, $trigger_id) {
         $options = [];
-        foreach($this->agenda->getEvents(new DateTimeImmutable('TODAY')) as $vCalendarFilename => $vCalendar) {
+        foreach($this->agenda->getEvents() as $vCalendarFilename => $vCalendar) {
             $options[] = [
                 "text"=> [
                     "type"  => "plain_text",
