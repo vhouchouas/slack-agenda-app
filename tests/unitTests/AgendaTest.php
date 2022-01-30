@@ -322,7 +322,32 @@ final class AgendaTest extends TestCase {
         $this->assertTrue($sut->checkAgenda());
         $this->assertEqualEvents(array($parsedEvent1, $parsedEvent3), $sut->getUserEventsFiltered("someone"));
     }
+    
+    public function test_addAndRemoveEventWithAlreadyRegisteredUsers() {
+        // Setup
+        $event = new MockEvent(array(), array());
+        $caldav_client = $this->buildCalDAVClient(array($event), true);
+        $this->slackApiMock->method('reminders_add')->willReturn(json_decode('{"reminder": {"id": "abc"}}'));
 
+        $sut = AgendaTest::buildSUT($caldav_client);
+        $sut->checkAgenda();
+                
+        // add one attendee to the event
+        $sut->updateAttendee($event->id(), "you@gmail.com", true, "Your Name", "YOURID");
+        $sut->checkAgenda();
+        
+        // Now we delete the event from the caldav server
+        $caldav_client->setNewEvents(array());
+        
+        // expect calls to reminders_delete (to remove the Slack reminder) and to chat_postMessage (to inform the user)
+        $this->slackApiMock->expects($this->once())->method('reminders_delete');
+        $this->slackApiMock->expects($this->once())->method('chat_postMessage');        
+
+        // Assert
+        $this->assertTrue($sut->checkAgenda());
+        $this->assertEquals(0, count($sut->getUserEventsFiltered("YOURID")));
+    }
+    
     public function test_addAndRemoveCategories() {
         $event = new MockEvent(array("cat1", "cat2"));
         $caldav_client = $this->buildCalDAVClient(array($event));
