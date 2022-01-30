@@ -9,6 +9,7 @@
     "logger_level" : "DEBUG",
     "error_mail_from" : "error@server.com",
     "error_mail_to" : "dev@server.com",
+    "slash_command" : "remindEvent",
     "agenda" : {
         // for sqlite database
         "path" : "./database.sqlite",
