@@ -85,11 +85,11 @@ Create the tables of the database
 
 From the directory where you installed the php files run:
 
-    ./clitools database create
+    ./clitools database-create
 
 (or, if you're on Windows:
 
-     php clitools database create
+     php clitools database-create
 
 )
 
