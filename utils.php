@@ -169,7 +169,8 @@ function format_number_of_attendees($attendees, $number_volunteers_required, $un
     if(is_null($number_volunteers_required)) {
         return "";
     } else {
-        return "(" . count($attendees) + $unknown_attendees . " / $number_volunteers_required)";
+        $nbAttendees = count($attendees) + $unknown_attendees;
+        return "($nbAttendees / $number_volunteers_required)";
     }
 }    
 
