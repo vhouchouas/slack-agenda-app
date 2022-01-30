@@ -158,11 +158,11 @@ function format_userids($userids, $unknown_attendees) {
     }
 }
 
-function format_number_of_attendees($attendees, $number_volunteers_required) {
+function format_number_of_attendees($attendees, $number_volunteers_required, $unknown_attendees) {
     if(is_null($number_volunteers_required)) {
         return "";
     } else {
-        return "(" . count($attendees) . " / $number_volunteers_required)";
+        return "(" . count($attendees) + $unknown_attendees . " / $number_volunteers_required)";
     }
 }    
 
