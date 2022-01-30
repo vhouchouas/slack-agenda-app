@@ -525,6 +525,27 @@ final class AgendaTest extends TestCase {
         $this->assertEquals(0, count($caldav_client->updatedEvents));
     }
 
+    /**
+     * Agenda has some clean-up methods that don't have visible side-effects, unless we look into the db.
+     * This test does not assert on the content of the db (to avoid having a test complex to set up and
+     * costly to maintain). However it runs those sql queries and ensures no exception is thrown
+     * in order to spot commits that would make those queries invalid (or inconsistent with the schema, ...)
+     */
+    public function test_sqlQueriesWithNoVisibleSideEffects() {
+        // Setup
+        $caldav_client = $this->createMock(ICalDAVClient::class);
+        $sut = AgendaTest::buildSUT($caldav_client);
+
+        // Act
+        $sut->clean_orphan_categories(false);
+        $sut->clean_orphan_attendees(false);
+
+        // Don't assert
+        // We just want to ensure the previous call did not throw.
+        // We still need to have some placeholder assertion to not have this test marked as "Risky"
+        $this->assertTrue(true);
+    }
+
     private function buildCalDAVClient(array $events, bool $returnETagAfterUpdate = false){
         return new MockCalDAVClient($events, $returnETagAfterUpdate);
     }
