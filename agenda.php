@@ -253,17 +253,48 @@ abstract class Agenda {
     public function removeDeletedEvents(array $ETags) {
         $server_vCalendarFilenames = array_keys($ETags);
         
-        $query = $this->pdo->prepare("SELECT vCalendarFilename FROM {$this->table_prefix}events;");
+        $query = $this->pdo->prepare("SELECT vCalendarFilename, datetime_begin, vCalendarRaw FROM {$this->table_prefix}events;");
         $query->execute();
-        $local_vCalendarFilenames = array_keys($query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC));
-
-        foreach($local_vCalendarFilenames as $local_vCalendarFilename) {
+        $local_events = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
+        
+        foreach($local_events as $local_vCalendarFilename => $event) {
             if(in_array($local_vCalendarFilename, $server_vCalendarFilenames)) {
                 $this->log->debug("No need to remove ". $local_vCalendarFilename);
             } else {
                 $this->log->info("Need to remove ". $local_vCalendarFilename);
-                $this->log->info("Deleting event $local_vCalendarFilename.");
                 
+                $sql = "SELECT userid FROM {$this->table_prefix}attendees
+                INNER JOIN {$this->table_prefix}events_attendees
+                WHERE {$this->table_prefix}events_attendees.email = {$this->table_prefix}attendees.email AND {$this->table_prefix}events_attendees.vCalendarFilename = :vCalendarFilename;";
+                
+                $query = $this->pdo->prepare($sql);
+                $query->execute(array('vCalendarFilename' => $local_vCalendarFilename));
+                $userids = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
+                $userids = array_keys($userids);
+                
+                foreach($userids as $key => $userid) {
+                    if(!is_null($userid)) {
+                        $this->log->info("Removing reminder for slack user $key => $userid");
+                        $this->deleteReminder($userid, $local_vCalendarFilename);
+                        
+                        $event_datetime = DateTimeImmutable::createFromFormat("Y-m-d H:i:s", $event["datetime_begin"]);
+                        
+                        if($event_datetime > $this->now) {
+                            $this->log->warning("Alerting user that this event has been deleted.");
+                            $vCalendar = \Sabre\VObject\Reader::read($event['vCalendarRaw']);
+                            
+                            $this->api->chat_postMessage($userid, array([
+                                'type' => 'section', 
+                                'text' => [ 
+                                    'type' => 'mrkdwn', 
+                                    'text' => ":warning: L'événement: " . (string)$vCalendar->VEVENT->SUMMARY . " du " . strftime("%A %d %B %Y", $event_datetime->getTimestamp()) . " a été annulé."
+                                ]
+                            ]));
+                        }
+                    }
+                }
+                
+                $this->log->info("Deleting event $local_vCalendarFilename.");                
                 $query = $this->pdo->prepare("DELETE FROM `{$this->table_prefix}events` WHERE vCalendarFilename = :vCalendarFilename;");
                 $query->execute(array(
                     "vCalendarFilename" => $local_vCalendarFilename
