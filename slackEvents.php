@@ -26,7 +26,7 @@ class SlackEvents {
         }
         
         if($with_attendees) {
-            $infos .= "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["number_volunteers_required"])."*: " . format_userids($parsed_event["attendees"], $parsed_event["unknown_attendees"]);
+            $infos .= "*Liste des participants " . format_number_of_attendees($parsed_event["attendees"], $parsed_event["number_volunteers_required"], $parsed_event["unknown_attendees"])."*: " . format_userids($parsed_event["attendees"], $parsed_event["unknown_attendees"]);
         }
         
         if($description) {

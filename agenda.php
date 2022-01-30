@@ -175,14 +175,20 @@ abstract class Agenda {
                 WHERE {$this->table_prefix}events_attendees.email = {$this->table_prefix}attendees.email AND {$this->table_prefix}events_attendees.vCalendarFilename = :vCalendarFilename;";
         $query = $this->pdo->prepare($sql);
         $query->execute(array('vCalendarFilename' => $vCalendarFilename));
-        $attendees = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         
-        $attendees = array_keys($attendees);
-        $count = array_count_values($attendees);
-        $result["unknown_attendees"] = (isset($count[null])) ? $count[null] : 0;
-        unset($count[null]);
+        $all_attendees = $query->fetchAll(\PDO::FETCH_ASSOC);
         
-        $result["attendees"] = array_keys($count);
+        $result["unknown_attendees"] = 0;
+        $slack_attentees = array();
+        foreach($all_attendees as $attendee) {
+            if(is_null($attendee["userid"])) {
+                $result["unknown_attendees"] += 1;
+            } else {
+                $slack_attentees[] = $attendee["userid"];
+            }
+        }
+
+        $result["attendees"] = $slack_attentees;
         $result["is_registered"] = in_array($userid, $result["attendees"]);
         
         $sql = "SELECT name FROM {$this->table_prefix}categories
@@ -380,6 +386,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
                     if(is_array($ret = $query->fetch())) {
                         $this->log->debug("attendee: $mail already exists.");
                     } else {
+                        $this->log->debug("adding attendee: $mail.");
                         $user = $this->api->users_lookupByEmail($mail);
 
                         $query = $this->pdo->prepare("REPLACE INTO {$this->table_prefix}attendees (email, userid) VALUES (:email, :userid)");
