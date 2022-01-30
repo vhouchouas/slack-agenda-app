@@ -226,8 +226,14 @@ class CalDAVClient implements ICalDAVClient {
         // [url1] => etag1
         // [url2] => etag2
         // ...
+        $parsed_events = $service->parse($response);
         $data = [];
-        foreach($service->parse($response) as $event) {
+        
+        if(is_null($parsed_events)) {
+            return $data;
+        }
+        
+        foreach($parsed_events as $event) {
             $data[basename($event['value']['href'])] = trim($event['value']['propstat']['prop']['getetag'], '"');
         }
         return $data;
