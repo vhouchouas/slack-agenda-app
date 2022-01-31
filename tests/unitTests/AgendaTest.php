@@ -432,7 +432,16 @@ final class AgendaTest extends TestCase {
         // // test when "userid" is registered on the event
         (new ExpectedParsedEvent($event))->attendees(array("MYID"))->isRegistered(true)
           ->assertEquals($sut->getParsedEvent($event->id(), "MYID"));
+    }
 
+    public function test_getParsedEventOnUnexistingEvent() {
+        // Setup
+        $caldav_client = $this->buildCalDAVClient(array());
+        $sut = AgendaTest::buildSUT($caldav_client);
+        $sut->checkAgenda();
+
+        // Act & Assert
+        $this->assertFalse($sut->getParsedEvent("some_event_id", "MYID"));
     }
 
     public function returnETagAfterUpdateProvider() {
