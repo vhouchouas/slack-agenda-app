@@ -553,11 +553,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
 
         return [\Sabre\VObject\Reader::read($result[0]['vCalendarRaw']), $result[0]['ETag']];
     }
-    
-    public function clearEvents() {
-        throw new NotImplementedException();
-    }
-    
+
     public function checkAgenda() {
         $remote_CTag = $this->caldav_client->getCTag();
         if(is_null($remote_CTag)) {
