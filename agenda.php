@@ -281,20 +281,26 @@ abstract class Agenda {
             'value'            => $CTag    
         ));
     }
-    // 
+
     protected function update(array $ETags) {
         $vCalendarFilename_to_update = [];
+
+        if (count($ETags) > 0) {
+            $in = str_repeat('?,', count($ETags)-1) . '?';
+            $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `ETag` FROM {$this->table_prefix}events WHERE vCalendarFilename IN ($in)");
+            $query->execute(array_keys($ETags));
+            $data = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
+        } else {
+            $data = array();
+        }
+
         foreach($ETags as $vCalendarFilename => $remote_ETag) {
-            $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `ETag` FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename");
-            $query->execute(array('vCalendarFilename' => $vCalendarFilename));
-            $result = $query->fetchAll();
-            
-            if(count($result) === 0) {
+            if(!array_key_exists($vCalendarFilename, $data)) {
                 $this->log->info("No event for $vCalendarFilename in database, will be added.");
                 $vCalendarFilename_to_update[] = $vCalendarFilename;
-            } else if($result[0]['ETag'] !== $remote_ETag) {
+            } else if($data[$vCalendarFilename]['ETag'] !== $remote_ETag) {
                 $vCalendarFilename_to_update[] = $vCalendarFilename;
-                $local_ETag = $result[0]['ETag'];
+                $local_ETag = $data[$vCalendarFilename]['ETag'];
                 $this->log->info("updating $vCalendarFilename: remote ETag is $remote_ETag, local ETag is $local_ETag");
             } else {
                 $this->log->debug("no need to update $vCalendarFilename");
