@@ -205,30 +205,40 @@ class SlackEvents {
     function more($vCalendarFilename, $request) {
         $userid = $request->user->id;
         $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
+
         $trigger_id = $request->trigger_id;
         
-        $block = $this->render_event($parsed_event, true);
+        if ($parsed_event === false) {
+            $this->postViewOpenForUnfindableEvent($trigger_id);
+        } else {
+            $block = $this->render_event($parsed_event, true);
         
-        $data = [
-            "type" =>  "modal",
-            "title" =>  [
-                "type" =>  "plain_text",
-                "text" =>  "Informations"
-            ],
-            "close" =>  [
-                "type" =>  "plain_text",
-                "text" =>  "Fermer"
-            ],
-            
-            "blocks" =>  [$block],
-        ];
-        $this->api->view_open($data, $trigger_id);
+            $data = [
+                "type" =>  "modal",
+                "title" =>  [
+                    "type" =>  "plain_text",
+                    "text" =>  "Informations"
+                ],
+                "close" =>  [
+                    "type" =>  "plain_text",
+                    "text" =>  "Fermer"
+                ],
+
+                "blocks" =>  [$block],
+            ];
+            $this->api->view_open($data, $trigger_id);
+        }
     }
 
     function more_inchannel($vCalendarFilename, $request, $update = false, $register = null) {
         $userid = $request->user->id;
         $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
         $trigger_id = $request->trigger_id;
+
+        if ($parsed_event === false) {
+            $data = $this->postViewOpenForUnfindableEvent($trigger_id);
+            return;
+        }
 
         if(is_null($register)) {
             $register = $parsed_event['is_registered'];
@@ -333,6 +343,12 @@ class SlackEvents {
         $profile = $user->profile;
         $this->log->debug("register mail $profile->email " . getUserNameFromSlackProfile($profile));
         $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
+        if ($parsed_event === false) {
+            $trigger_id = $request->trigger_id;
+            $this->postViewOpenForUnfindableEvent($trigger_id);
+            return;
+        }
+
         slackEvents::ack();
         $this->register_fast_rendering($vCalendarFilename, $userid, $profile->email, $register, $request, $parsed_event);
         
@@ -357,6 +373,12 @@ class SlackEvents {
     
     function in_channel_event_show($channel, $userid, $vCalendarFilename) {
         $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
+        if ($parsed_event === false) {
+            $trigger_id = $request->trigger_id;
+            $this->postViewOpenForUnfindableEvent($trigger_id);
+            return;
+        }
+
         $render = $this->render_event($parsed_event, false, false);
         $this->api->chat_postMessage($channel, array(
             $render,
@@ -442,5 +464,28 @@ class SlackEvents {
         http_response_code(200);
         fastcgi_finish_request(); //Ok for php-fpm
         //need to find a solution for mod_php (ob_flush(), flush(), etc. does not work)
+    }
+
+    private function postViewOpenForUnfindableEvent($trigger_id) {
+        $data = [
+            "type" =>  "modal",
+            "title" =>  [
+                "type" =>  "plain_text",
+                "text" =>  "Informations"
+            ],
+            "close" =>  [
+                "type" =>  "plain_text",
+                "text" =>  "Fermer"
+            ],
+            
+            "blocks" =>  [[
+                'type' => 'section',
+                'text' => [
+                    'type' => 'mrkdwn',
+                    'text' => "l'évenement est introuvable. Peut-être a-t-il été supprimé ou est-il déjà passé ?"
+                ]
+            ]],
+        ];
+        $this->api->view_open($data, $trigger_id);
     }
 }
