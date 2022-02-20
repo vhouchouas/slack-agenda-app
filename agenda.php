@@ -20,8 +20,8 @@ abstract class Agenda {
 
     protected $table_prefix;
 
-    private DateTimeImmutable $now;
-    private DateTimeImmutable $beginningOfToday;
+    private $now; //DateTimeImmutable
+    private $beginningOfToday; // DateTimeImmutable
 
     public function __construct(string $table_prefix, Logger $log, ICalDAVClient $caldav_client, object $api, DateTimeImmutable $now) {
         $this->table_prefix = $table_prefix;
