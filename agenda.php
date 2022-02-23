@@ -225,7 +225,8 @@ abstract class Agenda {
     COUNT(distinct {$this->table_prefix}categories.id) = " . count($filters_to_apply);
         }
 
-        $sql .= " ORDER BY event.datetime_begin;";
+        $sql .= " ORDER BY event.datetime_begin";
+        $sql .= " LIMIT 0, 30;"; // We have to set a limit in the number of event because slack has a limit in the number of item we can return
         $query = $this->pdo->prepare($sql);
         $query->execute(array('datetime_begin' => $this->beginningOfToday->format('Y-m-d H:i:s')));
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);

@@ -118,6 +118,27 @@ final class AgendaTest extends TestCase {
         $this->assertEqualEvents(array(new ExpectedParsedEvent($upcomingEvent)), $events);
     }
 
+    public function test_checkAgenda_with_too_many_events() {
+        // Setup
+        $allEvents = array();
+        for ($i=0 ; $i < 40 ; $i++) {
+            $allEvents []= (new MockEvent())->overrideDtstart('20500101T00' . str_pad(strval($i), 2, "0", STR_PAD_LEFT). "00Z"); // Set a different start time for each to ensure the sql ORDER BY will be deterministic
+        }
+        $caldav_client = $this->buildCalDAVClient($allEvents);
+
+        $sut = AgendaTest::buildSUT($caldav_client);
+
+        // Act
+        $sut->checkAgenda();
+
+        // Assert
+        $events = $sut->getUserEventsFiltered("someone");
+        $firstEvents = array_slice($allEvents, 0, 30);
+        $expectedEvents = array_map(fn($event) => new ExpectedParsedEvent($event), $firstEvents);
+
+        $this->assertEqualEvents($expectedEvents, $events);
+    }
+
     public function test_checkAgenda_with_categories() {
         // Setup
         $event = new MockEvent(array("cat1", "cat2"));
