@@ -29,6 +29,7 @@ require __DIR__ . '/vendor/autoload.php';
 abstract class Agenda {
     public const MY_EVENTS_FILTER = "my_events";
     public const NEED_VOLUNTEERS_FILTER = "need_volunteers";
+    public const EVENT_LIMIT = 30;
 
     protected $caldav_client;
     protected $api;
@@ -171,8 +172,8 @@ abstract class Agenda {
      * @param $filters_to_apply The filters that the returned events should match.
      */
     public function getUserEventsFiltered(string $userid, array $filters_to_apply = array()) {
-        $sql = "SELECT event.vCalendarFilename, event.number_volunteers_required, event.vCalendarRaw FROM {$this->table_prefix}events event ";
-
+        $select_data = "SELECT event.vCalendarFilename, event.number_volunteers_required, event.vCalendarRaw ";
+        $sql = "FROM {$this->table_prefix}events event ";
         $my_events = false;
         if(($key = array_search(Agenda::MY_EVENTS_FILTER, $filters_to_apply)) !== false) {
             $my_events = true;
@@ -226,15 +227,27 @@ abstract class Agenda {
         }
 
         $sql .= " ORDER BY event.datetime_begin";
-        $sql .= " LIMIT 0, 30;"; // We have to set a limit in the number of event because slack has a limit in the number of item we can return
-        $query = $this->pdo->prepare($sql);
+        $sql .= " LIMIT 0, " . Agenda::EVENT_LIMIT . ";"; // We have to set a limit in the number of event because slack has a limit in the number of item we can return
+        $query = $this->pdo->prepare($select_data . $sql);
         $query->execute(array('datetime_begin' => $this->beginningOfToday->format('Y-m-d H:i:s')));
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         
         foreach($results as $vCalendarFilename => &$result) {
             $this->parseEvent($vCalendarFilename, $userid, $result);
         }
-        return $results;
+        
+        $remaining_event = 0;
+        if(count($results) >= Agenda::EVENT_LIMIT) {
+            $select_count = "SELECT COUNT(*) ";
+            $query = $this->pdo->prepare($select_count . $sql);
+            $query->execute(array('datetime_begin' => $this->beginningOfToday->format('Y-m-d H:i:s')));
+            $result_count = $query->fetchAll(\PDO::FETCH_ASSOC);
+            if($result_count > Agenda::EVENT_LIMIT) {
+                $remaining_event = intval($result_count[0]["COUNT(*)"]) - Agenda::EVENT_LIMIT;
+            }
+        }
+        
+        return [$results, $remaining_event];
     }
     
     public function parseEvent(string $vCalendarFilename, string $userid, array &$result) {
