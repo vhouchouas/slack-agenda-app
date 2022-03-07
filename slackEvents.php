@@ -63,7 +63,7 @@ class SlackEvents {
     function app_home_page($userid, $filters_to_apply = array()) {
         $this->log->info('event: app_home_opened received');
         
-        $events = $this->agenda->getUserEventsFiltered($userid, $filters_to_apply);
+        list($events, $remaining_events) = $this->agenda->getUserEventsFiltered($userid, $filters_to_apply);
         
         $blocks = [];
         $default_filters = [
@@ -186,6 +186,16 @@ class SlackEvents {
         } else {
             array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
         }
+
+        if($remaining_events > 0) {
+            array_push($blocks, [
+                "type"=> "section",
+                "text"=> [
+                    "type"=> "mrkdwn",
+                    "text"=> ($remaining_events > 1) ? "*$remaining_events événements n'ont pas pu être affichés.*" : "*Un événement n'a pas pu être affiché.*"
+                ]]
+            );
+        }
         
         if(isset($GLOBALS['APPEND_BLOCK']) && json_encode($GLOBALS['APPEND_BLOCK']) !== false) {
             array_push($blocks, $GLOBALS['APPEND_BLOCK']);
@@ -193,6 +203,7 @@ class SlackEvents {
             $this->log->warning("APPEND_BLOCK is not JSON serializable");
         }
         
+        $this->log->info("Number of blocks: " . count($blocks));
         $data = [
             'user_id' => $userid,
             'view' => [
