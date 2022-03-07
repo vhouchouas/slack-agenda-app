@@ -98,7 +98,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered("someone");
+        list($events, $remaining_events) = $sut->getUserEventsFiltered("someone");
         $this->assertEqualEvents(array(new ExpectedParsedEvent($event)), $events);
     }
 
@@ -114,14 +114,25 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered("someone");
+        list($events, $remaining_events) = $sut->getUserEventsFiltered("someone");
         $this->assertEqualEvents(array(new ExpectedParsedEvent($upcomingEvent)), $events);
     }
 
-    public function test_checkAgenda_with_too_many_events() {
+    public function getNumberOfEventsToCheck() {
+        return array(
+            array(Agenda::EVENT_LIMIT-10),
+            array(Agenda::EVENT_LIMIT),
+            array(Agenda::EVENT_LIMIT+10)
+        );
+    }
+    
+    /**
+     * @dataProvider getNumberOfEventsToCheck
+     */
+    public function test_checkAgenda_with_too_many_events(int $number_of_events) {
         // Setup
         $allEvents = array();
-        for ($i=0 ; $i < 40 ; $i++) {
+        for ($i=0 ; $i < $number_of_events ; $i++) {
             $allEvents []= (new MockEvent())->overrideDtstart('20500101T00' . str_pad(strval($i), 2, "0", STR_PAD_LEFT). "00Z"); // Set a different start time for each to ensure the sql ORDER BY will be deterministic
         }
         $caldav_client = $this->buildCalDAVClient($allEvents);
@@ -132,10 +143,17 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered("someone");
-        $firstEvents = array_slice($allEvents, 0, 30);
+        list($events, $remaining_events) = $sut->getUserEventsFiltered("someone");
+        $firstEvents = array_slice($allEvents, 0, Agenda::EVENT_LIMIT);
+        
+        if($number_of_events - Agenda::EVENT_LIMIT < 0) {
+            $this->assertEquals(0, $remaining_events);
+        } else {
+            $this->assertEquals($number_of_events - Agenda::EVENT_LIMIT, $remaining_events);
+        }
+        
         $expectedEvents = array_map(fn($event) => new ExpectedParsedEvent($event), $firstEvents);
-
+        
         $this->assertEqualEvents($expectedEvents, $events);
     }
 
@@ -150,7 +168,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered( "someone");
+        list($events, $remaining_events) = $sut->getUserEventsFiltered( "someone");
         $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->categories(array("cat1", "cat2"))), $events);
     }
 
@@ -166,7 +184,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered("someone");
+        list($events, $remaining_events) = $sut->getUserEventsFiltered("someone");
         $this->assertEqualEvents(array(
             (new ExpectedParsedEvent($eventWithNoRegistration))->nbVolunteersRequired(4),
             (new ExpectedParsedEvent($eventWithARegistration))->nbVolunteersRequired(4)->attendees(array('YOURID'))),
@@ -184,7 +202,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered("someone");
+        list($events, $remaining_events) = $sut->getUserEventsFiltered("someone");
         $this->assertEqualEvents(array(
             (new ExpectedParsedEvent($event))
                ->attendees(array('MYID'))
@@ -206,7 +224,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Assert
-        $events = $sut->getUserEventsFiltered("MYID");
+        list($events, $remaining_events) = $sut->getUserEventsFiltered("MYID");
         $this->assertEqualEvents(array(
             (new ExpectedParsedEvent($myEvent))->isRegistered(true)->attendees(array('MYID'))->unknownAttendees(1),
             (new ExpectedParsedEvent($yourEvent))->attendees(array('YOURID')),
@@ -227,7 +245,7 @@ final class AgendaTest extends TestCase {
 
         // Act
         $sut->checkAgenda();
-        $events = $sut->getUserEventsFiltered("MYID", array(Agenda::MY_EVENTS_FILTER));
+        list($events, $remaining_events) = $sut->getUserEventsFiltered("MYID", array(Agenda::MY_EVENTS_FILTER));
 
         // Assert
         $this->assertEqualEvents(array(
@@ -247,7 +265,7 @@ final class AgendaTest extends TestCase {
 
         // Act
         $sut->checkAgenda();
-        $events = $sut->getUserEventsFiltered("MYID", array(Agenda::NEED_VOLUNTEERS_FILTER));
+        list($events, $remaining_events) = $sut->getUserEventsFiltered("MYID", array(Agenda::NEED_VOLUNTEERS_FILTER));
 
         // Assert
         $this->assertEqualEvents(array(
@@ -268,7 +286,7 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Act & Assert 1: filter on a single category
-        $events1 = $sut->getUserEventsFiltered("MYID", array("A"));
+        list($events1, $remaining_events) = $sut->getUserEventsFiltered("MYID", array("A"));
 
         $this->assertEquals(3, count($events1));
         $expectedEventABC = (new ExpectedParsedEvent($eventABC))->categories(array("A", "B", "C"));
@@ -278,7 +296,7 @@ final class AgendaTest extends TestCase {
         $this->assertEqualEvents(array($expectedEventABC, $expectedEventACD, $expectedEventABD), $events1);
 
         // Act & Assert 2: filter on several categories
-        $events2 = $sut->getUserEventsFiltered("MYID", array("A", "B"));
+        list($events2, $remaining_events) = $sut->getUserEventsFiltered("MYID", array("A", "B"));
 
         $this->assertEqualEvents(array($expectedEventABC, $expectedEventABD), $events2);
     }
@@ -331,17 +349,17 @@ final class AgendaTest extends TestCase {
 
         // Act & Assert
         $this->assertTrue($sut->checkAgenda());
-        $this->assertEquals(0, count($sut->getUserEventsFiltered("someone")));
+        $this->assertEquals(0, count($sut->getUserEventsFiltered("someone")[0]));
 
         // // Now we create 2 events on the caldav server
         $caldav_client->setNewEvents(array($event1, $event2));
         $this->assertTrue($sut->checkAgenda());
-        $this->assertEqualEvents(array($parsedEvent1, $parsedEvent2), $sut->getUserEventsFiltered("someone"));
+        $this->assertEqualEvents(array($parsedEvent1, $parsedEvent2), $sut->getUserEventsFiltered("someone")[0]);
 
         // // Now we delete event2 from the caldav server and create event3
         $caldav_client->setNewEvents(array($event1, $event3));
         $this->assertTrue($sut->checkAgenda());
-        $this->assertEqualEvents(array($parsedEvent1, $parsedEvent3), $sut->getUserEventsFiltered("someone"));
+        $this->assertEqualEvents(array($parsedEvent1, $parsedEvent3), $sut->getUserEventsFiltered("someone")[0]);
     }
     
     public function test_addAndRemoveEventWithAlreadyRegisteredUsers() {
@@ -366,7 +384,7 @@ final class AgendaTest extends TestCase {
 
         // Assert
         $this->assertTrue($sut->checkAgenda());
-        $this->assertEquals(0, count($sut->getUserEventsFiltered("YOURID")));
+        $this->assertEquals(0, count($sut->getUserEventsFiltered("YOURID")[0]));
     }
     
     public function test_addAndRemoveCategories() {
@@ -382,7 +400,7 @@ final class AgendaTest extends TestCase {
 
         $this->assertTrue($sut->checkAgenda());
         $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->categories(array("cat1", "cat3")))
-            , $sut->getUserEventsFiltered("someone"));
+            , $sut->getUserEventsFiltered("someone")[0]);
     }
 
     public function test_changeStartTime() {
@@ -402,7 +420,7 @@ final class AgendaTest extends TestCase {
         $this->assertTrue($sut->checkAgenda());
         // // We expect only event2 because event1 is now in the past
         $this->assertEqualEvents(array(new ExpectedParsedEvent($event2))
-              , $sut->getUserEventsFiltered("someone"));
+              , $sut->getUserEventsFiltered("someone")[0]);
     }
 
     public function test_changeAttendees() {
@@ -419,7 +437,7 @@ final class AgendaTest extends TestCase {
 
         $this->assertTrue($sut->checkAgenda());
         $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->unknownAttendees(1)->attendees(array("YOURID")))
-            , $sut->getUserEventsFiltered("someone"));
+            , $sut->getUserEventsFiltered("someone")[0]);
     }
 
     public function test_changeNumberOfParticipantRequired() {
@@ -436,7 +454,7 @@ final class AgendaTest extends TestCase {
 
         $this->assertTrue($sut->checkAgenda());
         $this->assertEqualEvents(array((new ExpectedParsedEvent($event))->nbVolunteersRequired(2))
-            , $sut->getUserEventsFiltered("someone"));
+                                 , $sut->getUserEventsFiltered("someone")[0]);
     }
 
     public function test_getParsedEvent() {
