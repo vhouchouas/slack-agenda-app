@@ -35,6 +35,20 @@
 	    "text": "Post message"
 	}
     },
+    "empty_agenda_block" : {
+	"type": "section",
+	"text": {
+	    "type": "mrkdwn",
+	    "text": "*No event in the aganda.*"
+	}	
+    },
+    "no_event_block" : {
+	"type": "section",
+	"text": {
+	    "type": "mrkdwn",
+	    "text": "*No event found.*"
+	}	
+    },
     "categories": [
          {"name": "Visioconférence", "emoji" : ":desktop_computer:"},
 	 {"name": "Urgent", "emoji" : ":warning:"},

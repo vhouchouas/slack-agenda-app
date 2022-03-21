@@ -187,6 +187,15 @@ class SlackEvents {
             array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
         }
 
+        // nothing to show
+        if(count($events) === 0) {
+            if(count($filters_to_apply) !== 0 and isset($GLOBALS['NO_EVENT_BLOCK'])) { // no event match filters
+                array_push($blocks, $GLOBALS['NO_EVENT_BLOCK'], ['type' => 'divider']);
+            } else if(count($filters_to_apply) === 0 and isset($GLOBALS['EMPTY_AGENDA_BLOCK'])) { // no filters
+                array_push($blocks, $GLOBALS['EMPTY_AGENDA_BLOCK'], ['type' => 'divider']);
+            }
+        }
+        
         if($remaining_events > 0) {
             array_push($blocks, [
                 "type"=> "section",

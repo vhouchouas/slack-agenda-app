@@ -89,17 +89,18 @@ function read_config_file() {
     if(isset($config['error_mail_from']) and isset($config['error_mail_to'])) {
         $GLOBALS['LOG_HANDLERS'][] = new NativeMailerHandler($config['error_mail_to'], 'Slack App Error', $config['error_mail_from'], Logger::ERROR);
     }
-    
-    if(isset($config['prepend_block'])) {
-        $GLOBALS['PREPEND_BLOCK'] = $config['prepend_block'];
-    }
-    
-    if(isset($config['append_block'])) {
-        $GLOBALS['APPEND_BLOCK'] = $config['append_block'];
-    }
 
-    if(isset($config['categories'])) {
-        $GLOBALS['CATEGORIES'] = $config['categories'];
+    $lut = array(
+        "prepend_block",
+        "append_block",
+        "categories",
+        "no_event_block",
+        "empty_agenda_block"
+    );
+    foreach ($lut as $value) {
+        if(isset($config[$value])) {
+            $GLOBALS[strtoupper($value)] = $config[$value];
+        }
     }
 
     if (isset($config['slash_command'])) {
