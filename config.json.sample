@@ -39,7 +39,7 @@
 	"type": "section",
 	"text": {
 	    "type": "mrkdwn",
-	    "text": "*No event in the aganda.*"
+	    "text": "*No event in the agenda.*"
 	}	
     },
     "no_event_block" : {
