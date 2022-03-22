@@ -74,9 +74,45 @@ Fill in the fields of `config.json` with:
 - [the signing secret of your slack application](https://api.slack.com/authentication/verifying-requests-from-slack). You will find it on the `Basic Information` tab on your Slack app dashboard;
 - [bot and user tokens](https://api.slack.com/authentication/token-types);  You will find these on the `Installed App` tab on your Slack app dashboard;
 - the URL of your CalDAV agenda + login/pasword;
-- the fields `error_mail_from` and `error_mail_to` to get the app errors. See the [monolog PHP logger](https://github.com/Seldaek/monolog/blob/main/doc/02-handlers-formatters-processors.md);
-- the optional fields `prepend_block` and `append_block` to display custom information to users. You can use the [Block Kit Builder](https://app.slack.com/block-kit-builder/) to do so. These values must be filled with a JSON formated strings that represent a [block](https://api.slack.com/block-kit) not a list of blocks;
-- logger_level, must be one of [these](https://github.com/Seldaek/monolog/blob/fb2c324c17941ffe805aa7c953895af96840d0c9/src/Monolog/Logger.php#L103).
+- the fields `error_mail_from` and `error_mail_to` to get the app errors. See the [monolog PHP logger](https://github.com/Seldaek/monolog/blob/main/doc/02-handlers-formatters-processors.md). These fields are optional.
+- the optional fields `prepend_block`, `append_block`, `empty_agenda_block` and `no_event_block` to display custom information to users. You can use the [Block Kit Builder](https://app.slack.com/block-kit-builder/) to do so. These values must be filled with a JSON formated strings that represent a [block](https://api.slack.com/block-kit) not a list of blocks;
+    - `prepend_block`: is used to display a message at the top of the app page;
+    - `prepend_block`: is used to display a message at the bottom of the app page;
+    - `empty_agenda_block`: is used to warn users that the agenda is empty;
+    - `no_event_block`: is used to warn users that there is no match event (after applying filter(s));
+
+    - An example of Slack Block is:
+   ```
+    "prepend_block" : {
+	    "type": "section",
+	    "text": {
+	        "type": "mrkdwn",
+	        "text": "*I will be displayed at the top of the app page in bold !.*"
+	    }
+    }
+    ```
+- `logger_level`, must be one of [these](https://github.com/Seldaek/monolog/blob/fb2c324c17941ffe805aa7c953895af96840d0c9/src/Monolog/Logger.php#L103);
+- There is two possible backends to store the events. You can choose between MySQL and SQLite.
+    - To use the MySQL backend, the configuration is:
+   ```
+    "agenda" : {
+        "db_type" : "MySQL",
+        "db_host" : "localhost",
+        "db_name" : "slack_app",
+        "db_username" : "slack_app_user",
+        "db_password" : "...",
+        "db_table_prefix" : "slack_app_"
+    }
+    ```
+    - And to use the SQLite backend:
+   ```
+    "agenda" : {
+        "db_type" : "sqlite",
+        "path" : "/.../.../.../database.sqlite3"
+    }
+    ```
+
+At the end, make sure that the configuration file `config.json` is json formated (no comments like "//" must remain for example).
 
 If you are using a Google calendar you should follow this [doc](https://support.google.com/accounts/answer/185833?hl=fr) to get your CalDAV credentials.
 
@@ -97,9 +133,8 @@ Technical notes for admin
 =========================
 
 * Unless you are a really big organization the slack [rate limits](https://api.slack.com/changelog/2018-03-great-rate-limits) should be really more than enough
-* The content of the CalDav server is cached on the web hosting (currently on the filesystem) so the number of requests to this backend should be limited
-* To create an event that requires X participants you should the category "PX". For instance for an event that requires 2 participants, set the category "P2" on the caldav server.
-* TODO: how to get the logs
+* To create an event that requires X participants you should add the category "PX". For instance for an event that requires 2 participants, set the category "P2" on the caldav server;
+* Logs are stored in files named like `app-2022-03-21.log`. You will have 10 days of logs. Older logs are deleted automatically.
 
 Technical notes for  for developers
 ===================================
@@ -136,3 +171,5 @@ Some useful documentation:
 - [Slack actions documentation](https://api.slack.com/interactivity/shortcuts). Actions are triggered when interacting with the app;
 - [Slack API methods](https://api.slack.com/methods);
 - [Building a CalDAV client](https://sabre.io/dav/building-a-caldav-client/).
+
+
