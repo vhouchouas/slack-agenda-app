@@ -1,7 +1,7 @@
 {
     "slack_signing_secret" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "slack_bot_token" : "xoxb-xxxxxxxxxxxxx-xxxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx",
     "slack_user_token" : "xoxp-xxxxxxxxxxxxx-xxxxxxxxxxxxx-xxxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "slack_bot_token" : "xoxb-xxxxxxxxxxxxx-xxxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx",
     "caldav_username" : "user@server.com",
     "caldav_password" : "xxxxxxxxxxxxxxxx",
     "caldav_url" : "https://www.server.com/...", 
