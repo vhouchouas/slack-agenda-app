@@ -1,7 +1,7 @@
 {
     "slack_signing_secret" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "slack_bot_token" : "xoxb-xxxxxxxxxxxxx-xxxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx",
     "slack_user_token" : "xoxp-xxxxxxxxxxxxx-xxxxxxxxxxxxx-xxxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "slack_bot_token" : "xoxb-xxxxxxxxxxxxx-xxxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx",
     "caldav_username" : "user@server.com",
     "caldav_password" : "xxxxxxxxxxxxxxxx",
     "caldav_url" : "https://www.server.com/...", 
@@ -11,9 +11,6 @@
     "error_mail_to" : "dev@server.com",
     "slash_command" : "remindEvent",
     "agenda" : {
-        // for sqlite database
-        "path" : "./database.sqlite",
-        // for MySQL database
         "db_type" : "MySQL",
         "db_host" : "localhost",
         "db_name" : "slack_app",

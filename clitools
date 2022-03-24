@@ -234,16 +234,32 @@ function api_checktokens() {
     $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
 
     $ok = true;
-    foreach(["user", "bot"] as $token_type) {
-        $log->info("Checking Slack $token_type token...");
-        $ret = $api->auth_test($token_type);
-        if($ret->ok) {
-            $log->info("Checking Slack $token_type token - ok.");
+    $log->info("Checking Slack user token...");
+    $ret = $api->auth_test("user");
+    if(!is_null($ret) && $ret->ok) {
+        if(!isset($ret->bot_id)) {
+            $log->info("Checking Slack user token - ok.");
         } else {
-            $ok = false;
-            $log->info("Checking Slack $token_type token - nok.");
+            $log->info("Checking Slack user token - nok (bot token instead)");
         }
+    } else {
+        $ok = false;
+        $log->info("Checking Slack user token - nok.");
     }
+
+    $log->info("Checking Slack bot token...");
+    $ret = $api->auth_test("bot");
+    if(!is_null($ret) && $ret->ok) {
+        if(isset($ret->bot_id)) {
+            $log->info("Checking Slack bot token - ok.");
+        } else {
+            $log->info("Checking Slack bot token - nok (user token instead)");
+        }
+    } else {
+        $ok = false;
+        $log->info("Checking Slack bot token - nok.");
+    }
+    
     return $ok;
 }
 
