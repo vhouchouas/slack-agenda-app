@@ -20,12 +20,46 @@ class SlackEvents {
     protected $agenda;
     protected $log;
     protected $api;
+    protected $current_page;
     const URL_REGEX = '/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&\/=]*)/m';
-            
+
     function __construct(Agenda $agenda, ISlackAPI  $api, Monolog\Logger $log) {
         $this->agenda = $agenda;
         $this->log = $log;
         $this->api = $api;
+        $this->current_page = 1;
+    }
+
+    function set_current_page($page) {
+        $this->current_page = $page;
+    }
+
+
+    protected function page_buttons($nb_pages) {
+      $buttons = [];
+      for ($i=1; $i<=$nb_pages; $i++) {
+        $button = [
+                "type" => "button",
+                "text" => [
+                    "type" => "plain_text",
+                    "emoji" => true,
+                    "text" => "Page $i"
+                ],
+                "action_id" => "page-selection-$i",
+                "value" => "$i"
+          ];
+
+        if ($this->current_page == $i) {
+          $button["style"] = "primary";
+        }
+
+        $buttons[] = $button;
+      }
+      
+      return [
+        "type" => "actions",
+        "elements" => $buttons
+      ];
     }
 
     protected function render_event($parsed_event, $description=false, $with_attendees=true) {
@@ -63,7 +97,7 @@ class SlackEvents {
     function app_home_page($userid, $filters_to_apply = array()) {
         $this->log->info('event: app_home_opened received');
         
-        list($events, $remaining_events) = $this->agenda->getUserEventsFiltered($userid, $filters_to_apply);
+        list($events, $nof_pages) = $this->agenda->getUserEventsFiltered($userid, $this->current_page, $filters_to_apply);
         
         $blocks = [];
         $default_filters = [
@@ -187,6 +221,9 @@ class SlackEvents {
             array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
         }
 
+        array_push($blocks, $this->page_buttons($nof_pages));
+        array_push($blocks, ["type" => "divider"]);
+
         // nothing to show
         if(count($events) === 0) {
             if(count($filters_to_apply) !== 0 and isset($GLOBALS['NO_EVENT_BLOCK'])) { // no event match filters
@@ -194,16 +231,6 @@ class SlackEvents {
             } else if(count($filters_to_apply) === 0 and isset($GLOBALS['EMPTY_AGENDA_BLOCK'])) { // no filters
                 array_push($blocks, $GLOBALS['EMPTY_AGENDA_BLOCK'], ['type' => 'divider']);
             }
-        }
-        
-        if($remaining_events > 0) {
-            array_push($blocks, [
-                "type"=> "section",
-                "text"=> [
-                    "type"=> "mrkdwn",
-                    "text"=> ($remaining_events > 1) ? "*$remaining_events événements n'ont pas pu être affichés.*" : "*Un événement n'a pas pu être affiché.*"
-                ]]
-            );
         }
         
         if(isset($GLOBALS['APPEND_BLOCK']) && json_encode($GLOBALS['APPEND_BLOCK']) !== false) {
