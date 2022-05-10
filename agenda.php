@@ -690,32 +690,40 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         
         $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize());
         if($new_ETag === false) {
-            $this->log->error("Fails to update the event");
-            return false; // the event has not been updated
-        } else {
-            if ($register) {
-                $eventStartDate = $vCalendar->VEVENT->DTSTART->getDateTime();
-                $reminderDate = $eventStartDate->modify("-1 day");
-                $summary = (string)$vCalendar->SUMMARY;
-                $this->addReminder($userid, $vCalendarFilename, $summary, $reminderDate);
-            } else {
-                $this->deleteReminder($userid, $vCalendarFilename);
+            // in case of error:  1. update the local agenda, 2. retry once.
+            $this->log->warning("Fails to update the event, retrying");
+            $this->checkAgenda();
+            $ETag = $this->getEvent($vCalendarFilename)[1]; // retrieve the new ETag (if the event has been updated)
+            $this->log->warning("Retrying...");
+            $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize());
+            if($new_ETag === false) {
+                $this->log->error("Fails to update the event");
+                return false; // the event has not been updated
             }
+        }
 
-            if(is_null($new_ETag)) {
-                $this->log->info("The CalDAV server did not answer a new ETag after an event update, need to update the local calendar");
-                $this->updateEvents(array($vCalendarFilename));
-                return true;// the event has been updated
-            } else {
-                $this->log->info("The CalDAV server did answer a new ETag after an event update, no need to update the local calendar");
-                $event = array(
-                    "vCalendarFilename" => $vCalendarFilename,
-                    "vCalendarRaw" => $vCalendar->serialize(),
-                    "ETag" => trim($new_ETag, '"')
-                );
-                $this->updateEvent($event);
-                return true;
-            }
+        if ($register) {
+            $eventStartDate = $vCalendar->VEVENT->DTSTART->getDateTime();
+            $reminderDate = $eventStartDate->modify("-1 day");
+            $summary = (string)$vCalendar->SUMMARY;
+            $this->addReminder($userid, $vCalendarFilename, $summary, $reminderDate);
+        } else {
+            $this->deleteReminder($userid, $vCalendarFilename);
+        }
+
+        if(is_null($new_ETag)) {
+            $this->log->info("The CalDAV server did not answer a new ETag after an event update, need to update the local calendar");
+            $this->updateEvents(array($vCalendarFilename));
+            return true;// the event has been updated
+        } else {
+            $this->log->info("The CalDAV server did answer a new ETag after an event update, no need to update the local calendar");
+            $event = array(
+                "vCalendarFilename" => $vCalendarFilename,
+                "vCalendarRaw" => $vCalendar->serialize(),
+                "ETag" => trim($new_ETag, '"')
+            );
+            $this->updateEvent($event);
+            return true;
         }
     }
 
