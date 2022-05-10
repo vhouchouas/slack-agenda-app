@@ -31,6 +31,10 @@ oauth_config:
       - users.profile:read
       - users:read.email
       - users:read
+      - channels:read
+      - groups:read
+      - mpim:read
+      - im:read
 settings:
   event_subscriptions:
     request_url: https://www.server.com/events.php
