@@ -28,6 +28,7 @@ interface ISlackAPI {
     public function auth_test($token_type);
     public function chat_postMessage($channel_id, $blocks);
     public function users_lookupByEmail($mail);
+    public function conversations_members($channel_id);
 }
 
 class SlackAPI implements ISlackAPI {
@@ -181,5 +182,18 @@ class SlackAPI implements ISlackAPI {
                         "channel" => $channel_id,
                         "blocks" => $blocks), JSON_PARTIAL_OUTPUT_ON_ERROR));
         return $this->curl_process($ch);
+    }
+
+    function conversations_members($channel_id)  {
+        $ch = $this->curl_init("https://slack.com/api/conversations.members", array('application/x-www-form-urlencoded'), "bot");
+        curl_setopt($ch, CURLOPT_POSTFIELDS,array(
+            "channel" => $channel_id)
+        );
+        $response = $this->curl_process($ch, true);
+        if(!is_null($response)) {
+            return $response["members"];
+        } else {
+            return NULL;
+        }
     }
 }

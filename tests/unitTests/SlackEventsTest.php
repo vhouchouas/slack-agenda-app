@@ -23,6 +23,8 @@ final class SlackEventsTest extends TestCase {
         $agenda->method('getEvents')->willReturn(array($eventWithALongName->getSabreObject()));
 
         $api = $this->createMock(ISlackAPI::class);
+        $api->method('auth_test')->willReturn(new AuthTestResult("agendaApp"));
+        $api->method('conversations_members')->willReturn(array("agendaApp", "someone"));
 
         // // Setup the assertion
         $api->expects($this->once())->method('view_open')->with($this->callback(function($data){
@@ -37,4 +39,12 @@ final class SlackEventsTest extends TestCase {
         // No assertion here since we already set expectations on the mock
     }
 
+}
+
+class AuthTestResult {
+    public string $user_id;
+
+    function __construct($user_id){
+        $this->user_id = $user_id;
+    }
 }
