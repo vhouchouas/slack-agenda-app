@@ -439,91 +439,60 @@ class SlackEvents {
     }
 
     public function event_selection($channel_id, $trigger_id) {
-        // check if the app is integrated in the channel
-        $app_infos = $this->api->auth_test("bot");
-        $app_id = $app_infos->user_id;
-        $members = $this->api->conversations_members($channel_id);
-
-        if (!in_array($app_id, $members)) {
-            $data = [
-                "type"=> "modal",
-                "title"=> [
-                    "type"=> "plain_text",
-                    "text"=> "ZWP Agenda",
-                    "emoji"=> true
+        $options = [];
+        foreach($this->agenda->getEvents() as $vCalendarFilename => $vCalendar) {
+            $options[] = [
+                "text"=> [
+                    "type"  => "plain_text",
+                    "text"  => forceStringLength($vCalendar->VEVENT->DTSTART->getDateTime()->format('Y-m-d H:i:s') . " " .(string)$vCalendar->VEVENT->SUMMARY, 75),
+                    "emoji" => true
                 ],
-                "close"=> [
-                    "type"=> "plain_text",
-                    "text"=> "Cancel",
-                    "emoji"=> true
-                ],
-                "blocks"=> [
-                    [
-                        'type' => 'section',
-                        'text' => [
-                            'type' => 'mrkdwn',
-                            'text' => "L'application n'est pas installée sur ce channel."
-                        ]
-                    ]
-                ]
+                "value" => $vCalendarFilename
             ];
-            $this->api->view_open($data, $trigger_id);
-        } else {
-            $options = [];
-            foreach($this->agenda->getEvents() as $vCalendarFilename => $vCalendar) {
-                $options[] = [
-                    "text"=> [
-                        "type"  => "plain_text",
-                        "text"  => forceStringLength($vCalendar->VEVENT->DTSTART->getDateTime()->format('Y-m-d H:i:s') . " " .(string)$vCalendar->VEVENT->SUMMARY, 75),
-                        "emoji" => true
-                    ],
-                    "value" => $vCalendarFilename
-                ];
-            }
-
-            $data = [
-                "callback_id" => "show-fromchannel",
-                "private_metadata" => $channel_id,
-                "type"=> "modal",
-                "title"=> [
-                    "type"=> "plain_text",
-                    "text"=> "ZWP Agenda",
-                    "emoji"=> true
-                ],
-                "submit"=> [
-                    "type"=> "plain_text",
-                    "text"=> "Submit",
-                    "emoji"=> true
-                ],
-                "close"=> [
-                    "type"=> "plain_text",
-                    "text"=> "Cancel",
-                    "emoji"=> true
-                ],
-                "blocks"=> [
-                    [
-                        "type"=> "input",
-                        "block_id"=> "vCalendarFilename",
-                        "element"=> [
-                            "type"=> "static_select",
-                            "placeholder"=> [
-                                "type"=> "plain_text",
-                                "text"=> "Select an item",
-                                "emoji"=> true
-                            ],
-                            "options"=> $options,
-                            "action_id"=> "vCalendarFilename"
-                        ],
-                        "label"=> [
-                            "type"=> "plain_text",
-                            "text"=> "Choix de l'évènement",
-                            "emoji"=> true
-                        ]
-                    ]
-                ]
-            ];
-            $this->api->view_open($data, $trigger_id);
         }
+        
+        $data = [
+            "callback_id" => "show-fromchannel",
+            "private_metadata" => $channel_id,
+            "type"=> "modal",
+            "title"=> [
+                "type"=> "plain_text",
+                "text"=> "ZWP Agenda",
+                "emoji"=> true
+            ],
+            "submit"=> [
+                "type"=> "plain_text",
+                "text"=> "Submit",
+                "emoji"=> true
+            ],
+            "close"=> [
+                "type"=> "plain_text",
+                "text"=> "Cancel",
+                "emoji"=> true
+            ],
+            "blocks"=> [
+                [
+                    "type"=> "input",
+                    "block_id"=> "vCalendarFilename",
+                    "element"=> [
+                        "type"=> "static_select",
+                        "placeholder"=> [
+                            "type"=> "plain_text",
+                            "text"=> "Select an item",
+                            "emoji"=> true
+                        ],
+                        "options"=> $options,
+                        "action_id"=> "vCalendarFilename"
+                    ],
+                    "label"=> [
+                        "type"=> "plain_text",
+                        "text"=> "Choix de l'évènement",
+                        "emoji"=> true
+                    ]
+                ]
+            ]
+        ];
+        $this->api->view_open($data, $trigger_id);
     }
     
     // @SEE https://api.slack.com/interactivity/handling#acknowledgment_response
