@@ -39,6 +39,29 @@ final class SlackEventsTest extends TestCase {
         // No assertion here since we already set expectations on the mock
     }
 
+    public function test_sendErrorIfAppIsNotInChan() {
+       // Setup
+        $event = new MockEvent(array(), array(), "some event");
+        $agenda = $this->createMock(Agenda::class);
+        $agenda->method('getEvents')->willReturn(array($event->getSabreObject()));
+
+        $api = $this->createMock(ISlackAPI::class);
+        $api->method('auth_test')->willReturn(new AuthTestResult("agendaApp"));
+        $api->method('conversations_members')->willReturn(array("someone_else"));
+
+        // // Setup assertions
+        $api->expects($this->once())->method('view_open')->with($this->callback(function($data){
+              return $data["blocks"][0]["text"]["text"] === "L'application n'est pas installée sur ce channel.";
+              }));
+
+        $sut = new SlackEvents($agenda, $api,  self::$logger);
+
+        // Act
+        $sut->event_selection("someChanId", "someTriggerId");
+
+        // No assertion here since we already set expectations on the mock
+    }
+
 }
 
 class AuthTestResult {
