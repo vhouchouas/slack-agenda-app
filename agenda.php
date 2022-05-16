@@ -705,7 +705,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         if ($register) {
             $eventStartDate = $vCalendar->VEVENT->DTSTART->getDateTime();
             $reminderDate = $eventStartDate->modify("-1 day");
-            $summary = (string)$vCalendar->SUMMARY;
+            $summary = (string)$vCalendar->VEVENT->SUMMARY;
             $this->addReminder($userid, $vCalendarFilename, $summary, $reminderDate);
         } else {
             $this->deleteReminder($userid, $vCalendarFilename);
