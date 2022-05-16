@@ -37,7 +37,8 @@ class SlackAPI implements ISlackAPI {
     protected $log;
 
     const QUIET_ERRORS = array(
-        "users_lookupByEmail" => array("users_not_found")
+        "users_lookupByEmail" => array("users_not_found"),
+        "reminders_delete" => array("not_found")
     );
     
     function __construct($slack_bot_token, $slack_user_token) {
