@@ -492,10 +492,16 @@ final class AgendaTest extends TestCase {
      */
     public function test_updateAttendee_register(bool $returnETagAfterUpdate) {
         // Setup
-        $event = new MockEvent();
+        $event = new MockEvent(array(), array(), "Nom de l'événement");
         $caldav_client = $this->buildCalDAVClient(array($event), $returnETagAfterUpdate);
         // // Assert we will query the slack api to register the reminder
-        $this->slackApiMock->expects($this->once())->method('reminders_add')->willReturn(json_decode('{"reminder": {"id": "abc"}}'));
+        $this->slackApiMock->
+            expects($this->once())->
+            method('reminders_add')->
+            with("You",
+                 "Rappel pour l'événement qui aura lieu dans 24h : Nom de l'événement",
+                 $event->getSabreObject()->VEVENT->DTSTART->getDateTime()->modify("-1 day"))->
+            willReturn(json_decode('{"reminder": {"id": "abc"}}'));
         $sut = AgendaTest::buildSUT($caldav_client);
         $sut->checkAgenda();
 
