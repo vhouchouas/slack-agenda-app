@@ -248,7 +248,7 @@ abstract class Agenda {
         if ($selected_events_count < Agenda::EVENT_LIMIT) {
             // In that case, we are on the last page.
             // So the page index indicates the number of pages.
-	    return $page_index;
+	        return $page_index;
         }
 
         $select_count = "SELECT COUNT(*) ";
