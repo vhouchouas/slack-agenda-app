@@ -153,6 +153,37 @@ final class AgendaTest extends TestCase {
         $this->assertEqualEvents($expectedEvents, $events);
     }
 
+    public function test_get_several_pages() {
+        // Setup
+        $allEvents = array();
+        for ($i=0 ; $i < 2*Agenda::EVENT_LIMIT + 3 ; $i++) {
+            $allEvents []= (new MockEvent())->overrideDtstart('20500101T00' . str_pad(strval($i), 2, "0", STR_PAD_LEFT). "00Z"); // Set a different start time for each to ensure the sql ORDER BY will be deterministic
+        }
+        $caldav_client = $this->buildCalDAVClient($allEvents);
+
+        $sut = AgendaTest::buildSUT($caldav_client);
+        $sut->checkAgenda();
+
+        // Act
+        list($events_page1, $nbOfPages1) = $sut->getUserEventsFiltered("someone", 1);
+        list($events_page2, $nbOfPages2) = $sut->getUserEventsFiltered("someone", 2);
+        list($events_page3, $nbOfPages3) = $sut->getUserEventsFiltered("someone", 3);
+
+        // Assert
+        $this->assertEquals($nbOfPages1, 3);
+        $this->assertEquals($nbOfPages2, 3);
+        $this->assertEquals($nbOfPages3, 3);
+
+        $expectedEvents_page1 = array_map(fn($event) => new ExpectedParsedEvent($event), array_slice($allEvents, 0, Agenda::EVENT_LIMIT));
+        $expectedEvents_page2 = array_map(fn($event) => new ExpectedParsedEvent($event), array_slice($allEvents, Agenda::EVENT_LIMIT, Agenda::EVENT_LIMIT));
+        $expectedEvents_page3 = array_map(fn($event) => new ExpectedParsedEvent($event), array_slice($allEvents, 2*Agenda::EVENT_LIMIT, Agenda::EVENT_LIMIT));
+
+        $this->assertEqualEvents($expectedEvents_page1, $events_page1);
+        $this->assertEqualEvents($expectedEvents_page2, $events_page2);
+        $this->assertEqualEvents($expectedEvents_page3, $events_page3);
+
+    }
+
     public function test_checkAgenda_with_categories() {
         // Setup
         $event = new MockEvent(array("cat1", "cat2"));
