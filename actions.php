@@ -50,6 +50,9 @@ if(property_exists($json, 'actions')) {
             $slack_events->filters_has_changed($action, $json->user->id);
         } else if($action->action_id == 'more-inchannel') {
             $slack_events->more_inchannel($action->block_id, $json);
+        } else if (str_starts_with($action->action_id, 'page-selection')) {
+            $slack_events->set_current_page($action->value);
+            $slack_events->app_home_page($json->user->id);
         }
     }
 } else if(property_exists($json, 'type') and $json->type === "view_submission") {

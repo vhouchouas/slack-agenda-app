@@ -29,7 +29,7 @@ require __DIR__ . '/vendor/autoload.php';
 abstract class Agenda {
     public const MY_EVENTS_FILTER = "my_events";
     public const NEED_VOLUNTEERS_FILTER = "need_volunteers";
-    public const EVENT_LIMIT = 30;
+    public const EVENT_LIMIT = 20;
 
     protected $caldav_client;
     protected $api;
@@ -171,9 +171,9 @@ abstract class Agenda {
      * @param $userId The slack id of the current user. Used to compute on which events the user is registered
      * @param $filters_to_apply The filters that the returned events should match.
      */
-    public function getUserEventsFiltered(string $userid, array $filters_to_apply = array()) {
+    public function getUserEventsFiltered(string $userid, int $page_index, array $filters_to_apply = array()) {
         $select_data = "SELECT event.vCalendarFilename, event.number_volunteers_required, event.vCalendarRaw ";
-        $sql = "FROM {$this->table_prefix}events event ";
+        $sql_basis = "FROM {$this->table_prefix}events event ";
         $my_events = false;
         if(($key = array_search(Agenda::MY_EVENTS_FILTER, $filters_to_apply)) !== false) {
             $my_events = true;
@@ -195,29 +195,29 @@ abstract class Agenda {
         });
         
         if(count($filters_to_apply) > 0) {
-            $sql .="
+            $sql_basis .="
   INNER JOIN {$this->table_prefix}events_categories ON {$this->table_prefix}events_categories.vCalendarFilename = event.vCalendarFilename
   INNER JOIN {$this->table_prefix}categories ON {$this->table_prefix}events_categories.category_id = {$this->table_prefix}categories.id ";
         }
         
         if($my_events) {
-            $sql .="
+            $sql_basis .="
   INNER JOIN {$this->table_prefix}events_attendees ON event.vCalendarFilename = {$this->table_prefix}events_attendees.vCalendarFilename
   INNER JOIN {$this->table_prefix}attendees ON {$this->table_prefix}events_attendees.email = {$this->table_prefix}attendees.email ";
         }
         
-        $sql .= 'WHERE event.datetime_begin > :datetime_begin ';
+        $sql_basis .= 'WHERE event.datetime_begin > :datetime_begin ';
 
         if($volunteers_required) {
-            $sql .= "AND number_volunteers_required is not NULL ";
+            $sql_basis .= "AND number_volunteers_required is not NULL ";
         }
         
         if($my_events) {
-            $sql .= "AND {$this->table_prefix}attendees.userid = '$userid' ";
+            $sql_basis .= "AND {$this->table_prefix}attendees.userid = '$userid' ";
         }
 
         if(count($filters_to_apply) > 0) {
-            $sql .= "
+            $sql_basis .= "
    AND
     {$this->table_prefix}categories.name IN (" . implode(",", $filters_to_apply) . ")
    GROUP BY
@@ -226,30 +226,39 @@ abstract class Agenda {
     COUNT(distinct {$this->table_prefix}categories.id) = " . count($filters_to_apply);
         }
 
-        $sql .= " ORDER BY event.datetime_begin";
-        $sql .= " LIMIT 0, " . Agenda::EVENT_LIMIT . ";"; // We have to set a limit in the number of event because slack has a limit in the number of item we can return
-        $query = $this->pdo->prepare($select_data . $sql);
+        $sql_basis .= " ORDER BY event.datetime_begin";
+        $sql_select_events = $sql_basis . " LIMIT " . $this->computeOffset($page_index) . ", " . Agenda::EVENT_LIMIT . ";"; // We have to set a limit in the number of event because slack has a limit in the number of item we can return
+        $query = $this->pdo->prepare($select_data . $sql_select_events);
         $query->execute(array('datetime_begin' => $this->beginningOfToday->format('Y-m-d H:i:s')));
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         
         foreach($results as $vCalendarFilename => &$result) {
             $this->parseEvent($vCalendarFilename, $userid, $result);
         }
-        
-        $remaining_event = 0;
-        if(count($results) >= Agenda::EVENT_LIMIT) {
-            $select_count = "SELECT COUNT(*) ";
-            $query = $this->pdo->prepare($select_count . $sql);
-            $query->execute(array('datetime_begin' => $this->beginningOfToday->format('Y-m-d H:i:s')));
-            $result_count = $query->fetchAll(\PDO::FETCH_ASSOC);
-            if($result_count > Agenda::EVENT_LIMIT) {
-                $remaining_event = intval($result_count[0]["COUNT(*)"]) - Agenda::EVENT_LIMIT;
-            }
-        }
-        
-        return [$results, $remaining_event];
+
+        return [$results, $this->computeNofPages($page_index, count($results), $sql_basis)];
     }
-    
+
+    protected function computeOffset(int $page_index) {
+        // Page index starts at 1
+        return ($page_index - 1) * Agenda::EVENT_LIMIT; 
+    }
+
+    protected function computeNofPages($page_index, $selected_events_count, $sql_basis) {
+        if ($selected_events_count < Agenda::EVENT_LIMIT) {
+            // In that case, we are on the last page.
+            // So the page index indicates the number of pages.
+	        return $page_index;
+        }
+
+        $select_count = "SELECT COUNT(*) ";
+        $query = $this->pdo->prepare($select_count . $sql_basis);
+        $query->execute(array('datetime_begin' => $this->beginningOfToday->format('Y-m-d H:i:s')));
+        $result_count = $query->fetchAll(\PDO::FETCH_ASSOC);
+        $events_count = intval($result_count[0]["COUNT(*)"]);
+        return ceil($events_count / Agenda::EVENT_LIMIT);
+    }
+
     public function parseEvent(string $vCalendarFilename, string $userid, array &$result) {
         $result['vCalendar'] = \Sabre\VObject\Reader::read($result['vCalendarRaw']);
         
