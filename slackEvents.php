@@ -35,7 +35,11 @@ class SlackEvents {
     }
 
 
-    protected function page_buttons($nb_pages) {
+    protected function add_page_buttons(&$blocks, $nb_pages) {
+      if ($nb_pages === 1){
+          return;
+      }
+
       $buttons = [];
       for ($i=1; $i<=$nb_pages; $i++) {
         $button = [
@@ -56,10 +60,10 @@ class SlackEvents {
         $buttons[] = $button;
       }
       
-      return [
-        "type" => "actions",
-        "elements" => $buttons
-      ];
+      array_push($blocks, array([
+            "type" => "actions",
+            "elements" => $buttons
+          ], ["type" => "divider"]));
     }
 
     protected function render_event($parsed_event, $description=false, $with_attendees=true) {
@@ -221,8 +225,7 @@ class SlackEvents {
             array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
         }
 
-        array_push($blocks, $this->page_buttons($nof_pages));
-        array_push($blocks, ["type" => "divider"]);
+        $this->add_page_buttons($blocks, $nof_pages);
 
         // nothing to show
         if(count($events) === 0) {
