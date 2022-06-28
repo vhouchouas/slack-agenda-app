@@ -468,14 +468,81 @@ class SlackEvents {
         );
     }
 
-    public function event_selection($channel_id, $trigger_id) {
+    public function event_selection($channel_id, $event_date) {
+        $options = [];
+        $this->log->info("date: " . $event_date);
+        $date = DateTimeImmutable::createFromFormat("Y-m-d", $event_date);
+        foreach($this->agenda->getEvents($date) as $vCalendarFilename => $vCalendar) {
+            $options[] = [
+                "text"=> [
+                    "type"  => "plain_text",
+                    "text"  => forceStringLength($vCalendar->VEVENT->DTSTART->getDateTime()->format('Y-m-d H:i:s') . " " .(string)$vCalendar->VEVENT->SUMMARY, 75),
+                    "emoji" => true
+                ],
+                "value" => $vCalendarFilename
+            ];
+        }
+        
+        $data = [
+            "callback_id" => "show-fromchannel",
+            "private_metadata" => $channel_id,
+            "type"=> "modal",
+            "title"=> [
+                "type"=> "plain_text",
+                "text"=> "ZWP Agenda",
+                "emoji"=> true
+            ],
+            "submit"=> [
+                "type"=> "plain_text",
+                "text"=> "Valider",
+                "emoji"=> true
+            ],
+            "close"=> [
+                "type"=> "plain_text",
+                "text"=> "Annuler",
+                "emoji"=> true
+            ],
+            "blocks"=> [
+                [
+                    "type"=> "input",
+                    "block_id"=> "vCalendarFilename",
+                    "element"=> [
+                        "type"=> "static_select",
+                        "placeholder"=> [
+                            "type"=> "plain_text",
+                            "text"=> "Select an item",
+                            "emoji"=> true
+                        ],
+                        "options"=> $options,
+                        "action_id"=> "vCalendarFilename"
+                    ],
+                    "label"=> [
+                        "type"=> "plain_text",
+                        "text"=> "Choix de l'évènement",
+                        "emoji"=> true
+                    ]
+                ]
+            ]
+        ];
+
+        //@see: https://api.slack.com/surfaces/modals/using#updating_response
+        $response = [
+            "response_action" => "update",
+            "view"=> $data
+        ];
+        header("Content-type:application/json");
+        echo json_encode($response);
+        fastcgi_finish_request();
+    }
+    
+    public function event_date_selection($channel_id, $trigger_id) {
         // check if the app is integrated in the channel
         $app_infos = $this->api->auth_test("bot");
         $app_id = $app_infos->user_id;
         $members = $this->api->conversations_members($channel_id);
 
         if (!in_array($app_id, $members)) {
-            $data = [
+            $data = [            
                 "type"=> "modal",
                 "title"=> [
                     "type"=> "plain_text",
@@ -499,20 +566,9 @@ class SlackEvents {
             ];
             $this->api->view_open($data, $trigger_id);
         } else {
-            $options = [];
-            foreach($this->agenda->getEvents() as $vCalendarFilename => $vCalendar) {
-                $options[] = [
-                    "text"=> [
-                        "type"  => "plain_text",
-                        "text"  => forceStringLength($vCalendar->VEVENT->DTSTART->getDateTime()->format('Y-m-d H:i:s') . " " .(string)$vCalendar->VEVENT->SUMMARY, 75),
-                        "emoji" => true
-                    ],
-                    "value" => $vCalendarFilename
-                ];
-            }
 
             $data = [
-                "callback_id" => "show-fromchannel",
+                "callback_id" => "event_selection",
                 "private_metadata" => $channel_id,
                 "type"=> "modal",
                 "title"=> [
@@ -522,32 +578,29 @@ class SlackEvents {
                 ],
                 "submit"=> [
                     "type"=> "plain_text",
-                    "text"=> "Submit",
+                    "text"=> "Suivant",
                     "emoji"=> true
                 ],
                 "close"=> [
                     "type"=> "plain_text",
-                    "text"=> "Cancel",
+                    "text"=> "Annuler",
                     "emoji"=> true
                 ],
                 "blocks"=> [
                     [
-                        "type"=> "input",
-                        "block_id"=> "vCalendarFilename",
-                        "element"=> [
-                            "type"=> "static_select",
+                        "type"=> "section",
+                        "block_id"=> "vCalendarDate",
+                        "text"=> [
+                            "type"=> "mrkdwn",
+                            "text"=> "Date de l'évènement:"
+                        ],
+                        "accessory"=> [
+                            "type"=> "datepicker",
+                            "action_id"=> "vCalendarDate",
                             "placeholder"=> [
                                 "type"=> "plain_text",
-                                "text"=> "Select an item",
-                                "emoji"=> true
-                            ],
-                            "options"=> $options,
-                            "action_id"=> "vCalendarFilename"
-                        ],
-                        "label"=> [
-                            "type"=> "plain_text",
-                            "text"=> "Choix de l'évènement",
-                            "emoji"=> true
+                                "text"=> "Date"
+                            ]
                         ]
                     ]
                 ]

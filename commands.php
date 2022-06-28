@@ -37,5 +37,5 @@ $slack_events = new SlackEvents($agenda, $api, $log);
 SlackEvents::ack();
 
 if($command === "/$GLOBALS[SLASH_COMMAND]") {
-    $slack_events->event_selection($_POST["channel_id"], $_POST["trigger_id"]);
+    $slack_events->event_date_selection($_POST["channel_id"], $_POST["trigger_id"]);
 }

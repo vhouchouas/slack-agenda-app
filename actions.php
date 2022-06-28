@@ -56,7 +56,11 @@ if(property_exists($json, 'actions')) {
         }
     }
 } else if(property_exists($json, 'type') and $json->type === "view_submission") {
-    if($json->view->callback_id === "show-fromchannel") {
+    if($json->view->callback_id === "event_selection") {
+        $channel_id = $json->view->private_metadata;
+        $vCalendarDate = $json->view->state->values->vCalendarDate->vCalendarDate->selected_date;
+        $slack_events->event_selection($channel_id, $vCalendarDate);
+    } else if($json->view->callback_id === "show-fromchannel") {
         $channel_id = $json->view->private_metadata;
         $user_id = $json->user->id;
         $vCalendarFilename = $json->view->state->values->vCalendarFilename->vCalendarFilename->selected_option->value;

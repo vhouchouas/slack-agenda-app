@@ -293,11 +293,17 @@ abstract class Agenda {
         $result["categories"] = array_keys($categories);
     }
 
-    public function getEvents(): array {
-        $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `vCalendarRaw` 
+    public function getEvents(?DateTimeImmutable $date = null): array {
+        if(is_null($date)) {
+            $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `vCalendarRaw` 
                                       FROM {$this->table_prefix}events WHERE datetime_begin > :datetime_begin 
                                       ORDER BY datetime_begin;");
-        $query->execute(array('datetime_begin' => $this->beginningOfToday->format('Y-m-d H:i:s')));
+            $query->execute(array('datetime_begin' => $this->beginningOfToday->format('Y-m-d H:i:s')));
+        } else {
+            $query = $this->pdo->prepare("SELECT `vCalendarFilename`, `vCalendarRaw`
+                                          FROM {$this->table_prefix}events WHERE DATE(datetime_begin) = :date ;");
+            $query->execute(array('date' => $date->format('Y-m-d')));
+        }
         $results = $query->fetchAll(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         $events = array();
         foreach($results as $vCalendarFilename => $result) {
