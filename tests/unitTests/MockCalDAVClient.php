@@ -43,7 +43,7 @@ class MockCalDAVClient implements ICalDAVClient {
     }
 
 
-    public function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw) {
+    public function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw, bool $log412AsError) {
         // To keep the mock simple we don't bother trying to update $this->events (we don't need it in tests anyway)
         
         if(!$this->returnETagAfterUpdate) {
