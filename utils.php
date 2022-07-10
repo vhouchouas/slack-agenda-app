@@ -243,26 +243,14 @@ function exception_handler($throwable) {
     }
     
     $api = new SlackAPI($config->slack_bot_token, $config->slack_user_token);
-    
-    $data = [
-        'user_id' => $GLOBALS['userid'],
-        'view' => [
-            'type' => 'home',
-            'blocks' => [
-                [
-                    "type" => "section", 
-                    "text" => [ 
-                        'type' => 'mrkdwn', 
-                        'text' => $config->error_message
-                    ]
-                ]
-            ]
+
+    $api->chat_postMessage($GLOBALS['userid'], array([
+        'type' => 'section',
+        'text' => [
+            'type' => 'mrkdwn',
+            'text' => ":warning: " . $config->error_message
         ]
-    ];
-    
-    $log->debug("Sending error message.");
-    $api->views_publish($data);
-    exit();
+    ]));
 }
 
 # @see https://api.slack.com/methods/users.info
