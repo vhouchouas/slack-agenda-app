@@ -352,9 +352,9 @@ class SlackEvents {
             $this->api->view_open($data, $trigger_id);
         } else {
             //@see: https://api.slack.com/surfaces/modals/using#updating_response
+            # close the modal window
             $response = [
-                "response_action" => "update",
-                "view"=> $data
+                "response_action" => "clear",
             ];
             header("Content-type:application/json");
             echo json_encode($response);
@@ -364,6 +364,20 @@ class SlackEvents {
                                                       $register,
                                                       getUserNameFromSlackProfile($profile),
                                                       $userid);
+
+            if(!$response) {
+                $this->api->chat_postMessage($userid, array([
+                    'type' => 'section',
+                    'text' => [
+                        'type' => 'mrkdwn',
+                        'text' => ":warning: L'événement: " .
+                        (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
+                        " du " .
+                        strftime("%A %d %B %Y", $parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp()) .
+                        " n'a pas pu être modifié."
+                    ]
+                ]));
+            }
         }
     }
     

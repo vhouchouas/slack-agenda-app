@@ -702,7 +702,12 @@ WHERE vCalendarFilename =:vCalendarFilename;");
             // in case of error:  1. update the local agenda, 2. retry once.
             $this->log->warning("Fails to update the event, retrying");
             $this->checkAgenda();
-            $ETag = $this->getEvent($vCalendarFilename)[1]; // retrieve the new ETag (if the event has been updated)
+            $event = $this->getEvent($vCalendarFilename);
+            if(is_null($event)) {
+                $this->log->error("Fails to retrieve the event");
+                return false;
+            }
+            $ETag = $event[1]; // retrieve the new ETag (if the event has been updated)
             $this->log->warning("Retrying...");
             $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize(), true);
             if($new_ETag === false) {
