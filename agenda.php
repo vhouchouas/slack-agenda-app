@@ -697,14 +697,14 @@ WHERE vCalendarFilename =:vCalendarFilename;");
             }
         }
         
-        $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize());
+        $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize(), false);
         if($new_ETag === false) {
             // in case of error:  1. update the local agenda, 2. retry once.
             $this->log->warning("Fails to update the event, retrying");
             $this->checkAgenda();
             $ETag = $this->getEvent($vCalendarFilename)[1]; // retrieve the new ETag (if the event has been updated)
             $this->log->warning("Retrying...");
-            $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize());
+            $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize(), true);
             if($new_ETag === false) {
                 $this->log->error("Fails to update the event");
                 return false; // the event has not been updated

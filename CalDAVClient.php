@@ -47,11 +47,12 @@ interface ICalDAVClient {
      * This is useful when a user (un)register through this app, so we can add or remove the user
      * from the event on the caldav server
      *
-     * @param vCalendarFilename The name of the event to update
-     * @param Etag The current etag of the event as we know it
+     * @param $vCalendarFilename The name of the event to update
+     * @param $Etag The current etag of the event as we know it
      *       If the etag on the caldav server is different then the remote event won't be updated. This
      *       Ensure we don't erase remote changes if our local cache is not up to date
-     * @param vCalendarRaw The raw content of the event as it should be updated to the remote server
+     * @param $vCalendarRaw The raw content of the event as it should be updated to the remote server
+     * @param boolean $log412AsError whether getting a 412 from the caldav server is expected or not
      *
      * @return The new etag of the event after the update if the update was successful. This can be used to
      *         update the local cache for this event directly (without needing a new call to the caldav server)
@@ -60,7 +61,7 @@ interface ICalDAVClient {
      *         - NULL if no etag was returned. It means the call was successful but we can't update the local
      *           cache directly
      */
-    public function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw);
+    public function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw, bool $log412AsError);
 
 }
 
@@ -93,7 +94,13 @@ class CalDAVClient implements ICalDAVClient {
         return $ch;
     }
 
-    private function process_curl_request($ch) {
+    /**
+     * @param ch A curl handler
+     * @param httpErrorCodeThatShouldNotBeLoggedAsError The list of non 2xx error code which should NOT be logged as an error
+     *                              Eg of use case: sometimes it is expected to get a response 412, it should hence
+     *                              Not be logged as an error
+     */
+    private function process_curl_request($ch, array $httpErrorCodeThatShouldNotBeLoggedAsError = array()) {
         try {
             $response = curl_exec($ch);
 
@@ -106,10 +113,15 @@ class CalDAVClient implements ICalDAVClient {
 
             if($httpcode !== 200 && $httpcode !== 204 && $httpcode !== 207) {
                 $url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
-                $this->log->error("Bad HTTP response code: $httpcode for $url");
-                $trace = debug_backtrace();
-                $this->log->error("in ({$trace[1]["function"]}).");
-                $this->log->error($response);
+                $message = "Bad HTTP response code: $httpcode for $url";
+                if (! in_array($httpcode, $httpErrorCodeThatShouldNotBeLoggedAsError)) {
+                    $this->log->error($message);
+                    $trace = debug_backtrace();
+                    $this->log->error("in ({$trace[1]["function"]}).");
+                    $this->log->error($response);
+                } else {
+                    $this->log->info($message);
+                }
                 return false;
             }
 
@@ -300,7 +312,7 @@ class CalDAVClient implements ICalDAVClient {
         return false;
     }
 
-    function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw) {
+    function updateEvent($vCalendarFilename, $ETag, $vCalendarRaw, bool $log412AsError=true) {
         $this->log->debug("will update $vCalendarFilename with ETag $ETag");
         $ch = $this->init_curl_request("{$this->url}/$vCalendarFilename");
 
@@ -316,7 +328,7 @@ class CalDAVClient implements ICalDAVClient {
         curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $vCalendarRaw);
         
-        $response = $this->process_curl_request($ch);
+        $response = $this->process_curl_request($ch, $log412AsError ? array() : array(412));
         if(is_null($response) || $response === false) {
             return $response;
         }
