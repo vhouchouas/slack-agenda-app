@@ -248,7 +248,7 @@ function exception_handler($throwable) {
         'type' => 'section',
         'text' => [
             'type' => 'mrkdwn',
-            'text' => ":warning: " . $config->error_message
+            'text' => ":warning: {$throwable->getMessage()}"
         ]
     ]));
 }

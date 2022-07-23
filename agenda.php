@@ -23,6 +23,8 @@ require "CalDAVClient.php";
 require_once "utils.php";
 
 class NotImplementedException extends BadMethodCallException {}
+class EventNotFound extends Exception { }
+class EventUpdateFails extends Exception { }
 
 require __DIR__ . '/vendor/autoload.php';
 
@@ -643,11 +645,9 @@ WHERE vCalendarFilename =:vCalendarFilename;");
      * @param string $attendee_CN the attendee commun name
      * @param string $userid the Slack id of the user
      *
-     * @return boolean|null
-     *    return null if the attendee is already registered and $register === true (i.e. nothing to do);
-     *    return null if the attendee is not registered and $register === false (i.e. nothing to do);
-     *    return true if no error occured;
-     *    return false if the event has not been updated on the CalDAV server (i.e. the registration has failed).
+     * @return boolean
+     *    return true if the event has been updated on the CalDAV server;
+     *    return false if the event has not been updated on the CalDAV server.
      */    
     public function updateAttendee(string $vCalendarFilename, string $usermail, bool $register, ?string $attendee_CN, string $userid) {
         $this->log->info("updating $vCalendarFilename");
@@ -665,7 +665,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
                             break;
                         } else {
                             $this->log->info("Try to add a already registered attendee");
-                            return null; // not an error
+                            return false; // nothing to do
                         }
                     }
                 }
@@ -693,7 +693,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
             
             if($already_out) {
                 $this->log->info("Try to remove an unregistered email ($usermail)");
-                return null; // not an error
+                return false; // nothing to do
             }
         }
         
@@ -704,15 +704,13 @@ WHERE vCalendarFilename =:vCalendarFilename;");
             $this->checkAgenda();
             $event = $this->getEvent($vCalendarFilename);
             if(is_null($event)) {
-                $this->log->error("Fails to retrieve the event");
-                return false;
+                throw new EventNotFound();
             }
             $ETag = $event[1]; // retrieve the new ETag (if the event has been updated)
             $this->log->warning("Retrying...");
             $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize(), true);
             if($new_ETag === false) {
-                $this->log->error("Fails to update the event");
-                return false; // the event has not been updated
+                throw new EventUpdateFails();
             }
         }
 
