@@ -553,7 +553,7 @@ final class AgendaTest extends TestCase {
 
         // Act & Assert
         // // Assert that the function noticed that nothing was done
-        $this->assertNull($sut->updateAttendee($event->id(), "you@gmail.com", true, "Your Name", "You"));
+        $this->assertFalse($sut->updateAttendee($event->id(), "you@gmail.com", true, "Your Name", "You"));
 
         // // Assert that we did not try to update the caldav server
         $this->assertEquals(0, count($caldav_client->updatedEvents));
@@ -600,7 +600,7 @@ final class AgendaTest extends TestCase {
 
         // Act & Assert
         // // Assert that the function noticed that nothing was done
-        $this->assertNull($sut->updateAttendee($event->id(), "you@gmail.com", false, "Your Name", "You"));
+        $this->assertFalse($sut->updateAttendee($event->id(), "you@gmail.com", false, "Your Name", "You"));
 
         // // Assert that we did not try to update the caldav server
         $this->assertEquals(0, count($caldav_client->updatedEvents));
