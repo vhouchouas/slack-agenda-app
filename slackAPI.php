@@ -186,6 +186,7 @@ class SlackAPI implements ISlackAPI {
     }
 
     function conversations_members($channel_id)  {
+        $this->log("Going to get conversations members for channel $channel_id");
         $ch = $this->curl_init("https://slack.com/api/conversations.members", array('application/x-www-form-urlencoded'), "bot");
         curl_setopt($ch, CURLOPT_POSTFIELDS,array(
             "channel" => $channel_id)
