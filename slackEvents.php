@@ -493,6 +493,11 @@ class SlackEvents {
         $app_id = $app_infos->user_id;
         $members = $this->api->conversations_members($channel_id);
 
+        if(is_null($members)) {
+            $this->log->error("Can't get conversations members for channel $channel_id");
+            return;
+        }
+
         if (!in_array($app_id, $members)) {
             $data = [
                 "type"=> "modal",
