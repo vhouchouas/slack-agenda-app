@@ -75,10 +75,10 @@ class SlackAPI implements ISlackAPI {
                 } else if(property_exists($json, 'error')) {
                     $error = $json->error;
                 }
-            } else if($as_array and in_array('ok', $json)) { // array response with 'ok' key
+            } else if($as_array and array_key_exists('ok', $json)) { // array response with 'ok' key
                 if($json['ok']) {
                     return $json;
-                } else if(in_array('error', $json)) {
+                } else if(array_key_exists('error', $json)) {
                     $error = $json["error"];
                 }
             } 
