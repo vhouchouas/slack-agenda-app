@@ -493,12 +493,11 @@ class SlackEvents {
         $app_id = $app_infos->user_id;
         $members = $this->api->conversations_members($channel_id);
 
-        if(is_null($members)) {
-            $this->log->error("Can't get conversations members for channel $channel_id");
-            return;
-        }
+        if (is_null($members) || !in_array($app_id, $members)) {
+            $text = is_null($members) ?
+                    "Vous avez probablement essayé d'excuter cette commande depuis une conversation privée, ce qui n'est pas supporté. Si vous pensez qu'il s'agit d'une erreur, vous pouvez contacter votre administrateur" :
+                    "L'application n'est pas installée sur ce channel.";
 
-        if (!in_array($app_id, $members)) {
             $data = [
                 "type"=> "modal",
                 "title"=> [
@@ -516,7 +515,7 @@ class SlackEvents {
                         'type' => 'section',
                         'text' => [
                             'type' => 'mrkdwn',
-                            'text' => "L'application n'est pas installée sur ce channel."
+                            'text' => $text
                         ]
                     ]
                 ]
