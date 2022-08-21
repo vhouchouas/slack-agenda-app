@@ -38,7 +38,8 @@ class SlackAPI implements ISlackAPI {
 
     const QUIET_ERRORS = array(
         "users_lookupByEmail" => array("users_not_found"),
-        "reminders_delete" => array("not_found")
+        "reminders_delete" => array("not_found"),
+        "conversations_members" => array("channel_not_found" /*this may happen when we the channel id is actually a private conversation*/)
     );
     
     function __construct($slack_bot_token, $slack_user_token) {
