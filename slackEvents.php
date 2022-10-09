@@ -225,7 +225,9 @@ class SlackEvents {
             array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
         }
 
-        $this->add_page_buttons($blocks, $nof_pages);
+        // Commented out because it "all of a sudden" crashed the app. More details on https://github.com/Zero-Waste-Paris/slack-agenda-app/issues/59#issuecomment-1272378237
+        // (we should either investigate the issue and fix it, or perhaps, eventually, delete all this... :-/
+        //$this->add_page_buttons($blocks, $nof_pages);
 
         // nothing to show
         if(count($events) === 0) {
