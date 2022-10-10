@@ -60,10 +60,11 @@ class SlackEvents {
         $buttons[] = $button;
       }
       
-      array_push($blocks, array([
-            "type" => "actions",
-            "elements" => $buttons
-          ], ["type" => "divider"]));
+      array_push($blocks, array(
+          "type" => "actions",
+          "elements" => $buttons));
+
+      array_push($blocks, array("type" => "divider"));
     }
 
     protected function render_event($parsed_event, $description=false, $with_attendees=true) {
@@ -225,9 +226,7 @@ class SlackEvents {
             array_unshift($blocks, $header_block, $filter_block, ["type"=> "divider"]);
         }
 
-        // Commented out because it "all of a sudden" crashed the app. More details on https://github.com/Zero-Waste-Paris/slack-agenda-app/issues/59#issuecomment-1272378237
-        // (we should either investigate the issue and fix it, or perhaps, eventually, delete all this... :-/
-        //$this->add_page_buttons($blocks, $nof_pages);
+        $this->add_page_buttons($blocks, $nof_pages);
 
         // nothing to show
         if(count($events) === 0) {
