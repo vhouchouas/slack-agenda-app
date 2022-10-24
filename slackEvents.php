@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+require_once "utils.php";
 
 class SlackEvents {
     protected $agenda;
@@ -85,14 +86,14 @@ class SlackEvents {
         }
         
         if($description) {
-            $infos .= PHP_EOL . PHP_EOL . '*Description:*' . PHP_EOL . PHP_EOL . (string)$parsed_event["vCalendar"]->VEVENT->DESCRIPTION;
+            $infos .= PHP_EOL . PHP_EOL . '*Description:*' . PHP_EOL . PHP_EOL . forceStringLength($parsed_event["vCalendar"]->VEVENT->DESCRIPTION, 2500);
         }
 
         $block = [
             'type' => 'section', 
             'text' => [ 
                 'type' => 'mrkdwn', 
-                'text' => $infos
+                'text' => forceStringLength($infos, 3000) // Slack has a limit of 3.000 char per block (see https://github.com/Zero-Waste-Paris/slack-agenda-app/issues/152
             ]            
         ];
 
