@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once "../slackEvents.php";
-require_once "../agenda.php";
+require_once "../inc/slackEvents.php";
+require_once "../inc/agenda.php";
 require_once "MockEvent.php";
 
 use PHPUnit\Framework\TestCase;

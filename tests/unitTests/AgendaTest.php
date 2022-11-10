@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-require_once "../SqliteAgenda.php";
-require_once "../CalDAVClient.php";
-require_once "../slackAPI.php";
+require_once "../inc/SqliteAgenda.php";
+require_once "../inc/CalDAVClient.php";
+require_once "../inc/slackAPI.php";
 require_once "MockCalDAVClient.php";
 require_once "testUtils.php";
 require_once "MockEvent.php";
