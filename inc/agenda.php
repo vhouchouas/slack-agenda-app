@@ -581,7 +581,8 @@ WHERE vCalendarFilename =:vCalendarFilename;");
      * @param string $vCalendarFilename the id of the event to parse
      * @param string $userid The slack id of the user (used to know if (s)he is registered to the event
      *
-     * @return either the parsed event if it was found, or false (it means that the event was deleted or that it is in the past)
+     * @return The parsed event if it was found
+     * @throws EventNotFound if the event was deleted or is in the past
      */
     public function getParsedEvent(string $vCalendarFilename, string $userid) {
         $sql = "SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename";
@@ -591,7 +592,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         ));
         $result = $query->fetch(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         if ($result === false) { // Case of an event deleted or in the past
-            return false;
+            throw new EventNotFound();
         }
 
         $this->parseEvent($result['vCalendarFilename'], $userid, $result);

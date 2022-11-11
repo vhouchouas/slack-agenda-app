@@ -269,18 +269,15 @@ class SlackEvents {
             'value'=> 'approve'
         );
     }
-    
+
     function more($vCalendarFilename, $request) {
         $userid = $request->user->id;
-        $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
-
         $trigger_id = $request->trigger_id;
+        try {
+            $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
 
-        if ($parsed_event === false) {
-            $this->postViewOpenForUnfindableEvent($trigger_id);
-        } else {
             $block = $this->render_event($parsed_event, true);
-        
+
             $data = [
                 "type" =>  "modal",
                 "title" =>  [
@@ -295,91 +292,92 @@ class SlackEvents {
                 "blocks" =>  [$block],
             ];
             $this->api->view_open($data, $trigger_id);
+        } catch (EventNotFound $e) {
+            $this->postViewOpenForUnfindableEvent($trigger_id);
         }
     }
 
     function more_inchannel($vCalendarFilename, $request, $update = false, $register = null) {
         $userid = $request->user->id;
-        $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
         $trigger_id = $request->trigger_id;
+        try {
+            $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
 
-        if ($parsed_event === false) {
-            $data = $this->postViewOpenForUnfindableEvent($trigger_id);
-            return;
-        }
-
-        if(is_null($register)) {
-            $register = $parsed_event['is_registered'];
-        } else {
-            $user = $this->api->users_info($userid);
-            if(is_null($user) || !property_exists($user->profile, "email")) {
-                $this->log->error("Can't determine user mail from the Slack API");
-                exit(); // @TODO maybe throw something here
-            }
-            $profile = $user->profile;
-            $this->log->debug("register from channel mail $profile->email " . getUserNameFromSlackProfile($profile));
-            if($register) {
-                $parsed_event["attendees"][] = $userid;
+            if(is_null($register)) {
+                $register = $parsed_event['is_registered'];
             } else {
-                $parsed_event["attendees"] = array_filter($parsed_event["attendees"],
-                                                          function($attendee) use ($userid) {
-                                                              return $attendee !== $userid;
-                                                          }
-                );
+                $user = $this->api->users_info($userid);
+                if(is_null($user) || !property_exists($user->profile, "email")) {
+                    $this->log->error("Can't determine user mail from the Slack API");
+                    exit(); // @TODO maybe throw something here
+                }
+                $profile = $user->profile;
+                $this->log->debug("register from channel mail $profile->email " . getUserNameFromSlackProfile($profile));
+                if($register) {
+                    $parsed_event["attendees"][] = $userid;
+                } else {
+                    $parsed_event["attendees"] = array_filter($parsed_event["attendees"],
+                                                              function($attendee) use ($userid) {
+                                                                  return $attendee !== $userid;
+                                                              }
+                    );
+                }
             }
-        }
-        
-        $block = $this->render_event($parsed_event, true);
-        
-        $data = [
-            "type" =>  "modal",
-            "title" =>  [
-                "type" =>  "plain_text",
-                "text" =>  "Informations"
-            ],
-            "close" =>  [
-                "type" =>  "plain_text",
-                "text" =>  "Fermer"
-            ],
-            "submit" =>  [
-                "type" =>  "plain_text",
-                "text"=> (!$register) ? 'Je  viens !' : 'Me désinscrire',
-            ],
-            "blocks" => [$block],
-            "private_metadata" => $vCalendarFilename,
-            "callback_id" => (!$register) ? "getin-fromchannel" : "getout-fromchannel"
-        ];
-        
-        if(!$update) {
-            $this->api->view_open($data, $trigger_id);
-        } else {
-            //@see: https://api.slack.com/surfaces/modals/using#updating_response
-            # close the modal window
-            $response = [
-                "response_action" => "clear",
+
+            $block = $this->render_event($parsed_event, true);
+
+            $data = [
+                "type" =>  "modal",
+                "title" =>  [
+                    "type" =>  "plain_text",
+                    "text" =>  "Informations"
+                ],
+                "close" =>  [
+                    "type" =>  "plain_text",
+                    "text" =>  "Fermer"
+                ],
+                "submit" =>  [
+                    "type" =>  "plain_text",
+                    "text"=> (!$register) ? 'Je  viens !' : 'Me désinscrire',
+                ],
+                "blocks" => [$block],
+                "private_metadata" => $vCalendarFilename,
+                "callback_id" => (!$register) ? "getin-fromchannel" : "getout-fromchannel"
             ];
-            header("Content-type:application/json");
-            echo json_encode($response);
-            fastcgi_finish_request();
-            try {
-                $response = $this->agenda->updateAttendee($vCalendarFilename,
-                                                          $profile->email,
-                                                          $register,
-                                                          getUserNameFromSlackProfile($profile),
-                                                          $userid);
-            } catch (EventNotFound $e) {
-                trigger_error("L'événement: " .
-                              (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
-                              " du " .
-                              strftime("%A %d %B %Y", $parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp()) .
-                              " n'existe pas.");
-            } catch (EventUpdateFails $e) {
-                trigger_error("L'événement: " .
-                              (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
-                              " du " .
-                              strftime("%A %d %B %Y", $parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp()) .
-                              " n'a pas pu être modifié.");
+
+            if(!$update) {
+                $this->api->view_open($data, $trigger_id);
+            } else {
+                //@see: https://api.slack.com/surfaces/modals/using#updating_response
+                # close the modal window
+                $response = [
+                    "response_action" => "clear",
+                ];
+                header("Content-type:application/json");
+                echo json_encode($response);
+                fastcgi_finish_request();
+                try {
+                    $response = $this->agenda->updateAttendee($vCalendarFilename,
+                                                              $profile->email,
+                                                              $register,
+                                                              getUserNameFromSlackProfile($profile),
+                                                              $userid);
+                } catch (EventNotFound $e) {
+                    trigger_error("L'événement: " .
+                                  (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
+                                  " du " .
+                                  strftime("%A %d %B %Y", $parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp()) .
+                                  " n'existe pas.");
+                } catch (EventUpdateFails $e) {
+                    trigger_error("L'événement: " .
+                                  (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
+                                  " du " .
+                                  strftime("%A %d %B %Y", $parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp()) .
+                                  " n'a pas pu être modifié.");
+                }
             }
+        } catch (EventNotFound $e) {
+          $data = $this->postViewOpenForUnfindableEvent($trigger_id);
         }
     }
     
@@ -424,23 +422,15 @@ class SlackEvents {
         }
         $profile = $user->profile;
         $this->log->debug("register mail $profile->email " . getUserNameFromSlackProfile($profile));
-        $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
-        if ($parsed_event === false) {
-            $trigger_id = $request->trigger_id;
-            $this->postViewOpenForUnfindableEvent($trigger_id);
-            return;
-        }
+        try {
+            $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
 
-        slackEvents::ack();
-        $this->register_fast_rendering($vCalendarFilename, $userid, $profile->email, $register, $request, $parsed_event);
-        try{
+            slackEvents::ack();
+            $this->register_fast_rendering($vCalendarFilename, $userid, $profile->email, $register, $request, $parsed_event);
             $response = $this->agenda->updateAttendee($vCalendarFilename, $profile->email, $register, getUserNameFromSlackProfile($profile), $userid);
         } catch (EventNotFound $e) {
-            trigger_error("L'événement: " .
-                          (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
-                          " du " .
-                          strftime("%A %d %B %Y", $parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp()) .
-                          " n'existe pas.");
+            $trigger_id = $request->trigger_id;
+            $this->postViewOpenForUnfindableEvent($trigger_id);
         } catch (EventUpdateFails $e) {
             trigger_error("L'événement: " .
                           (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
@@ -459,34 +449,34 @@ class SlackEvents {
     }
     
     function in_channel_event_show($channel, $userid, $vCalendarFilename) {
-        $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
-        if ($parsed_event === false) {
+        try {
+            $parsed_event = $this->agenda->getParsedEvent($vCalendarFilename, $userid);
+
+            $render = $this->render_event($parsed_event, false, false);
+            $this->api->chat_postMessage($channel, array(
+                $render,
+                [
+                    'type'=> 'actions',
+                    'block_id'=> $vCalendarFilename,
+                    'elements'=> array(
+                        array(
+                            'type'=> 'button',
+                            'action_id'=> 'more-inchannel',
+                            'text'=> array(
+                                'type'=> 'plain_text',
+                                'text'=> 'Inscription/Plus d\'informations',
+                                'emoji'=> true
+                            ),
+                            'value'=> 'more'
+                        )
+                    )
+                ]
+            )
+            );
+        } catch (EventNotFound $e) {
             $trigger_id = $request->trigger_id;
             $this->postViewOpenForUnfindableEvent($trigger_id);
-            return;
         }
-
-        $render = $this->render_event($parsed_event, false, false);
-        $this->api->chat_postMessage($channel, array(
-            $render,
-            [
-                'type'=> 'actions',
-                'block_id'=> $vCalendarFilename,
-                'elements'=> array(
-                    array(
-                        'type'=> 'button',
-                        'action_id'=> 'more-inchannel',
-                        'text'=> array(
-                            'type'=> 'plain_text',
-                            'text'=> 'Inscription/Plus d\'informations',
-                            'emoji'=> true
-                        ),
-                        'value'=> 'more'
-                    )
-                )
-            ]
-        )
-        );
     }
 
     public function event_selection($channel_id, $trigger_id) {

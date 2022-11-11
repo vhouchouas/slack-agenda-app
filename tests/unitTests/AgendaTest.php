@@ -507,7 +507,8 @@ final class AgendaTest extends TestCase {
         $sut->checkAgenda();
 
         // Act & Assert
-        $this->assertFalse($sut->getParsedEvent("some_event_id", "MYID"));
+        $this->expectException(EventNotFound::class);
+        $sut->getParsedEvent("some_event_id", "MYID");
     }
 
     public function returnETagAfterUpdateProvider() {
