@@ -604,7 +604,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         $result = $query->fetchAll();
 
         if(count($result) === 0) {
-            return null;
+          throw new EventNotFound();
         }
 
         return [\Sabre\VObject\Reader::read($result[0]['vCalendarRaw']), $result[0]['ETag']];
@@ -703,9 +703,6 @@ WHERE vCalendarFilename =:vCalendarFilename;");
             $this->log->warning("Fails to update the event, retrying");
             $this->checkAgenda();
             $event = $this->getEvent($vCalendarFilename);
-            if(is_null($event)) {
-                throw new EventNotFound();
-            }
             $ETag = $event[1]; // retrieve the new ETag (if the event has been updated)
             $this->log->warning("Retrying...");
             $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize(), true);
