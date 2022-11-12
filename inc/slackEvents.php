@@ -356,28 +356,20 @@ class SlackEvents {
                 header("Content-type:application/json");
                 echo json_encode($response);
                 fastcgi_finish_request();
-                try {
-                    $response = $this->agenda->updateAttendee($vCalendarFilename,
-                                                              $profile->email,
-                                                              $register,
-                                                              getUserNameFromSlackProfile($profile),
-                                                              $userid);
-                } catch (EventNotFound $e) {
-                    trigger_error("L'événement: " .
-                                  (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
-                                  " du " .
-                                  strftime("%A %d %B %Y", $parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp()) .
-                                  " n'existe pas.");
-                } catch (EventUpdateFails $e) {
-                    trigger_error("L'événement: " .
-                                  (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
-                                  " du " .
-                                  strftime("%A %d %B %Y", $parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp()) .
-                                  " n'a pas pu être modifié.");
-                }
+                $response = $this->agenda->updateAttendee($vCalendarFilename,
+                                                          $profile->email,
+                                                          $register,
+                                                          getUserNameFromSlackProfile($profile),
+                                                          $userid);
             }
         } catch (EventNotFound $e) {
           $data = $this->postViewOpenForUnfindableEvent($trigger_id);
+        } catch (EventUpdateFails $e) {
+            trigger_error("L'événement: " .
+                          (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
+                          " du " .
+                          strftime("%A %d %B %Y", $parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp()) .
+                          " n'a pas pu être modifié.");
         }
     }
     
