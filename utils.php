@@ -272,3 +272,7 @@ function forceStringLength(string $str, int $max_length) {
         return $str;
     }
 }
+
+function toRawText($potentiallyHtmlText) {
+  return strip_tags($potentiallyHtmlText);
+}

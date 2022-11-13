@@ -86,7 +86,7 @@ class SlackEvents {
         }
         
         if($description) {
-            $infos .= PHP_EOL . PHP_EOL . '*Description:*' . PHP_EOL . PHP_EOL . forceStringLength($parsed_event["vCalendar"]->VEVENT->DESCRIPTION, 2500);
+            $infos .= PHP_EOL . PHP_EOL . '*Description:*' . PHP_EOL . PHP_EOL . forceStringLength(toRawText($parsed_event["vCalendar"]->VEVENT->DESCRIPTION), 2500);
         }
 
         $block = [
