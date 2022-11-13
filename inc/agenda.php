@@ -26,7 +26,7 @@ class NotImplementedException extends BadMethodCallException {}
 class EventNotFound extends Exception { }
 class EventUpdateFails extends Exception { }
 
-require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
 
 abstract class Agenda {
     public const MY_EVENTS_FILTER = "my_events";

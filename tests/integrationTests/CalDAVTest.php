@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once("../CalDAVClient.php");
-require_once("../utils.php");
+require_once("../inc/CalDAVClient.php");
+require_once("../inc/utils.php");
 
 use PHPUnit\Framework\TestCase;
 use Monolog\Logger;

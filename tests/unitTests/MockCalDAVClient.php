@@ -1,6 +1,6 @@
 <?php
 
-require_once "../CalDAVClient.php";
+require_once "../inc/CalDAVClient.php";
 
 /**
  * A mock suitable for cases where successive calls to methods may change because the events are changed in between
