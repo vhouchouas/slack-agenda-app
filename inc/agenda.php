@@ -581,7 +581,8 @@ WHERE vCalendarFilename =:vCalendarFilename;");
      * @param string $vCalendarFilename the id of the event to parse
      * @param string $userid The slack id of the user (used to know if (s)he is registered to the event
      *
-     * @return either the parsed event if it was found, or false (it means that the event was deleted or that it is in the past)
+     * @return The parsed event if it was found
+     * @throws EventNotFound if the event was deleted or is in the past
      */
     public function getParsedEvent(string $vCalendarFilename, string $userid) {
         $sql = "SELECT vCalendarFilename, number_volunteers_required, vCalendarRaw FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename";
@@ -591,7 +592,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         ));
         $result = $query->fetch(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
         if ($result === false) { // Case of an event deleted or in the past
-            return false;
+            throw new EventNotFound();
         }
 
         $this->parseEvent($result['vCalendarFilename'], $userid, $result);
@@ -604,7 +605,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         $result = $query->fetchAll();
 
         if(count($result) === 0) {
-            return null;
+          throw new EventNotFound();
         }
 
         return [\Sabre\VObject\Reader::read($result[0]['vCalendarRaw']), $result[0]['ETag']];
@@ -703,9 +704,6 @@ WHERE vCalendarFilename =:vCalendarFilename;");
             $this->log->warning("Fails to update the event, retrying");
             $this->checkAgenda();
             $event = $this->getEvent($vCalendarFilename);
-            if(is_null($event)) {
-                throw new EventNotFound();
-            }
             $ETag = $event[1]; // retrieve the new ETag (if the event has been updated)
             $this->log->warning("Retrying...");
             $new_ETag = $this->caldav_client->updateEvent($vCalendarFilename, $ETag, $vCalendar->serialize(), true);
