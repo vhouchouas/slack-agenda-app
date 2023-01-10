@@ -19,11 +19,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 
-require __DIR__ . '/vendor/autoload.php';
-require "slackAPI.php";
-require "utils.php";
-require "agenda.php";
-require_once "CalDAVClient.php";
+require_once __DIR__ . '/vendor/autoload.php';
+require_once "inc/slackAPI.php";
+require_once "inc/utils.php";
+require_once "inc/agenda.php";
+require_once "inc/CalDAVClient.php";
 
 $log = new Logger('CLITOOLS');
 $log->pushHandler(new StreamHandler('php://stdout', Logger::DEBUG));
