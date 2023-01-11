@@ -128,9 +128,9 @@ function format_date($start, $end) {
     $end_date = $end->format('Y-m-d');
     
     if($start_date == $end_date) {
-        return "le " . strftime("%A %d %B %Y", $start->getTimestamp()) . ", de " . strftime("%H:%M", $start->getTimestamp()) . " à " . strftime("%H:%M", $end->getTimestamp()) . " heures";
+        return "le " . date("l j F Y", $start->getTimestamp()) . ", de " . date("G:i", $start->getTimestamp()) . " à " . date("G:i", $end->getTimestamp()) . " heures";
     } else {
-        return "du " . strftime("%A %d %B %Y", $start->getTimestamp()) . ", " . strftime("%H:%M", $start->getTimestamp()) . " heures au " . strftime("%A %d %B %Y", $end->getTimestamp()) . ", " . strftime("%H:%M", $end->getTimestamp()) . " heures";
+        return "du " . date("l j F Y", $start->getTimestamp()) . ", " . date("G:i", $start->getTimestamp()) . " heures au " . date("l j F Y", $end->getTimestamp()) . ", " . date("G:i", $end->getTimestamp()) . " heures";
     }
 }
 

@@ -393,7 +393,7 @@ abstract class Agenda {
                                 'type' => 'section', 
                                 'text' => [ 
                                     'type' => 'mrkdwn', 
-                                    'text' => ":warning: L'événement: " . (string)$vCalendar->VEVENT->SUMMARY . " du " . strftime("%A %d %B %Y", $event_datetime->getTimestamp()) . " a été annulé."
+                                    'text' => ":warning: L'événement: " . (string)$vCalendar->VEVENT->SUMMARY . " du " . date("l j F Y", $event_datetime->getTimestamp()) . " a été annulé."
                                 ]
                             ]));
                         }
