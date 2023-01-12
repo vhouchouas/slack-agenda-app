@@ -123,14 +123,13 @@ function setLogHandlers($log) {
 }
 
 function format_date($start, $end) {
-    setlocale(LC_TIME, "fr_FR.UTF-8");
     $start_date = $start->format('Y-m-d');
     $end_date = $end->format('Y-m-d');
     
     if($start_date == $end_date) {
-        return "le " . date("l j F Y", $start->getTimestamp()) . ", de " . date("G:i", $start->getTimestamp()) . " à " . date("G:i", $end->getTimestamp()) . " heures";
+        return "le " . dateToDayStr($start) . ", de " . dateToHourStr($start) . " à " . dateToHourStr($end) . " heures";
     } else {
-        return "du " . date("l j F Y", $start->getTimestamp()) . ", " . date("G:i", $start->getTimestamp()) . " heures au " . date("l j F Y", $end->getTimestamp()) . ", " . date("G:i", $end->getTimestamp()) . " heures";
+        return "du " . dateToDayStr($start) . ", " . dateToHourStr($start) . " heures au " . dateToDayStr($end) . ", " . dateToHourStr($end) . " heures";
     }
 }
 
@@ -275,4 +274,16 @@ function forceStringLength(string $str, int $max_length) {
 
 function toRawText($potentiallyHtmlText) {
   return strip_tags($potentiallyHtmlText);
+}
+
+function dateToDayStr(DateTimeInterface $d) {
+  $f = new IntlDateFormatter('fr_FR.UTF-8', IntlDateFormatter::MEDIUM, IntlDateFormatter::MEDIUM);
+  $f->setPattern('d MMMM Y');
+  return $f->format($d);
+}
+
+function dateToHourStr(DateTimeInterface $d) {
+  $f = new IntlDateFormatter('fr_FR.UTF-8', IntlDateFormatter::MEDIUM, IntlDateFormatter::MEDIUM);
+  $f->setPattern('HH:mm');
+  return $f->format($d);
 }
