@@ -368,7 +368,7 @@ class SlackEvents {
             trigger_error("L'événement: " .
                           (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
                           " du " .
-                          date("l j F Y", $parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp()) .
+                          dateToDayStr($parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()) .
                           " n'a pas pu être modifié.");
         }
     }
@@ -427,7 +427,7 @@ class SlackEvents {
             trigger_error("L'événement: " .
                           (string)$parsed_event["vCalendar"]->VEVENT->SUMMARY .
                           " du " .
-                          date("l j F Y", $parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()->getTimestamp()) .
+                          dateToDayStr($parsed_event["vCalendar"]->VEVENT->DTSTART->getDateTime()) .
                           " n'a pas pu être modifié.");
         }
     }
