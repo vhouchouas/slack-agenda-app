@@ -155,6 +155,47 @@ class DatabaseConnectionChecker extends Command {
     }
 }
 
+class CSVExport extends Command {
+    public function run() {
+        global $log;
+        list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
+        $caldav = new CalDAVClient($caldav_credentials['url'], $caldav_credentials['username'], $caldav_credentials['password']);
+        $salt = random_bytes(40);
+        $csv = "";
+        
+        foreach($caldav->fetchEvents(array_keys($caldav->getETags())) as $i => $event) {
+            
+            $vCalendar = \Sabre\VObject\Reader::read($event['vCalendarRaw']);
+            
+            $csv .= $vCalendar->VEVENT->DTSTART->getDateTime()->getTimestamp() . ";";
+            $csv .= $vCalendar->VEVENT->DTEND->getDateTime()->getTimestamp() . ";";
+
+            $attendees = [];
+            if(isset($vCalendar->VEVENT->ATTENDEE)) {
+                foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
+                    $attendees[] = hash_hmac("sha256", (string)$attendee, $salt);
+                }
+            }
+            
+            $categories = [];
+            if(isset($vCalendar->VEVENT->CATEGORIES)) {
+                foreach($vCalendar->VEVENT->CATEGORIES as $category) {
+                    $categories[] = (string)$category;
+                }
+            }
+            $csv .= implode(",", $attendees) . ";" . implode(",", $categories) . "\n";
+        }
+        $date = new DateTimeImmutable();
+        file_put_contents($date->format('Y-m-d').".csv", $csv, FILE_APPEND | LOCK_EX);
+        
+        return true;
+    }
+
+    public function getHelpMessage() {
+        return "Export events into a csv file. Attendees are anonymized.";
+    }
+}
+
 class DatabaseCreator extends Command {
     public function run() {
         database_create();
@@ -328,6 +369,7 @@ class HelpPrinter extends Command {
 
 
 $cmds = [
+    "csv-export" => new CSVExport(),
     "reminders-list" => new RemindersLister(),
     "reminders-purge" => new RemindersPurger(),
     "checkAgenda" => new AgendaChecker(),
