@@ -19,6 +19,7 @@ Then export the agenda as a csv file:
 	
 This will create a YYYY-MM-DD.csv file. Then
 
+	mv YYYY-MM-DD.csv plot
 	cd plot
 	python plot.py --csv_file YYYY-MM-DD.csv --start 2022-02-01 --end 2023-01-31 --type pdf
 	
