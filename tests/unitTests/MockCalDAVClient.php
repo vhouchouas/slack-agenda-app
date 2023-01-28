@@ -30,7 +30,7 @@ class MockCalDAVClient implements ICalDAVClient {
         );
     }
 
-    public function getETags() {
+    public function getETags(?DateTimeImmutable $not_before_datetime = NULL, ?DateTimeImmutable $not_after_datetime = NULL) {
         $result = array();
         foreach($this->events as $event){
             $result[$event->id()] = $event->etag();
