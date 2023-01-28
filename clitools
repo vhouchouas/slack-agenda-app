@@ -173,7 +173,7 @@ class CSVExport extends Command {
             $attendees = [];
             if(isset($vCalendar->VEVENT->ATTENDEE)) {
                 foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
-                    $attendees[] = hash_hmac("sha256", (string)$attendee, $salt);
+                    $attendees[] = anonymizeAttendee($attendee);
                 }
             }
             
@@ -344,6 +344,19 @@ function checkAgenda() {
     $log->info("Checking Agenda... ");
     $agenda->checkAgenda();
     $log->info("Checking Agenda - done");
+}
+
+function anonymizeAttendee($attendee) {
+    $placeholderDomain = "anonymized";
+    if (str_ends_with("@$attendee", $placeholderDomain)) { // Make this function idempotent
+        return $attendee;
+    }
+
+    if (!isset($GLOBALS['SALT'])) {
+        read_config_file();
+    }
+
+    return "mailto:" . hash_hmac("sha256", (string) $attendee, $GLOBALS['SALT']) . "@$placeholderDomain";
 }
 
 class HelpPrinter extends Command {

@@ -17,6 +17,7 @@
         "db_password" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         "db_table_prefix": "slack_app_"
     },
+    "salt": "<replace with an arbitrary uniq string>",
     "prepend_block" : {
 	"type": "section",
 	"text": {

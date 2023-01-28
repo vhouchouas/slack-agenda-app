@@ -109,6 +109,12 @@ function read_config_file() {
         $log->error('No slash command specified (exit).');
         exit();
     }
+    if (isset($config['salt'])) {
+        $GLOBALS['SALT'] = $config['salt'];
+    } else {
+        $log->error('No salt specified (exit).');
+        exit();
+    }
     
     return [$slack_credentials,
             $caldav_credentials,
