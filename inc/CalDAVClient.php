@@ -133,6 +133,10 @@ class CalDAVClient implements ICalDAVClient {
     
     // url that need to be fetched
     function fetchEvents($vCalendarFilenames) {
+        if (count($vCalendarFilenames) == 0) { // To avoid having to deal with "null" afterwards
+            return array();
+        }
+
         $ch = $this->init_curl_request();
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "REPORT");
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
