@@ -31,7 +31,7 @@ interface ICalDAVClient {
      *
      * @return an array of key-value pair "event url => etag"
      */
-    public function getETags();
+    public function getETags(?DateTimeImmutable $not_before_datetime = NULL, ?DateTimeImmutable $not_after_datetime = NULL);
 
     /**
      * Queries the ctag of the caldav server.
