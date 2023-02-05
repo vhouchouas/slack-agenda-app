@@ -257,7 +257,7 @@ class DatabaseTruncator extends Command {
     }
 }
 
-class AnonymizeAttendeesDataOnCaldav extends Command {
+class PseudonymizeAttendeesDataOnCaldav extends Command {
 
     public function run() {
       global $log;
@@ -309,7 +309,7 @@ class AnonymizeAttendeesDataOnCaldav extends Command {
     }
 
     public function getHelpMessage() {
-      return "Anonymize old personal data on the remote caldav server. To be compatible with GDPR it makes sense to run this regularly\n"
+      return "Pseudonymize old personal data on the remote caldav server. To be compatible with GDPR it makes sense to run this regularly\n"
         . "In practice attendees are replaced with hashed data which still makes it possible to get stats like"
         . " the distribution of time spent by participants";
     }
@@ -445,7 +445,7 @@ class HelpPrinter extends Command {
 
 $cmds = [
     "csv-export" => new CSVExport(),
-    "anonymize-old-caldav-data" => new AnonymizeAttendeesDataOnCaldav(),
+    "pseudonymize-old-caldav-data" => new PseudonymizeAttendeesDataOnCaldav(),
     "reminders-list" => new RemindersLister(),
     "reminders-purge" => new RemindersPurger(),
     "checkAgenda" => new AgendaChecker(),
