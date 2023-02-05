@@ -139,7 +139,7 @@ When a user registers to an event, his or her personal date (namely: name and em
 
 You can clean this old personal data by running:
 
-    ./clitools-clean-orphan-attendees    # clean data from the database
+    ./clitools clean-orphan-attendees    # clean data from the database
     ./clitools anonymize-old-caldav-data # clean data from the caldav server
 
 You should probably set a cron to run those tasks regularly.
