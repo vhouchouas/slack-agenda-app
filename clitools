@@ -418,7 +418,7 @@ function anonymizeAttendee($attendee) {
         read_config_file();
     }
 
-    return "mailto:" . hash_hmac("sha256", (string) $attendee, $GLOBALS['SALT']) . "@$placeholderDomain";
+    return "mailto:" . hash("sha256", (string) $attendee. $GLOBALS['SALT']) . "@$placeholderDomain";
 }
 
 class HelpPrinter extends Command {
