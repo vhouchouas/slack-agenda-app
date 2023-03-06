@@ -158,8 +158,7 @@ class DatabaseConnectionChecker extends Command {
 class CSVExport extends Command {
     public function run() {
         global $log;
-        list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
-        $caldav = new CalDAVClient($caldav_credentials['url'], $caldav_credentials['username'], $caldav_credentials['password']);
+        $caldav = build_caldavclient();
         $salt = random_bytes(40);
         $csv = "";
         
@@ -173,7 +172,7 @@ class CSVExport extends Command {
             $attendees = [];
             if(isset($vCalendar->VEVENT->ATTENDEE)) {
                 foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
-                    $attendees[] = hash_hmac("sha256", (string)$attendee, $salt);
+                    $attendees[] = anonymizeAttendee($attendee);
                 }
             }
             
@@ -258,6 +257,64 @@ class DatabaseTruncator extends Command {
     }
 }
 
+class PseudonymizeAttendeesDataOnCaldav extends Command {
+
+    public function run() {
+      global $log;
+      $caldav = build_caldavclient();
+
+      // // Up to 2 years ago to be compatible with our personal data policy
+      // // (this duration could eventually be moved to some config file, however:
+      // //  - as long as no one needs it, it's more convenient to have it here
+      // //  - having it hardcoded prevents manual error which could kill recent data
+      // // )
+      $upTo = new DateTimeImmutable("-2 years");
+      $log->info("Will anonymize events up to " . $upTo->format(DateTimeInterface::ISO8601));
+
+
+      $vCalendarFilenames = array();
+      foreach($caldav->getEtags(null, $upTo) as $vCalendarFilename => $etag) {
+        $vCalendarFilenames []= $vCalendarFilename;
+      }
+      foreach($caldav->fetchEvents($vCalendarFilenames) as $event) {
+        $vCalendar = \Sabre\VObject\Reader::read($event['vCalendarRaw']);
+
+        // Note that we don't need to do anything with the database because we're only updating old events
+        // and that the database only contains data about event which are at most 1 day old
+        if (is_null($vCalendar->VEVENT->ATTENDEE)) {
+          $log->info("Skipping event " . $vCalendar->VEVENT->SUMMARY . " since it does not seem to have any attendee");
+          continue;
+        }
+        $updatedEvent = false;
+        foreach($vCalendar->VEVENT->ATTENDEE as $attendee) {
+          $anonymizedAttendee = anonymizeAttendee($attendee);
+          if ($attendee == $anonymizedAttendee) {
+            continue;
+          }
+          $vCalendar->VEVENT->remove($attendee);
+          $vCalendar->VEVENT->add('ATTENDEE', $anonymizedAttendee);
+          $updatedEvent = true;
+        }
+
+        // Query the remote caldav server only if the event was updated, to save resources and time
+        if ($updatedEvent) {
+          $log->info("Going to anonymize attendees of event " . $vCalendar->VEVENT->SUMMARY);
+          if ($caldav->updateEvent($event["vCalendarFilename"], $event["ETag"], $vCalendar->serialize()) === FALSE) {
+            $log->error("Failed to update the event");
+          }
+        } else {
+          $log->info("No need to anonymize attendees of event " . $vCalendar->VEVENT->SUMMARY);
+        }
+      }
+    }
+
+    public function getHelpMessage() {
+      return "Pseudonymize old personal data on the remote caldav server. To be compatible with GDPR it makes sense to run this regularly\n"
+        . "In practice attendees are replaced with hashed data which still makes it possible to get stats like"
+        . " the distribution of time spent by participants";
+    }
+}
+
 function config_read() {
     global $log;
     $log->info("Try to read config file...");
@@ -328,6 +385,11 @@ function open_agenda() {
     return $agenda;
 }
 
+function build_caldavclient() {
+        list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
+        return new CalDAVClient($caldav_credentials['url'], $caldav_credentials['username'], $caldav_credentials['password']);
+}
+
 function database_clean_orphan_categories() {
     $agenda = open_agenda();
     $agenda->clean_orphan_categories(false);
@@ -344,6 +406,19 @@ function checkAgenda() {
     $log->info("Checking Agenda... ");
     $agenda->checkAgenda();
     $log->info("Checking Agenda - done");
+}
+
+function anonymizeAttendee($attendee) {
+    $placeholderDomain = "anonymized";
+    if (str_ends_with("@$attendee", $placeholderDomain)) { // Make this function idempotent
+        return $attendee;
+    }
+
+    if (!isset($GLOBALS['SALT'])) {
+        read_config_file();
+    }
+
+    return "mailto:" . hash("sha256", (string) $attendee. $GLOBALS['SALT']) . "@$placeholderDomain";
 }
 
 class HelpPrinter extends Command {
@@ -370,6 +445,7 @@ class HelpPrinter extends Command {
 
 $cmds = [
     "csv-export" => new CSVExport(),
+    "pseudonymize-old-caldav-data" => new PseudonymizeAttendeesDataOnCaldav(),
     "reminders-list" => new RemindersLister(),
     "reminders-purge" => new RemindersPurger(),
     "checkAgenda" => new AgendaChecker(),

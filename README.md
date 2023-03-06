@@ -129,6 +129,30 @@ From the directory where you installed the php files run:
 
 )
 
+How personal data is handled
+============================
+In a nutshell
+-------------
+When a user registers to an event, his or her personal date (namely: name and email adress as known by Slack) is:
+- cached in a sql table
+- sent to the remote caldav server
+
+You can clean this old personal data by running:
+
+    ./clitools clean-orphan-attendees # clean data from the database
+    ./clitools pseudonymize-old-caldav-data # clean data from the caldav server
+
+You should probably set a cron to run those tasks regularly.
+
+What those cleaning commands do
+-------------------------------
+
+The command which cleans data from the database is completely safe since the database is used as a cache.
+(If this data becomes needed again, it will be computed on the fly).
+
+The command which clean the caldav server pseudonymizes the data in a deterministic way in order to still make
+it possible to compute statistics from it (for instance see ./plot/README)
+
 Technical notes for admin
 =========================
 
