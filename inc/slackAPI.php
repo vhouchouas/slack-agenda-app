@@ -22,9 +22,9 @@ interface ISlackAPI {
     public function views_publish($data);
     public function users_info($userid);
     public function view_open($data, $trigger_id);
-    public function reminders_add($userid, $text, $datetime);
-    public function reminders_list();
-    public function reminders_delete($reminder_id);
+    public function scheduleMessage($channelId, $text, $datetime);
+    public function listScheduledMessages();
+    public function deleteScheduledMessage($channelId, $scheduledMessageId);
     public function auth_test($token_type);
     public function chat_postMessage($channel_id, $blocks);
     public function users_lookupByEmail($mail);
@@ -37,8 +37,8 @@ class SlackAPI implements ISlackAPI {
     protected $log;
 
     const QUIET_ERRORS = array(
+        "deleteScheduledMessage" => array("invalid_scheduled_message_id" /*may happen when an event is deleted less than 24h before its start, in which case we try to delete a scheduled message already sent*/),
         "users_lookupByEmail" => array("users_not_found"),
-        "reminders_delete" => array("not_found"),
         "conversations_members" => array("channel_not_found" /*this may happen when we the channel id is actually a private conversation*/)
     );
     
@@ -144,34 +144,32 @@ class SlackAPI implements ISlackAPI {
         return $this->curl_process($ch);
     }
 
-    function reminders_add($userid, $text, $datetime) {
-        $ch = $this->curl_init("https://slack.com/api/reminders.add", array('application/x-www-form-urlencoded'), "user");
+    function scheduleMessage($channelId, $text, $datetime) {
+        $ch = $this->curl_init("https://slack.com/api/chat.scheduleMessage", array('application/x-www-form-urlencoded'), "bot");
         curl_setopt($ch, CURLOPT_POSTFIELDS, array(
+            "channel" => $channelId,
             "text" => $text,
-            "time" => $datetime->getTimestamp(),
-            "user" => $userid
+            "post_at" => $datetime->getTimestamp(),
         ));
         return $this->curl_process($ch);
     }
 
-    function reminders_list() {
-        $ch = $this->curl_init("https://slack.com/api/reminders.list", array('application/x-www-form-urlencoded'), "user");
+    function listScheduledMessages() {
+        $ch = $this->curl_init("https://slack.com/api/chat.scheduledMessages.list", array('application/x-www-form-urlencoded'), "bot");
+        // TODO: we should probably handle the pagination information returned by this endpoint
         $response = $this->curl_process($ch, true);
-        if(!is_null($response)) {
-            return $response["reminders"];
-        } else {
-            return NULL;
-        }
+        return $response["scheduled_messages"];
     }
 
-    function reminders_delete($reminder_id) {
-        $ch = $this->curl_init("https://slack.com/api/reminders.delete", array('application/x-www-form-urlencoded'), "user");
+    function deleteScheduledMessage($channelId, $scheduledMessageId) {
+        $ch = $this->curl_init("https://slack.com/api/chat.deleteScheduledMessage", array('application/x-www-form-urlencoded'), "bot");
         curl_setopt($ch, CURLOPT_POSTFIELDS, array(
-            "reminder" => $reminder_id
+            "channel" => $channelId,
+            "scheduled_message_id" => $scheduledMessageId
         ));
         return $this->curl_process($ch);
     }
-    
+
     function auth_test($token_type) {
         $ch = $this->curl_init("https://slack.com/api/auth.test", array('Content-Type:application/json; charset=UTF-8'), $token_type);
         return $this->curl_process($ch);
