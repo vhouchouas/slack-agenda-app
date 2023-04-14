@@ -49,8 +49,6 @@ Create the Slack app
 
 To create your app please follow [this page](https://api.slack.com/apps), then click `Create New App` and choose `from an app manifest file`. Copy/paste the content of the file `slack_app_manifest.yaml.sample`, after having configured it (especially the fields: `name`, `display_name` and `request_url`). `request_url` must reach the file `index.php` on your HTTP server.
 
-TODO (in particular, mention that a dedicated user should be created for the reminders)
-
 Installing the PHP scripts
 --------------------------
 Get the code:

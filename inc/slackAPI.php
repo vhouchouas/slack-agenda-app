@@ -25,7 +25,7 @@ interface ISlackAPI {
     public function scheduleMessage($channelId, $text, $datetime);
     public function listScheduledMessages();
     public function deleteScheduledMessage($channelId, $scheduledMessageId);
-    public function auth_test($token_type);
+    public function auth_test();
     public function chat_postMessage($channel_id, $blocks);
     public function users_lookupByEmail($mail);
     public function conversations_members($channel_id);
@@ -33,7 +33,6 @@ interface ISlackAPI {
 
 class SlackAPI implements ISlackAPI {
     protected $slack_bot_token;
-    protected $slack_user_token;
     protected $log;
 
     const QUIET_ERRORS = array(
@@ -42,22 +41,18 @@ class SlackAPI implements ISlackAPI {
         "conversations_members" => array("channel_not_found" /*this may happen when we the channel id is actually a private conversation*/)
     );
     
-    function __construct($slack_bot_token, $slack_user_token) {
+    function __construct($slack_bot_token) {
         $this->slack_bot_token = $slack_bot_token;
-        $this->slack_user_token = $slack_user_token;
         
         $this->log = new Logger('SlackAPI');
         setLogHandlers($this->log);
     }
 
-    protected function curl_init($url, $additional_headers, $token = "bot") {
+    protected function curl_init($url, $additional_headers) {
         $ch = curl_init($url);
         $headers = array();
-        if($token === "bot") {
-            $headers[] = 'Authorization: Bearer ' . $this->slack_bot_token;
-        } else if($token === "user") {
-            $headers[] = 'Authorization: Bearer ' . $this->slack_user_token;
-        }
+        $headers[] = 'Authorization: Bearer ' . $this->slack_bot_token;
+
         curl_setopt( $ch, CURLOPT_HTTPHEADER, array_merge($headers, $additional_headers));
         curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
         return $ch;
@@ -145,7 +140,7 @@ class SlackAPI implements ISlackAPI {
     }
 
     function scheduleMessage($channelId, $text, $datetime) {
-        $ch = $this->curl_init("https://slack.com/api/chat.scheduleMessage", array('application/x-www-form-urlencoded'), "bot");
+        $ch = $this->curl_init("https://slack.com/api/chat.scheduleMessage", array('application/x-www-form-urlencoded'));
         curl_setopt($ch, CURLOPT_POSTFIELDS, array(
             "channel" => $channelId,
             "text" => $text,
@@ -155,14 +150,14 @@ class SlackAPI implements ISlackAPI {
     }
 
     function listScheduledMessages() {
-        $ch = $this->curl_init("https://slack.com/api/chat.scheduledMessages.list", array('application/x-www-form-urlencoded'), "bot");
+        $ch = $this->curl_init("https://slack.com/api/chat.scheduledMessages.list", array('application/x-www-form-urlencoded'));
         // TODO: we should probably handle the pagination information returned by this endpoint
         $response = $this->curl_process($ch, true);
         return $response["scheduled_messages"];
     }
 
     function deleteScheduledMessage($channelId, $scheduledMessageId) {
-        $ch = $this->curl_init("https://slack.com/api/chat.deleteScheduledMessage", array('application/x-www-form-urlencoded'), "bot");
+        $ch = $this->curl_init("https://slack.com/api/chat.deleteScheduledMessage", array('application/x-www-form-urlencoded'));
         curl_setopt($ch, CURLOPT_POSTFIELDS, array(
             "channel" => $channelId,
             "scheduled_message_id" => $scheduledMessageId
@@ -170,8 +165,8 @@ class SlackAPI implements ISlackAPI {
         return $this->curl_process($ch);
     }
 
-    function auth_test($token_type) {
-        $ch = $this->curl_init("https://slack.com/api/auth.test", array('Content-Type:application/json; charset=UTF-8'), $token_type);
+    function auth_test() {
+        $ch = $this->curl_init("https://slack.com/api/auth.test", array('Content-Type:application/json; charset=UTF-8'));
         return $this->curl_process($ch);
     }
     
@@ -185,7 +180,7 @@ class SlackAPI implements ISlackAPI {
     }
 
     function conversations_members($channel_id)  {
-        $ch = $this->curl_init("https://slack.com/api/conversations.members", array('application/x-www-form-urlencoded'), "bot");
+        $ch = $this->curl_init("https://slack.com/api/conversations.members", array('application/x-www-form-urlencoded'));
         curl_setopt($ch, CURLOPT_POSTFIELDS,array(
             "channel" => $channel_id)
         );

@@ -473,7 +473,7 @@ class SlackEvents {
 
     public function event_selection($channel_id, $trigger_id) {
         // check if the app is integrated in the channel
-        $app_infos = $this->api->auth_test("bot");
+        $app_infos = $this->api->auth_test();
         $app_id = $app_infos->user_id;
         $members = $this->api->conversations_members($channel_id);
 

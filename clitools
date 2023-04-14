@@ -38,8 +38,8 @@ class RemindersLister extends Command {
     public function run() {
         global $log;
         list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
-        $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
-        $user_infos = $api->auth_test("user");
+        $api = new SlackAPI($slack_credentials['bot_token']);
+        $user_infos = $api->auth_test();
         foreach($api->listScheduledMessages() as $id => $reminder) {
             $log->info("Reminder:");
             foreach($reminder as $key => $val) {
@@ -61,8 +61,8 @@ class RemindersPurger extends Command {
     public function run() {
         global $log;
         list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
-        $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
-        $user_infos = $api->auth_test("user");
+        $api = new SlackAPI($slack_credentials['bot_token']);
+        $user_infos = $api->auth_test();
         foreach($api->listScheduledMessages() as $id => $reminder) {
             $log->info("deleting reminder id: $reminder[id]\n");
             $api->deleteScheduledMessage($reminder["channel_id"], $reminder["id"]);
@@ -325,24 +325,12 @@ function config_read() {
 function api_checktokens() {
     global $log;
     list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
-    $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
+    $api = new SlackAPI($slack_credentials['bot_token']);
 
     $ok = true;
-    $log->info("Checking Slack user token...");
-    $ret = $api->auth_test("user");
-    if(!is_null($ret) && $ret->ok) {
-        if(!isset($ret->bot_id)) {
-            $log->info("Checking Slack user token - ok.");
-        } else {
-            $log->info("Checking Slack user token - nok (bot token instead)");
-        }
-    } else {
-        $ok = false;
-        $log->info("Checking Slack user token - nok.");
-    }
 
     $log->info("Checking Slack bot token...");
-    $ret = $api->auth_test("bot");
+    $ret = $api->auth_test();
     if(!is_null($ret) && $ret->ok) {
         if(isset($ret->bot_id)) {
             $log->info("Checking Slack bot token - ok.");
@@ -374,7 +362,7 @@ function caldavclient_checkauth() {
 function open_agenda() {
     global $log;
     list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
-    $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
+    $api = new SlackAPI($slack_credentials['bot_token']);
     
     $agenda = initAgendaFromType($caldav_credentials['url'], $caldav_credentials['username'], $caldav_credentials['password'],
                                  $api, $agenda_args, $log);
