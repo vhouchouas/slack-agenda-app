@@ -40,15 +40,13 @@ class RemindersLister extends Command {
         list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
         $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
         $user_infos = $api->auth_test("user");
-        foreach($api->reminders_list() as $id => $reminder) {
-            if($user_infos->user_id === $reminder["creator"]) { // list only reminders that have been created by the app
-                $log->info("Reminder:");
-                foreach($reminder as $key => $val) {
-                    if(is_null($val)) {
-                        $log->info("    $key = null");
-                    } else {
-                        $log->info("    $key = $val");
-                    }
+        foreach($api->listScheduledMessages() as $id => $reminder) {
+            $log->info("Reminder:");
+            foreach($reminder as $key => $val) {
+                if(is_null($val)) {
+                    $log->info("    $key = null");
+                } else {
+                    $log->info("    $key = $val");
                 }
             }
         }
@@ -65,11 +63,9 @@ class RemindersPurger extends Command {
         list($slack_credentials, $caldav_credentials, $agenda_args) = read_config_file();
         $api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
         $user_infos = $api->auth_test("user");
-        foreach($api->reminders_list() as $id => $reminder) {
-            if($user_infos->user_id === $reminder["creator"]) { // delete only reminders that have been created by the app
-                $log->info("deleting reminder id: $reminder[id]\n");
-                $api->reminders_delete($reminder["id"]);
-            }
+        foreach($api->listScheduledMessages() as $id => $reminder) {
+            $log->info("deleting reminder id: $reminder[id]\n");
+            $api->deleteScheduledMessage($reminder["channel_id"], $reminder["id"]);
         }
     }
 

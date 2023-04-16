@@ -755,13 +755,14 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         if ($reminderTime < $this->now){
             $this->log->debug("not creating the reminder for $userid because " . $reminderTime->format('Y-m-dTH:i:s') . " is in the past");
         } else {
-            $response = $this->api->reminders_add($userid, "Rappel pour l'événement qui aura lieu dans 24h : $message", $reminderTime);
-            $this->log->debug("Creating slack reminder: {$response->reminder->id} for event $vCalendarFilename");
+            $response = $this->api->scheduleMessage($userid, "Rappel pour l'événement qui aura lieu dans 24h : $message", $reminderTime);
+
             if(!is_null($response)) {
+                $this->log->debug("Creating slack reminder: {$response->scheduled_message_id} for event $vCalendarFilename");
                 $this->log->debug("Adding reminder within the database.");
                 $query = $this->pdo->prepare("INSERT INTO {$this->table_prefix}reminders (id, vCalendarFilename, userid) VALUES (:id, :vCalendarFilename, :userid)");
                 $query->execute(array(
-                    'id' => $response->reminder->id,
+                    'id' => $response->scheduled_message_id,
                     'vCalendarFilename' =>  $vCalendarFilename,
                     'userid' =>  $userid
                 ));                
@@ -792,7 +793,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         
         $this->log->info("DB reminder deleted for event $vCalendarFilename and user $userid.");
         
-        if(!is_null($reminder_id = $this->api->reminders_delete($result['id']))) {
+        if(!is_null($reminder_id = $this->api->deleteScheduledMessage($userid, $result['id']))) {
             $this->log->info("Slack reminder deleted ($result[id]).");
         } else {
             // Don't log as an error because it may be normal, for instance:

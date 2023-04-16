@@ -23,8 +23,6 @@ oauth_config:
       - users:read.email
       - users.profile:read
       - identify
-      - reminders:write
-      - reminders:read
     bot:
       - commands
       - chat:write

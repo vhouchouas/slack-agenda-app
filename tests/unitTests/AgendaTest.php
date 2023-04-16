@@ -393,7 +393,7 @@ final class AgendaTest extends TestCase {
         // Setup
         $event = new MockEvent(array(), array());
         $caldav_client = $this->buildCalDAVClient(array($event), true);
-        $this->slackApiMock->method('reminders_add')->willReturn(json_decode('{"reminder": {"id": "abc"}}'));
+        $this->slackApiMock->method('scheduleMessage')->willReturn(json_decode('{"scheduled_message_id":"Q0532DC44F4"}'));
 
         $sut = AgendaTest::buildSUT($caldav_client);
         $sut->checkAgenda();
@@ -405,8 +405,8 @@ final class AgendaTest extends TestCase {
         // Now we delete the event from the caldav server
         $caldav_client->setNewEvents(array());
         
-        // expect calls to reminders_delete (to remove the Slack reminder) and to chat_postMessage (to inform the user)
-        $this->slackApiMock->expects($this->once())->method('reminders_delete');
+        // expect calls to deleteScheduledMessage (to remove the Slack reminder) and to chat_postMessage (to inform the user)
+        $this->slackApiMock->expects($this->once())->method('deleteScheduledMessage');
         $this->slackApiMock->expects($this->once())->method('chat_postMessage');        
 
         // Assert
@@ -525,11 +525,11 @@ final class AgendaTest extends TestCase {
         // // Assert we will query the slack api to register the reminder
         $this->slackApiMock->
             expects($this->once())->
-            method('reminders_add')->
+            method('scheduleMessage')->
             with("You",
                  "Rappel pour l'événement qui aura lieu dans 24h : Nom de l'événement",
                  $event->getSabreObject()->VEVENT->DTSTART->getDateTime()->modify("-1 day"))->
-            willReturn(json_decode('{"reminder": {"id": "abc"}}'));
+            willReturn(json_decode('{"scheduled_message_id":"Q0532DC44F4"}'));
         $sut = AgendaTest::buildSUT($caldav_client);
         $sut->checkAgenda();
 
@@ -548,7 +548,7 @@ final class AgendaTest extends TestCase {
         $event = new MockEvent(array(), array("you@gmail.com"));
         $caldav_client = $this->buildCalDAVClient(array($event));
         // // Assert we will NOT query the slack api to register the reminder
-        $this->slackApiMock->expects($this->never())->method('reminders_add');
+        $this->slackApiMock->expects($this->never())->method('scheduleMessage');
         $sut = AgendaTest::buildSUT($caldav_client);
         $sut->checkAgenda();
 
@@ -569,9 +569,9 @@ final class AgendaTest extends TestCase {
         // // this ensures that the database will be in a consistent state when we act
         $event = new MockEvent();
         $caldav_client = $this->buildCalDAVClient(array($event), $returnETagAfterUpdate);
-        $this->slackApiMock->method('reminders_add')->willReturn(json_decode('{"reminder": {"id": "abc"}}'));
+        $this->slackApiMock->method('scheduleMessage')->willReturn(json_decode('{"scheduled_message_id":"Q0532DC44F4"}'));
         // // Assert we will query the slack api to delete the reminder
-        $this->slackApiMock->expects($this->once())->method('reminders_delete');
+        $this->slackApiMock->expects($this->once())->method('deleteScheduledMessage');
         $sut = AgendaTest::buildSUT($caldav_client);
         $sut->checkAgenda();
         $sut->updateAttendee($event->id(), "you@gmail.com", true, "Your Name", "You");
@@ -595,7 +595,7 @@ final class AgendaTest extends TestCase {
         $event = new MockEvent();
         $caldav_client = $this->buildCalDAVClient(array($event));
         // // Assert we will not query the slack api to delete a reminder
-        $this->slackApiMock->expects($this->never())->method('reminders_delete');
+        $this->slackApiMock->expects($this->never())->method('deleteScheduledMessage');
         $sut = AgendaTest::buildSUT($caldav_client);
         $sut->checkAgenda();
 
