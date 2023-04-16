@@ -55,16 +55,14 @@ function read_config_file() {
     $GLOBALS['LOG_HANDLERS'][] = $handler;
     
     if(!isset($config['slack_signing_secret']) ||
-       !isset($config['slack_bot_token']) ||
-       !isset($config['slack_user_token'])) {
+       !isset($config['slack_bot_token'])) {
         $log->error("Slack signing secret and/or tokens not stored in config.json (exit).");
         exit();
     }
 
     $slack_credentials = array(
         "signing_secret" => $config['slack_signing_secret'],
-        "bot_token" => $config['slack_bot_token'],
-        "user_token" => $config['slack_user_token'],
+        "bot_token" => $config['slack_bot_token']
     );
     
     if(
@@ -247,7 +245,7 @@ function exception_handler($throwable) {
         exit();
     }
     
-    $api = new SlackAPI($config->slack_bot_token, $config->slack_user_token);
+    $api = new SlackAPI($config->slack_bot_token);
 
     $api->chat_postMessage($GLOBALS['userid'], array([
         'type' => 'section',

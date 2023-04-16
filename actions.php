@@ -32,7 +32,7 @@ $json = json_decode($_POST['payload']);
 
 $GLOBALS['userid'] = $json->user->id; // in case we need to show an error message to the user
 
-$api = new SlackAPI($slack_credentials['bot_token'], $slack_credentials['user_token']);
+$api = new SlackAPI($slack_credentials['bot_token']);
 $agenda = initAgendaFromType($caldav_credentials['url'], $caldav_credentials['username'], $caldav_credentials['password'],
                              $api, $agenda_args, $log);
 $slack_events = new SlackEvents($agenda, $api, $log);
