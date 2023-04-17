@@ -49,6 +49,7 @@ class SlackAPI implements ISlackAPI {
     }
 
     protected function curl_init($url, $additional_headers) {
+        $this->log->debug("call to $url");
         $ch = curl_init($url);
         $headers = array();
         $headers[] = 'Authorization: Bearer ' . $this->slack_bot_token;
@@ -95,6 +96,37 @@ class SlackAPI implements ISlackAPI {
             $this->log->error("raw response: $response");
             return NULL;
         }
+    }
+    
+    protected function curl_process_with_pagination($ch, $post_data, $key=NULL) {
+        $data = [];
+        $next_cursor = NULL;
+        
+        do {
+            if(!is_null($next_cursor)) {
+                $post_data["cursor"] = $next_cursor;
+            }
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+            $json = $this->curl_process($ch, true);
+            if(is_null($json)) {
+                return NULL;
+            } else {
+                $data = array_merge($data, $json[$key]);
+            }
+            
+            if(array_key_exists('response_metadata', $json) &&
+               array_key_exists('next_cursor', $json['response_metadata']) &&
+               strlen($json['response_metadata']['next_cursor']) > 0) {
+                $next_cursor = $json['response_metadata']['next_cursor'];
+            } else {
+                $next_cursor = NULL;
+            }
+            
+            if(!is_null($next_cursor)) {
+                $this->log->debug("next cursor will be $next_cursor");
+            }
+        }while(!is_null($next_cursor));
+        return $data;        
     }
     
     function views_publish($data) {
@@ -151,9 +183,8 @@ class SlackAPI implements ISlackAPI {
 
     function listScheduledMessages() {
         $ch = $this->curl_init("https://slack.com/api/chat.scheduledMessages.list", array('application/x-www-form-urlencoded'));
-        // TODO: we should probably handle the pagination information returned by this endpoint
-        $response = $this->curl_process($ch, true);
-        return $response["scheduled_messages"];
+        $response = $this->curl_process_with_pagination($ch, array(), "scheduled_messages");
+        return $response;
     }
 
     function deleteScheduledMessage($channelId, $scheduledMessageId) {
@@ -181,14 +212,7 @@ class SlackAPI implements ISlackAPI {
 
     function conversations_members($channel_id)  {
         $ch = $this->curl_init("https://slack.com/api/conversations.members", array('application/x-www-form-urlencoded'));
-        curl_setopt($ch, CURLOPT_POSTFIELDS,array(
-            "channel" => $channel_id)
-        );
-        $response = $this->curl_process($ch, true);
-        if(!is_null($response)) {
-            return $response["members"];
-        } else {
-            return NULL;
-        }
+        $response = $this->curl_process_with_pagination($ch, array("channel" => $channel_id), "members");
+        return $response;
     }
 }
