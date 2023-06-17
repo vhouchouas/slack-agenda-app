@@ -22,7 +22,6 @@ use Sabre\VObject;
 require "CalDAVClient.php";
 require_once "utils.php";
 
-class NotImplementedException extends BadMethodCallException {}
 class EventNotFound extends Exception { }
 class EventUpdateFails extends Exception { }
 
