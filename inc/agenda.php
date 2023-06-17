@@ -590,7 +590,9 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         $query->execute(array(
             'vCalendarFilename' => $vCalendarFilename
         ));
+        $this->log->debug("Going to getParsedEvent from db");
         $result = $query->fetch(\PDO::FETCH_UNIQUE|\PDO::FETCH_ASSOC);
+        $this->log->debug("Done getting getParsedEvent from db");
         if ($result === false) { // Case of an event deleted or in the past
             throw new EventNotFound();
         }
@@ -601,8 +603,10 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         
     private function getEvent(string $vCalendarFilename) {
         $query = $this->pdo->prepare("SELECT * FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename");
+        $this->log->debug("Going to getEvent from db");
         $query->execute(array('vCalendarFilename' => $vCalendarFilename));
         $result = $query->fetchAll();
+        $this->log->debug("Done getting getEvent from db");
 
         if(count($result) === 0) {
           throw new EventNotFound();
@@ -612,7 +616,9 @@ WHERE vCalendarFilename =:vCalendarFilename;");
     }
 
     public function checkAgenda() {
+        $this->log->debug("Going to get remote CTag");
         $remote_CTag = $this->caldav_client->getCTag();
+        $this->log->debug("Got remote CTag");
         if(is_null($remote_CTag)) {
             $this->log->error("Fail to update the CTag");
             return null;
@@ -765,7 +771,8 @@ WHERE vCalendarFilename =:vCalendarFilename;");
                     'id' => $response->scheduled_message_id,
                     'vCalendarFilename' =>  $vCalendarFilename,
                     'userid' =>  $userid
-                ));                
+                ));
+                $this->log->debug("Done adding the reminder in database");
             } else {
                 $this->log->error("failed to create reminder");
             }
