@@ -598,7 +598,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         $this->parseEvent($result['vCalendarFilename'], $userid, $result);
         return $result;
     }
-        
+
     private function getEvent(string $vCalendarFilename) {
         $query = $this->pdo->prepare("SELECT * FROM {$this->table_prefix}events WHERE vCalendarFilename = :vCalendarFilename");
         $query->execute(array('vCalendarFilename' => $vCalendarFilename));
@@ -617,26 +617,26 @@ WHERE vCalendarFilename =:vCalendarFilename;");
             $this->log->error("Fail to update the CTag");
             return null;
         }
-        
+
         // check if we need to update events from the server
         $local_CTag = $this->getCTag();
         $this->log->debug("local CTag is $local_CTag, remote CTag is $remote_CTag");
         if (is_null($local_CTag) || $local_CTag != $remote_CTag){
             $this->log->debug("Agenda update needed");
-            
+
             $remote_ETags = $this->caldav_client->getETags($this->beginningOfToday);
             if($remote_CTag === false || is_null($remote_CTag)) {
                 $this->log->error("Fail to get CTag from the remote server");
                 return null;
             }
-            
+
             $this->update($remote_ETags);
             $this->setCTag($remote_CTag);
             return true;
         }
         return false;
     }
-    
+
     /**
      * (Un)register a user to an event
      * 
@@ -750,7 +750,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
         }
         return true;
     }
-    
+
     private function addReminder(string $userid, string $vCalendarFilename, string $message, DateTimeImmutable $reminderTime) {
         if ($reminderTime < $this->now){
             $this->log->debug("not creating the reminder for $userid because " . $reminderTime->format('Y-m-dTH:i:s') . " is in the past");
@@ -779,7 +779,7 @@ WHERE vCalendarFilename =:vCalendarFilename;");
             'userid' =>  $userid
         ));
         $result = $query->fetch();
-        
+
         if(!isset($result['id'])) {
             $this->log->warning("Reminder for event $vCalendarFilename and for user $userid does not exists in database.");
             return;
