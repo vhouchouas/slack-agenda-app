@@ -40,10 +40,10 @@ class SlackAPI implements ISlackAPI {
         "users_lookupByEmail" => array("users_not_found"),
         "conversations_members" => array("channel_not_found" /*this may happen when we the channel id is actually a private conversation*/)
     );
-    
+
     function __construct($slack_bot_token) {
         $this->slack_bot_token = $slack_bot_token;
-        
+
         $this->log = new Logger('SlackAPI');
         setLogHandlers($this->log);
     }
@@ -63,7 +63,7 @@ class SlackAPI implements ISlackAPI {
         $response = curl_exec($ch);
         curl_close($ch);
         $json = json_decode($response, $as_array);
-        
+
         if(!is_null($json)) {
             $error = NULL;
             if(!$as_array and property_exists($json, 'ok')) { // json response with 'ok' key
@@ -78,17 +78,17 @@ class SlackAPI implements ISlackAPI {
                 } else if(array_key_exists('error', $json)) {
                     $error = $json["error"];
                 }
-            } 
+            }
             $trace = debug_backtrace();
             $function = $trace[1]["function"];
-            
+
             if(!is_null($error) and isset(slackAPI::QUIET_ERRORS[$function]) and in_array($error, slackAPI::QUIET_ERRORS[$function])) {
                 // nothing to do
             } else {
                 $this->log->error("API call failed in {$trace[1]["function"]}.");
                 $this->log->error("raw response: $response");
             }
-            
+
             return NULL;
         } else {
             $trace = debug_backtrace();
@@ -97,11 +97,11 @@ class SlackAPI implements ISlackAPI {
             return NULL;
         }
     }
-    
+
     protected function curl_process_with_pagination($ch, $post_data, $key=NULL) {
         $data = [];
         $next_cursor = NULL;
-        
+
         do {
             if(!is_null($next_cursor)) {
                 $post_data["cursor"] = $next_cursor;
@@ -113,7 +113,7 @@ class SlackAPI implements ISlackAPI {
             } else {
                 $data = array_merge($data, $json[$key]);
             }
-            
+
             if(array_key_exists('response_metadata', $json) &&
                array_key_exists('next_cursor', $json['response_metadata']) &&
                strlen($json['response_metadata']['next_cursor']) > 0) {
@@ -121,14 +121,14 @@ class SlackAPI implements ISlackAPI {
             } else {
                 $next_cursor = NULL;
             }
-            
+
             if(!is_null($next_cursor)) {
                 $this->log->debug("next cursor will be $next_cursor");
             }
         }while(!is_null($next_cursor));
-        return $data;        
+        return $data;
     }
-    
+
     function views_publish($data) {
         $ch = $this->curl_init("https://slack.com/api/views.publish", array('Content-Type:application/json; charset=UTF-8'));
         curl_setopt( $ch, CURLOPT_POSTFIELDS, json_encode($data, JSON_PARTIAL_OUTPUT_ON_ERROR));
@@ -140,14 +140,14 @@ class SlackAPI implements ISlackAPI {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt( $ch, CURLOPT_POSTFIELDS, ["email"=>$mail]);
         $response = $this->curl_process($ch);
-        
+
         if(!is_null($response)) {
             return $response->user;
         } else {
             return NULL;
-        }   
+        }
     }
-    
+
     function users_info($userid) {
         $ch = $this->curl_init("https://slack.com/api/users.info", array('application/x-www-form-urlencoded'));
         curl_setopt($ch, CURLOPT_POST, true);
@@ -200,7 +200,7 @@ class SlackAPI implements ISlackAPI {
         $ch = $this->curl_init("https://slack.com/api/auth.test", array('Content-Type:application/json; charset=UTF-8'));
         return $this->curl_process($ch);
     }
-    
+
     function chat_postMessage($channel_id, $blocks) {
         $ch = $this->curl_init("https://slack.com/api/chat.postMessage", array('Content-Type:application/json'));
         curl_setopt($ch, CURLOPT_POSTFIELDS,
