@@ -35,6 +35,7 @@ abstract class Agenda {
     protected $caldav_client;
     protected $api;
     protected $pdo;
+    protected $log;
 
     protected $table_prefix;
 

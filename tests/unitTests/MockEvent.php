@@ -6,7 +6,13 @@ require_once "testUtils.php";
 class MockEvent {
     // We don't care the actual etag of a mock event, they just need to be unique, so we keep a
     // counter that we increment
-    private static $lastEventEtag = 0;
+    private static int $lastEventEtag = 0;
+
+    private string $name;
+    private string $dtstart;
+    private array $categories;
+    private array $attendeesEmail;
+    private string $etag;
 
     public function __construct(array $categories = array(), array $attendeesEmail = array(), $name = ""){
         $this->name = $name === "" ? self::generateUniqName() : $name;
