@@ -69,6 +69,7 @@ class CalDAVClient implements ICalDAVClient {
     private $url;
     private $username;
     private $password;
+    private $log;
     
     public function __construct($url, $username, $password) {
         $this->log = new Logger('CalDAVClient');
