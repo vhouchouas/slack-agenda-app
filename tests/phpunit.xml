@@ -1,18 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit
-    colors="true"
-    stderr="true"
-    convertDeprecationsToExceptions="true"
-    >
-
-    <filter>
-        <whitelist addUncoveredFilesFromWhitelist="false">
-            <directory suffix=".php">../</directory>
-            <exclude>
-                <directory suffix=".php">../vendor/</directory>
-                <directory suffix=".php">../tests/</directory>
-            </exclude>
-        </whitelist>
-    </filter>
-
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" colors="true" stderr="true" convertDeprecationsToExceptions="true" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd">
+  <coverage includeUncoveredFiles="false">
+    <include>
+      <directory suffix=".php">../</directory>
+    </include>
+    <exclude>
+      <directory suffix=".php">../vendor/</directory>
+      <directory suffix=".php">../tests/</directory>
+    </exclude>
+  </coverage>
 </phpunit>
