@@ -5,7 +5,7 @@ declare(strict_types=1);
 use PHPUnit\Framework\TestCase;
 use function PHPUnit\Framework\assertEquals;
 
-final class ClitoolsTest extends TestCase {
+final class clitoolsTest extends TestCase {
 
   /**
    * The point of this test is just to ensure clitools is not obviously broken
