@@ -13,5 +13,5 @@ SCRIPT_DIR="$(dirname "$THIS_FILE")"
 
 # Run tests
 pushd "$SCRIPT_DIR"
-../vendor/bin/phpunit --coverage-html coverage  ./unitTests/
+XDEBUG_MODE=coverage ../vendor/bin/phpunit --coverage-html coverage  ./unitTests/
 popd
