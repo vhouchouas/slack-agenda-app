@@ -10,7 +10,7 @@ You will need to install the required python packages. Create a virtual environm
 	
 and install the packages
 
-	pip install -r requipements.txt
+	pip install -r requirements.txt
 	
 Then export the agenda as a csv file:
 
