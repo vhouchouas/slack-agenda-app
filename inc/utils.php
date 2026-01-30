@@ -282,7 +282,7 @@ function toRawText($potentiallyHtmlText) {
 
 function dateToDayStr(DateTimeInterface $d) {
   $f = new IntlDateFormatter('fr_FR.UTF-8', IntlDateFormatter::MEDIUM, IntlDateFormatter::MEDIUM);
-  $f->setPattern('d MMMM Y');
+  $f->setPattern('cccc d MMMM Y');
   return $f->format($d);
 }
 
